@@ -1,7 +1,10 @@
 # Poietic Godot
 
-Extension for [Godot engine](http://godotengine.org)
-written using [SwiftGodot](https://github.com/migueldeicaza/SwiftGodot).
+[Godot game engine](http://godotengine.org) extension that wraps
+[Poietic Flows](https://github.com/OpenPoiesis/poietic-flows) library
+to create systems/causal modelling and simulation applications.
+
+Uses [SwiftGodot](https://github.com/migueldeicaza/SwiftGodot).
 
 ## Build and Use
 
@@ -28,6 +31,10 @@ macos.debug = "res://bin/libPoieticGodot.dylib"
 [dependencies]
 macos.debug = {"res://bin/libSwiftGodot.dylib" : ""}
 ```
+
+## Development Notes
+
+- Godot API (callables and variable names) should follow Godot naming conventions, not Swift.
 
 ## Author
 

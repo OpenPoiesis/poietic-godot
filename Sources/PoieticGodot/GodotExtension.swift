@@ -7,6 +7,11 @@ import SwiftGodot
     cdecl: "swift_entry_point",
     types: [
         PoieticMetamodel.self,
+        PoieticDesignController.self,
+        PoieticTransaction.self,
+        
+        PoieticActionResult.self,
+        PoieticIssue.self,
     ]
 )
 
