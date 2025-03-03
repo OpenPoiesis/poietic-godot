@@ -15,23 +15,23 @@ public class PoieticIssue: SwiftGodot.RefCounted {
 
     @Export var domain: String {
         get { issue.domain.description}
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
     @Export var severity: String {
         get { issue.severity.description }
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
     @Export var identifier: String {
         get { issue.identifier }
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
     @Export var message: String {
         get { issue.message }
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
     @Export var hint: String? {
         get { issue.hint }
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
     @Export var details: GDictionary {
         get {
@@ -41,7 +41,7 @@ public class PoieticIssue: SwiftGodot.RefCounted {
             }
             return dict
         }
-        set {}
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
 }
 
@@ -98,10 +98,8 @@ public class PoieticDesignController: SwiftGodot.Node {
     var metamodel: Metamodel { design.metamodel }
     // let canvas: PoieticCanvas?
    
-    // current frame
-    
+    // Called on: accept, undo, redo
     #signal("design_changed")
-    #signal("design_error_signalled")
 
     
     required init() {
@@ -128,6 +126,46 @@ public class PoieticDesignController: SwiftGodot.Node {
         try! self.design.accept(frame, appendHistory: true)
     }
     
+    // MARK: - Undo/Redo
+    
+    @Callable
+    func can_undo() -> Bool {
+        self.design.canUndo
+    }
+
+    @Callable
+    func can_redo() -> Bool {
+        self.design.canRedo
+    }
+
+    /// Undo last command. Returns `true` if something was undone, `false` when there was nothing
+    /// to undo.
+    @Callable
+    func undo() -> Bool {
+        if design.undo() {
+            emit(signal: PoieticDesignController.designChanged)
+            return true
+        }
+        else {
+            return false
+        }
+    }
+
+    /// Redo last command. Returns `true` if something was redone, `false` when there was nothing
+    /// to redo.
+    @Callable
+    func redo() -> Bool {
+        if design.redo() {
+            emit(signal: PoieticDesignController.designChanged)
+            return true
+        }
+        else {
+            return false
+        }
+    }
+
+    // MARK: - Content
+    
     @Callable
     func get_diagram_nodes() -> PackedInt64Array {
         let nodes = currentFrame.nodes.filter { $0.type.hasTrait(.DiagramNode) }
@@ -139,7 +177,21 @@ public class PoieticDesignController: SwiftGodot.Node {
         let edges = currentFrame.edges.filter { _ in true /* FIXME: Use diagram edges only */ }
         return PackedInt64Array(edges.map { Int64($0.id.intValue) })
     }
-
+    @Callable
+    func get_object(id: Int) -> PoieticObject? {
+        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
+            GD.pushError("Invalid origin ID")
+            return nil
+        }
+        guard currentFrame.contains(poieticID) else {
+            GD.pushError("Unknown object ID \(poieticID)")
+            return nil
+        }
+        var object = PoieticObject()
+        object.object = currentFrame[poieticID]
+        return object
+    }
+    
     @Callable
     func new_transaction() -> PoieticTransaction {
         let frame = design.createFrame(deriving: design.currentFrame)
@@ -148,11 +200,12 @@ public class PoieticDesignController: SwiftGodot.Node {
         return trans
     }
     
+    // TODO: Signal design_frame_changed(errors) (also handle errors)
     @Callable
     func accept(transaction: PoieticTransaction) -> PoieticActionResult {
         guard let frame = transaction.frame else {
-            GD.pushError("Using transaction without a frame")
-            return PoieticActionResult(fatalError: "Using transaction without a frame")
+            GD.pushError("Using design without a frame")
+            return PoieticActionResult(fatalError: "Using design without a frame")
         }
         let issues: DesignIssueCollection?
         
@@ -165,79 +218,103 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         var result = PoieticActionResult()
         result.issues = issues
+        // TODO: Store issues somewhere
+        emit(signal: PoieticDesignController.designChanged)
         return result
     }
+    
+    @Callable
+    func get_distinct_values(selection: PoieticSelection, attribute: String) -> [SwiftGodot.Variant] {
+        guard let frame = design.currentFrame else {
+            GD.pushError("Using design without a frame")
+            return []
+        }
+        
+        let values = frame.distinctAttribute(attribute, ids: selection.selection.ids)
+        return values.map { $0.asGodotVariant() }
+    }
+    
+    @Callable
+    func get_distinct_types(selection: PoieticSelection) -> [String] {
+        guard let frame = design.currentFrame else {
+            GD.pushError("Using design without a frame")
+            return []
+        }
+        let types = frame.distinctTypes(selection.selection.ids)
+        return types.map { $0.name }
+    }
+    
+    @Callable
+    func get_shared_traits(selection: PoieticSelection) -> [String] {
+        guard let frame = design.currentFrame else {
+            GD.pushError("Using design without a frame")
+            return []
+        }
+        let traits = frame.sharedTraits(selection.selection.ids)
+        return traits.map { $0.name }
+    }
+
 }
 
+/// Wrapper for the Design object.
+///
 @Godot
-class PoieticTransaction: SwiftGodot.Object {
-    var frame: TransientFrame?
-    
-    func setFrame(_ frame: TransientFrame){
-        self.frame = frame
+class PoieticObject: SwiftGodot.RefCounted {
+    var object: DesignObject?
+
+    @Export var object_id: Int? {
+        get {
+            // TODO: Workaround, since SwiftGodot does not allow Int64 properties
+            return object.map { Int($0.id.intValue) }
+        }
+        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
     }
 
-    @Callable
-    func create_node(typeName: String, name: SwiftGodot.Variant?, attributes: GDictionary) -> SwiftGodot.Variant? {
-        guard let frame else {
-            GD.pushError("Using transaction without a frame")
-            return nil
-        }
+    @Export var name: String? {
+        get { object?.name }
+        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
+    }
 
-        guard let type = frame.design.metamodel.objectType(name: typeName) else {
-            GD.pushError("Trying to create a node of unknown type '\(typeName)'")
-            return nil
-        }
-        let actualName: String?
-        if let name {
-            guard let name = String(name) else {
-                GD.pushError("Expected string for name")
+    @Export var type_name: String? {
+        get { object?.type.name }
+        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
+    }
+    
+    @Export var origin: Int? {
+        get {
+            guard let object, case let .edge(origin, _) = object.structure else {
                 return nil
             }
-            actualName = name
+            return Int(origin.intValue)
         }
-        else {
-            actualName = nil
-        }
+        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
+    }
 
-        var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
-        
-        let object = frame.createNode(type, name: actualName, attributes: lossyAttributes)
-        
-        return object.id.gdVariant
+    @Export var target: Int? {
+        get {
+            guard let object, case let .edge(_, target) = object.structure else {
+                return nil
+            }
+            return Int(target.intValue)
+        }
+        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
+    }
+
+    @Callable
+    func get_id() -> Int64? {
+        return object?.id.gdInt64
     }
     
     @Callable
-    func create_edge(typeName: String, origin: Int64, target: Int64) -> SwiftGodot.Variant? {
-        guard let frame else {
-            GD.pushError("Using transaction without a frame")
-            return nil
-        }
-        guard let originID = PoieticCore.ObjectID(String(origin)) else {
-            GD.pushError("Invalid origin ID")
-            return nil
-        }
-        guard let targetID = PoieticCore.ObjectID(String(target)) else {
-            GD.pushError("Invalid target ID")
-            return nil
-        }
-
-        guard let type = frame.design.metamodel.objectType(name: typeName) else {
-            GD.pushError("Trying to create a node of unknown type '\(typeName)'")
-            return nil
-        }
-        guard frame.contains(originID) else {
-            GD.pushError("Unknown object ID \(origin)")
-            return nil
-        }
-        guard frame.contains(targetID) else {
-            GD.pushError("Unknown object ID \(target)")
-            return nil
-        }
-
-        let object = frame.createEdge(type, origin: originID, target: targetID)
-        
-        return object.id.gdVariant
+    func get_attribute(attribute: String) -> SwiftGodot.Variant? {
+        object?[attribute]?.asGodotVariant()
     }
-    
+
+    @Callable
+    func get_position() -> SwiftGodot.Vector2? {
+        guard let position = object?.position else {
+            return nil
+        }
+        return position.asGodotVector2()
+    }
 }

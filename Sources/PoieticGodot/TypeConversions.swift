@@ -46,7 +46,7 @@ extension PoieticCore.Variant {
         else if let value = Int(variant) {
             self.init(value)
         }
-        else if let value = variant as? Vector2  {
+        else if let value = Vector2(variant)  {
             self.init(Point(value))
         }
         else {

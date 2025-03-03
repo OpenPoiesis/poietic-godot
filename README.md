@@ -6,6 +6,9 @@ to create systems/causal modelling and simulation applications.
 
 Uses [SwiftGodot](https://github.com/migueldeicaza/SwiftGodot).
 
+
+**IMPORTANT: This is just an experiment, a prototype.**
+
 ## Build and Use
 
 Follow instructions at the [SwiftGodot page](https://github.com/migueldeicaza/SwiftGodot).

@@ -9,6 +9,8 @@ import SwiftGodot
         PoieticMetamodel.self,
         PoieticDesignController.self,
         PoieticTransaction.self,
+        PoieticObject.self,
+        PoieticSelection.self,
         
         PoieticActionResult.self,
         PoieticIssue.self,
