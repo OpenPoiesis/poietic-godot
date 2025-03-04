@@ -6,6 +6,7 @@
 //
 
 import SwiftGodot
+import Foundation
 import PoieticFlows
 import PoieticCore
 
@@ -124,6 +125,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         self.design = Design(metamodel: Metamodel.StockFlow)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
+        emit(signal: PoieticDesignController.designChanged)
     }
     
     // MARK: - Undo/Redo
@@ -224,14 +226,19 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     @Callable
-    func get_distinct_values(selection: PoieticSelection, attribute: String) -> [SwiftGodot.Variant] {
+    func get_distinct_values(selection: PoieticSelection, attribute: String) -> SwiftGodot.Variant {
         guard let frame = design.currentFrame else {
             GD.pushError("Using design without a frame")
-            return []
+            return SwiftGodot.Variant(GArray())
         }
+        let array = GArray()
         
         let values = frame.distinctAttribute(attribute, ids: selection.selection.ids)
-        return values.map { $0.asGodotVariant() }
+
+        for value in values {
+            array.append(value.asGodotVariant())
+        }
+        return SwiftGodot.Variant(array)
     }
     
     @Callable
@@ -253,7 +260,33 @@ public class PoieticDesignController: SwiftGodot.Node {
         let traits = frame.sharedTraits(selection.selection.ids)
         return traits.map { $0.name }
     }
-
+    
+    @Callable
+    func save_to_path(path: String) {
+        let url = URL(fileURLWithPath: path)
+        let store = MakeshiftDesignStore(url: url)
+        do {
+            try store.save(design: design)
+        }
+        catch {
+            GD.pushError("Unable to save design: \(error)")
+        }
+    }
+    
+    @Callable
+    func load_from_path(path: String) {
+        let url = URL(fileURLWithPath: path)
+        let store = MakeshiftDesignStore(url: url)
+        do {
+            let design = try store.load(metamodel: FlowsMetamodel)
+            self.design = design
+            emit(signal: PoieticDesignController.designChanged)
+        }
+        catch {
+            // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
+            GD.pushError("Unable to open design: \(error)")
+        }
+    }
 }
 
 /// Wrapper for the Design object.
@@ -261,7 +294,7 @@ public class PoieticDesignController: SwiftGodot.Node {
 @Godot
 class PoieticObject: SwiftGodot.RefCounted {
     var object: DesignObject?
-
+    
     @Export var object_id: Int? {
         get {
             // TODO: Workaround, since SwiftGodot does not allow Int64 properties
