@@ -91,26 +91,32 @@ public class PoieticActionResult: SwiftGodot.RefCounted {
     }
 }
 
+// Single-thread.
+/// Manages design context, typically for a canvas and an inspector.
 @Godot
 public class PoieticDesignController: SwiftGodot.Node {
     var design: Design
+    var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
-    
+    var issues: DesignIssueCollection? = nil
+    var validatedFrame: ValidatedFrame? = nil
+
     var metamodel: Metamodel { design.metamodel }
     // let canvas: PoieticCanvas?
    
     // Called on: accept, undo, redo
     #signal("design_changed")
 
-    
     required init() {
         self.design = Design(metamodel: Metamodel.StockFlow)
+        self.checker = ConstraintChecker(design.metamodel)
         super.init()
         onInit()
     }
 
     required init(nativeHandle: UnsafeRawPointer) {
         self.design = Design(metamodel: Metamodel.StockFlow)
+        self.checker = ConstraintChecker(design.metamodel)
         super.init(nativeHandle: nativeHandle)
         onInit()
     }
@@ -123,9 +129,39 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func new_design() {
         self.design = Design(metamodel: Metamodel.StockFlow)
+        self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
         emit(signal: PoieticDesignController.designChanged)
+    }
+    
+    // MARK: - Issues
+    @Callable
+    func has_issues() -> Bool {
+        guard let issues else {
+            return false
+        }
+        return !issues.isEmpty
+    }
+    
+    @Callable
+    func issues_for_object(id: Int) -> [PoieticIssue] {
+        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
+            GD.pushError("Invalid object ID")
+            return []
+        }
+
+        guard let issues else {
+            return []
+        }
+        guard let objectIssues = issues.objectIssues[poieticID] else {
+            return []
+        }
+        return objectIssues.map {
+            let issue = PoieticIssue()
+            issue.issue = $0
+            return issue
+        }
     }
     
     // MARK: - Undo/Redo
@@ -145,7 +181,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func undo() -> Bool {
         if design.undo() {
-            emit(signal: PoieticDesignController.designChanged)
+            frameChanged()
             return true
         }
         else {
@@ -158,7 +194,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func redo() -> Bool {
         if design.redo() {
-            emit(signal: PoieticDesignController.designChanged)
+            frameChanged()
             return true
         }
         else {
@@ -195,6 +231,27 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     @Callable
+    func can_connect(type_name: String, origin: Int, target: Int) -> Bool {
+        guard let originID = PoieticCore.ObjectID(String(origin)) else {
+            GD.pushError("Invalid origin ID")
+            return false
+        }
+        guard let targetID = PoieticCore.ObjectID(String(target)) else {
+            GD.pushError("Invalid target ID")
+            return false
+        }
+        guard currentFrame.contains(originID) && currentFrame.contains(targetID) else {
+            GD.pushError("Unknown connection endpoints")
+            return false
+        }
+        guard let type = metamodel.objectType(name: type_name) else {
+            GD.pushError("Unknown edge type '\(name)'")
+            return false
+        }
+        return checker.canConnect(type: type, from: originID, to: targetID, in: currentFrame)
+    }
+    
+    @Callable
     func new_transaction() -> PoieticTransaction {
         let frame = design.createFrame(deriving: design.currentFrame)
         let trans = PoieticTransaction()
@@ -203,26 +260,60 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     // TODO: Signal design_frame_changed(errors) (also handle errors)
+    /// Accept and validate the frame.
+    ///
     @Callable
-    func accept(transaction: PoieticTransaction) -> PoieticActionResult {
+    func accept(transaction: PoieticTransaction) {
         guard let frame = transaction.frame else {
             GD.pushError("Using design without a frame")
-            return PoieticActionResult(fatalError: "Using design without a frame")
+            return
         }
-        let issues: DesignIssueCollection?
         
         do {
             try design.accept(frame, appendHistory: true)
-            issues = nil
+            GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
         }
-        catch {
-            issues = error.asDesignIssueCollection()
+        catch /* StructuralIntegrityError */ {
+            GD.pushError("Structural integrity error")
+            return
         }
-        var result = PoieticActionResult()
-        result.issues = issues
+        frameChanged()
+    }
+    
+    /// Called when current frame has been changed.
+    ///
+    /// Must be called on accept, undo, redo.
+    ///
+    func frameChanged() {
+        guard let currentFrame = design.currentFrame else {
+            GD.pushError("No current frame")
+            return
+        }
+        self.validatedFrame = nil
+        self.issues = nil
+        
+        do {
+            self.validatedFrame = try design.validate(currentFrame)
+        }
+        catch let error as FrameValidationError {
+            self.issues = error.asDesignIssueCollection()
+
+            GD.printErr("Validation error")
+            if let issues = self.issues {
+                for issue in issues.designIssues {
+                    GD.printErr("  \(issue)")
+                }
+                for (id, objIssues) in issues.objectIssues {
+                    GD.printErr("  Object \(id):")
+                    for issue in objIssues {
+                        GD.printErr("      \(issue)")
+                    }
+                }
+            }
+        }
+
         // TODO: Store issues somewhere
         emit(signal: PoieticDesignController.designChanged)
-        return result
     }
     
     @Callable
