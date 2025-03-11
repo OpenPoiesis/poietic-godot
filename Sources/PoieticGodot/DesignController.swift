@@ -408,7 +408,14 @@ public class PoieticDesignController: SwiftGodot.Node {
             let list = result.unknown.joined(separator: ", ")
             GD.print("Unknown parameters: \(list)")
         }
-        accept(trans)
+
+        if trans.hasChanges {
+            accept(trans)
+        }
+        else {
+            GD.print("No changes applied.")
+            design.discard(trans)
+        }
     }
     
     // MARK: - File Actions
