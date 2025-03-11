@@ -100,35 +100,36 @@ public class PoieticDesignController: SwiftGodot.Node {
     var currentFrame: DesignFrame { self.design.currentFrame! }
     var issues: DesignIssueCollection? = nil
     var validatedFrame: ValidatedFrame? = nil
+    var simulationPlan: SimulationPlan? = nil
 
     var metamodel: Metamodel { design.metamodel }
     // let canvas: PoieticCanvas?
-   
+    
     // Called on: accept, undo, redo
     #signal("design_changed")
-
+    
     required init() {
-        self.design = Design(metamodel: Metamodel.StockFlow)
+        self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         super.init()
         onInit()
     }
-
+    
     required init(nativeHandle: UnsafeRawPointer) {
-        self.design = Design(metamodel: Metamodel.StockFlow)
+        self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         super.init(nativeHandle: nativeHandle)
         onInit()
     }
-
+    
     func onInit() {
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
     }
-
+    
     @Callable
     func new_design() {
-        self.design = Design(metamodel: Metamodel.StockFlow)
+        self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
@@ -150,7 +151,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Invalid object ID")
             return []
         }
-
+        
         guard let issues else {
             return []
         }
@@ -170,12 +171,12 @@ public class PoieticDesignController: SwiftGodot.Node {
     func can_undo() -> Bool {
         self.design.canUndo
     }
-
+    
     @Callable
     func can_redo() -> Bool {
         self.design.canRedo
     }
-
+    
     /// Undo last command. Returns `true` if something was undone, `false` when there was nothing
     /// to undo.
     @Callable
@@ -188,7 +189,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
     }
-
+    
     /// Redo last command. Returns `true` if something was redone, `false` when there was nothing
     /// to redo.
     @Callable
@@ -201,7 +202,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
     }
-
+    
     // MARK: - Content
     
     @Callable
@@ -209,7 +210,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let nodes = currentFrame.nodes.filter { $0.type.hasTrait(.DiagramNode) }
         return PackedInt64Array(nodes.map { Int64($0.id.intValue) })
     }
-
+    
     @Callable
     func get_diagram_edges() -> PackedInt64Array {
         let edges = currentFrame.edges.filter { _ in true /* FIXME: Use diagram edges only */ }
@@ -268,7 +269,11 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Using design without a frame")
             return
         }
+        accept(frame)
         
+    }
+    
+    func accept(_ frame: TransientFrame) {
         do {
             try design.accept(frame, appendHistory: true)
             GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
@@ -289,31 +294,53 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("No current frame")
             return
         }
-        self.validatedFrame = nil
+        
+        // Reset the controller
         self.issues = nil
+        self.validatedFrame = nil
+        self.simulationPlan = nil
         
         do {
             self.validatedFrame = try design.validate(currentFrame)
         }
         catch let error as FrameValidationError {
             self.issues = error.asDesignIssueCollection()
+            debugPrintIssues(self.issues!)
+        }
 
-            GD.printErr("Validation error")
-            if let issues = self.issues {
-                for issue in issues.designIssues {
-                    GD.printErr("  \(issue)")
+        if let frame = self.validatedFrame {
+            // TODO: Sync with ToolEnviornment, make cleaner
+            let compiler = Compiler(frame: frame)
+            do {
+                self.simulationPlan = try compiler.compile()
+            }
+            catch let error as CompilerError {
+                if error == .hasIssues {
+                    self.issues = compiler.designIssueCollection()
+                    debugPrintIssues(self.issues!)
                 }
-                for (id, objIssues) in issues.objectIssues {
-                    GD.printErr("  Object \(id):")
-                    for issue in objIssues {
-                        GD.printErr("      \(issue)")
-                    }
+                else {
+                    GD.printErr("INTERNAL ERROR (compiler): \(error)")
+                    GD.pushError("INTERNAL ERROR (compiler): \(error)")
                 }
             }
         }
-
+        
         // TODO: Store issues somewhere
         emit(signal: PoieticDesignController.designChanged)
+    }
+
+    func debugPrintIssues(_ issues: DesignIssueCollection) {
+        GD.printErr("Validation error")
+        for issue in issues.designIssues {
+            GD.printErr("  \(issue)")
+        }
+        for (id, objIssues) in issues.objectIssues {
+            GD.printErr("  Object \(id):")
+            for issue in objIssues {
+                GD.printErr("      \(issue)")
+            }
+        }
     }
     
     @Callable
@@ -324,8 +351,9 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         let array = GArray()
         
-        let values = frame.distinctAttribute(attribute, ids: selection.selection.ids)
-
+        let values = frame.distinctAttribute(attribute,
+                                             ids: frame.contained(selection.selection.ids))
+        
         for value in values {
             array.append(value.asGodotVariant())
         }
@@ -338,7 +366,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Using design without a frame")
             return []
         }
-        let types = frame.distinctTypes(selection.selection.ids)
+        let types = frame.distinctTypes(frame.contained(selection.selection.ids))
         return types.map { $0.name }
     }
     
@@ -348,8 +376,57 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Using design without a frame")
             return []
         }
-        let traits = frame.sharedTraits(selection.selection.ids)
+        let traits = frame.sharedTraits(frame.contained(selection.selection.ids))
         return traits.map { $0.name }
+    }
+   
+    // MARK: - Design Graph Transfomrations
+    
+    @Callable
+    func auto_connect_parameters() {
+        guard design.currentFrame != nil else {
+            GD.pushError("Using design without a frame")
+            return
+        }
+        
+        let trans = design.createFrame(deriving: design.currentFrame)
+        let result = autoConnectParameters(trans)
+
+        if !result.added.isEmpty {
+            GD.print("Auto-connected parameters:")
+            for info in result.added {
+                GD.print("    \(info.parameterName ?? "(unnamed)") (\(info.parameterID)) to \(info.targetName ?? "(unnamed)") (\(info.targetID)), edge: \(info.edgeID)")
+            }
+        }
+
+        if !result.removed.isEmpty {
+            GD.print("Auto-disconnected parameters:")
+            for info in result.removed {
+                GD.print("    \(info.parameterName ?? "(unnamed)") (\(info.parameterID)) from \(info.targetName ?? "(unnamed)") (\(info.targetID)), edge: \(info.edgeID)")
+            }
+        }
+        if !result.unknown.isEmpty {
+            let list = result.unknown.joined(separator: ", ")
+            GD.print("Unknown parameters: \(list)")
+        }
+        accept(trans)
+    }
+    
+    // MARK: - File Actions
+    
+    @Callable
+    func load_from_path(path: String) {
+        let url = URL(fileURLWithPath: path)
+        let store = MakeshiftDesignStore(url: url)
+        do {
+            let design = try store.load(metamodel: FlowsMetamodel)
+            self.design = design
+            frameChanged()
+        }
+        catch {
+            // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
+            GD.pushError("Unable to open design: \(error)")
+        }
     }
     
     @Callable
@@ -364,20 +441,112 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
     }
     
+    func makeFileURL(fromPath path: String) -> URL? {
+        // TODO: See same method in poietic-tool
+        let url: URL
+        let manager = FileManager()
+
+        if !manager.fileExists(atPath: path) {
+            return nil
+        }
+        
+        // Determine whether the file is a directory or a file
+        
+        if let attrs = try? manager.attributesOfItem(atPath: path) {
+            if attrs[FileAttributeKey.type] as? FileAttributeType == FileAttributeType.typeDirectory {
+                url = URL(fileURLWithPath: path, isDirectory: true)
+            }
+            else {
+                url = URL(fileURLWithPath: path, isDirectory: false)
+            }
+        }
+        else {
+            url = URL(fileURLWithPath: path)
+        }
+
+        return url
+    }
+
     @Callable
-    func load_from_path(path: String) {
-        let url = URL(fileURLWithPath: path)
-        let store = MakeshiftDesignStore(url: url)
+    func import_from_path(path: String) -> Bool {
+        guard let url = makeFileURL(fromPath: path) else {
+            GD.printErr("Import file not found: \(path)")
+            return false
+        }
+        
+        let frame: TransientFrame = design.createFrame(deriving: design.currentFrame)
+        
+        // 1. Read
+        GD.print("Importing from \(path)")
+        let foreignFrame: any ForeignFrameProtocol
+        let reader = JSONFrameReader()
+
         do {
-            let design = try store.load(metamodel: FlowsMetamodel)
-            self.design = design
-            emit(signal: PoieticDesignController.designChanged)
+            GD.print("Import: Reading")
+            if url.hasDirectoryPath {
+                foreignFrame = try reader.read(bundleAtURL: url)
+            }
+            else {
+                foreignFrame = try reader.read(fileAtURL: url)
+            }
         }
         catch {
-            // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
-            GD.pushError("Unable to open design: \(error)")
+            // TODO: Propagate error to the user
+            GD.printErr("Unable to read frame '\(path)': \(error)")
+            return false
         }
+
+        // 2. Load
+        GD.print("Import: Loading")
+        let loader = ForeignFrameLoader()
+        do {
+            try loader.load(foreignFrame, into: frame)
+            GD.print("Import: Loading successful")
+        }
+        catch {
+            // TODO: Propagate error to the user
+            GD.printErr("Unable to load frame \(path): \(error)")
+            return false
+        }
+        GD.print("Import: Accepting")
+
+        accept(frame)
+        GD.print("Import finished.")
+        return true
     }
+
+    @Export var debugStats: GDictionary {
+        get {
+            var dict = GDictionary()
+            if let frame = design.currentFrame {
+                dict["current_frame"] = SwiftGodot.Variant(frame.id.stringValue)
+                dict["nodes"] = SwiftGodot.Variant(frame.nodes.count)
+                dict["edges"] = SwiftGodot.Variant(frame.edges.count)
+                dict["diagram_nodes"] = SwiftGodot.Variant(self.get_diagram_nodes().count)
+                dict["edges"] = SwiftGodot.Variant(frame.edges.count)
+            }
+            else {
+                dict["current_frame"] = SwiftGodot.Variant("none")
+                dict["nodes"] = SwiftGodot.Variant(0)
+                dict["diagram_nodes"] = SwiftGodot.Variant(0)
+                dict["edges"] = SwiftGodot.Variant(0)
+            }
+            dict["frames"] = SwiftGodot.Variant(design.frames.count)
+            dict["undo_frames"] = SwiftGodot.Variant(design.undoableFrames.count)
+            dict["redo_frames"] = SwiftGodot.Variant(design.redoableFrames.count)
+            if let issues {
+                dict["design_issues"] = SwiftGodot.Variant(issues.designIssues.count)
+                dict["object_issues"] = SwiftGodot.Variant(issues.objectIssues.count)
+            }
+            else {
+                dict["design_issues"] = SwiftGodot.Variant(0)
+                dict["object_issues"] = SwiftGodot.Variant(0)
+            }
+            return dict
+        }
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+    }
+
 }
 
 /// Wrapper for the Design object.
