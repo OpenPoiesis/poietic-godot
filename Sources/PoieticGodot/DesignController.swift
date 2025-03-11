@@ -213,7 +213,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     @Callable
     func get_diagram_edges() -> PackedInt64Array {
-        let edges = currentFrame.edges.filter { _ in true /* FIXME: Use diagram edges only */ }
+        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnection) }
         return PackedInt64Array(edges.map { Int64($0.id.intValue) })
     }
     @Callable
@@ -314,13 +314,12 @@ public class PoieticDesignController: SwiftGodot.Node {
             do {
                 self.simulationPlan = try compiler.compile()
             }
-            catch let error as CompilerError {
-                if error == .hasIssues {
-                    self.issues = compiler.designIssueCollection()
+            catch {
+                switch error {
+                case .issues(let issues):
+                    self.issues = issues.asDesignIssueCollection()
                     debugPrintIssues(self.issues!)
-                }
-                else {
-                    GD.printErr("INTERNAL ERROR (compiler): \(error)")
+                case .internalError(let error):
                     GD.pushError("INTERNAL ERROR (compiler): \(error)")
                 }
             }
