@@ -98,28 +98,22 @@ func autoConnectParameters(_ frame: TransientFrame) -> AutoConnectResult {
 }
 
 struct ObjectDifference {
-    let current: [PoieticCore.ObjectID]
     let added: [PoieticCore.ObjectID]
-    
-    // TODO: We do not need these, unless we mean "changed"
     let removed: [PoieticCore.ObjectID]
 }
 
 /// Get difference between expected list of objects and current list of objects.
 ///
-/// Returns a structure containing three lists:
+/// Returns a structure containing two lists:
 /// - `added`: Objects that are in current, not in expected.
 /// - `removed`: Objects that are in expected, not in current.
-/// - `current`: Objects that are bot in expected and current.
 ///
 func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID]) -> ObjectDifference {
     var added: [PoieticCore.ObjectID] = []
-    var keep: [PoieticCore.ObjectID] = []
-
     var remaining = Set(expected)
+
     for id in current {
         if remaining.contains(id) {
-            keep.append(id)
             remaining.remove(id)
         }
         else {
@@ -127,5 +121,5 @@ func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID
         }
     }
 
-    return ObjectDifference(current: keep, added: added, removed: Array(remaining))
+    return ObjectDifference(added: added, removed: Array(remaining))
 }

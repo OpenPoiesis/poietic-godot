@@ -247,7 +247,6 @@ public class PoieticDesignController: SwiftGodot.Node {
 
         change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.gdInt64})
         change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.gdInt64})
-        change.current_nodes = PackedInt64Array(nodeDiff.current.map {$0.gdInt64})
 
         let edges = edges.compactMap { ObjectID(String($0)) }
         let currentEdges = currentFrame.edges.filter {
@@ -257,7 +256,6 @@ public class PoieticDesignController: SwiftGodot.Node {
 
         change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.gdInt64})
         change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.gdInt64})
-        change.current_edges = PackedInt64Array(edgeDiff.current.map {$0.gdInt64})
 
         return change
     }
