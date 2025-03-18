@@ -101,13 +101,17 @@ public class PoieticDesignController: SwiftGodot.Node {
     var issues: DesignIssueCollection? = nil
     var validatedFrame: ValidatedFrame? = nil
     var simulationPlan: SimulationPlan? = nil
-
+    var result: SimulationResult? = nil
+    
     var metamodel: Metamodel { design.metamodel }
     // let canvas: PoieticCanvas?
     
     // Called on: accept, undo, redo
     #signal("design_changed")
-    
+    #signal("simulation_started")
+    #signal("simulation_finished")
+    #signal("simulation_failed")
+
     required init() {
         self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
@@ -182,7 +186,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func undo() -> Bool {
         if design.undo() {
-            frameChanged()
+            validateAndCompile()
             return true
         }
         else {
@@ -195,7 +199,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func redo() -> Bool {
         if design.redo() {
-            frameChanged()
+            validateAndCompile()
             return true
         }
         else {
@@ -282,14 +286,14 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Structural integrity error")
             return
         }
-        frameChanged()
+        validateAndCompile()
     }
     
     /// Called when current frame has been changed.
     ///
     /// Must be called on accept, undo, redo.
     ///
-    func frameChanged() {
+    func validateAndCompile() {
         guard let currentFrame = design.currentFrame else {
             GD.pushError("No current frame")
             return
@@ -327,6 +331,10 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         // TODO: Store issues somewhere
         emit(signal: PoieticDesignController.designChanged)
+        
+        
+        // Simulate
+        simulate()
     }
 
     func debugPrintIssues(_ issues: DesignIssueCollection) {
@@ -427,7 +435,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         do {
             let design = try store.load(metamodel: FlowsMetamodel)
             self.design = design
-            frameChanged()
+            validateAndCompile()
         }
         catch {
             // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
@@ -553,6 +561,65 @@ public class PoieticDesignController: SwiftGodot.Node {
         set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
 
+    // MARK: Simulation Result
+    func simulate() {
+        guard let simulationPlan else {
+            GD.pushError("Trying to simulate without a plan")
+            return
+        }
+        
+        
+        self.result = nil
+        
+        let simulation = StockFlowSimulation(simulationPlan)
+        let simulator = Simulator(simulation: simulation,
+                                  parameters: simulationPlan.simulationParameters)
+        
+        GD.print("Simulation start...")
+        emit(signal: PoieticDesignController.simulationStarted)
+        
+        do {
+            try simulator.initializeState()
+        }
+        catch {
+            GD.pushError("Simulation initialisation failed: \(error)")
+            emit(signal: PoieticDesignController.simulationFailed)
+            return
+        }
+        
+        do {
+            try simulator.run()
+        }
+        catch {
+            GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
+            emit(signal: PoieticDesignController.simulationFailed)
+            return
+        }
+        
+        self.result = simulator.result
+        GD.print("Simulation end. Result states: \(simulator.result.count)")
+        emit(signal: PoieticDesignController.simulationFinished)
+        
+    }
+
+    @Callable
+    public func result_time_series(id: Int) -> PackedFloat64Array? {
+        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
+            GD.pushError("Invalid ID")
+            return nil
+        }
+        guard let result, let plan = simulationPlan else {
+            GD.printErr("Playing without result or plan")
+            return nil
+        }
+        guard let index = plan.variableIndex(of: poieticID) else {
+            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
+            return nil
+        }
+        let values = result.unsafeFloatValueTimeSeries(at: index)
+        return PackedFloat64Array(values)
+    }
+    
 }
 
 /// Wrapper for the Design object.
