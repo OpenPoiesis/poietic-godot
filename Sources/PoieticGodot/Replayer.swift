@@ -11,7 +11,7 @@ import PoieticFlows
 
 
 @Godot
-class PoieticRegularTimeSeries: SwiftGodot.Object {
+class PoieticTimeSeries: SwiftGodot.Object {
     var series: RegularTimeSeries? = nil
     
     @Export var is_empty: Bool {
@@ -73,19 +73,19 @@ class PoieticReplayer: SwiftGodot.Node {
     @Callable
     func restart() {
         current_step = 0
-        emit(signal: PoieticPlayer.simulationPlayerRestarted)
+        emit(signal: PoieticReplayer.simulationPlayerRestarted)
     }
     
     @Callable
     public func run() {
         self.is_running = true
-        emit(signal: PoieticPlayer.simulationPlayerStarted)
+        emit(signal: PoieticReplayer.simulationPlayerStarted)
     }
 
     @Callable
     public func stop() {
         self.is_running = false
-        emit(signal: PoieticPlayer.simulationPlayerStopped)
+        emit(signal: PoieticReplayer.simulationPlayerStopped)
     }
 
     @Callable
@@ -120,7 +120,7 @@ class PoieticReplayer: SwiftGodot.Node {
         
         current_step += 1
         
-        emit(signal: PoieticPlayer.simulationPlayerStep)
+        emit(signal: PoieticReplayer.simulationPlayerStep)
     }
 
     @Callable

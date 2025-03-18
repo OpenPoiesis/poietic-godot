@@ -19,6 +19,7 @@
 // library.
 //
 
+import SwiftGodot
 import PoieticFlows
 import PoieticCore
 
@@ -27,13 +28,13 @@ struct AutoConnectResult {
         /// Name of the parameter
         let parameterName: String?
         /// ID of the parameter node
-        let parameterID: ObjectID
+        let parameterID: PoieticCore.ObjectID
         /// Name of node using the parameter
         let targetName: String?
         /// ID of node using the parameter
-        let targetID: ObjectID
+        let targetID: PoieticCore.ObjectID
         /// ID of the edge from the parameter to the target
-        let edgeID: ObjectID
+        let edgeID: PoieticCore.ObjectID
     }
 
     let added: [ParameterInfo]
@@ -94,4 +95,37 @@ func autoConnectParameters(_ frame: TransientFrame) -> AutoConnectResult {
     }
 
     return AutoConnectResult(added: added, removed: removed, unknown: unknown)
+}
+
+struct ObjectDifference {
+    let current: [PoieticCore.ObjectID]
+    let added: [PoieticCore.ObjectID]
+    
+    // TODO: We do not need these, unless we mean "changed"
+    let removed: [PoieticCore.ObjectID]
+}
+
+/// Get difference between expected list of objects and current list of objects.
+///
+/// Returns a structure containing three lists:
+/// - `added`: Objects that are in current, not in expected.
+/// - `removed`: Objects that are in expected, not in current.
+/// - `current`: Objects that are bot in expected and current.
+///
+func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID]) -> ObjectDifference {
+    var added: [PoieticCore.ObjectID] = []
+    var keep: [PoieticCore.ObjectID] = []
+
+    var remaining = Set(expected)
+    for id in current {
+        if remaining.contains(id) {
+            keep.append(id)
+            remaining.remove(id)
+        }
+        else {
+            added.append(id)
+        }
+    }
+
+    return ObjectDifference(current: keep, added: added, removed: Array(remaining))
 }

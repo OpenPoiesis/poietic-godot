@@ -223,7 +223,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func get_object(id: Int) -> PoieticObject? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {
-            GD.pushError("Invalid origin ID")
+            GD.pushError("Invalid object ID")
             return nil
         }
         guard currentFrame.contains(poieticID) else {
@@ -234,6 +234,37 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = currentFrame[poieticID]
         return object
     }
+    
+    @Callable
+    func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
+        let change = PoieticDiagramChange()
+  
+        let nodes = nodes.compactMap { ObjectID(String($0)) }
+        let currentNodes = currentFrame.nodes.filter {
+            $0.type.hasTrait(.DiagramNode)
+        }.map { $0.id }
+        let nodeDiff = difference(expected: nodes, current: currentNodes)
+
+        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.gdInt64})
+        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.gdInt64})
+        change.current_nodes = PackedInt64Array(nodeDiff.current.map {$0.gdInt64})
+
+        let edges = edges.compactMap { ObjectID(String($0)) }
+        let currentEdges = currentFrame.edges.filter {
+            $0.object.type.hasTrait(.DiagramConnection)
+        }.map { $0.id }
+        let edgeDiff = difference(expected: edges, current: currentEdges)
+
+        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.gdInt64})
+        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.gdInt64})
+        change.current_edges = PackedInt64Array(edgeDiff.current.map {$0.gdInt64})
+
+        return change
+    }
+    
+//    func difference(_ ids: [ObjectID]) -> (current: [ObjectID], added: [ObjectID], removed: [ObjectID]) {
+//
+//    }
     
     @Callable
     func can_connect(type_name: String, origin: Int, target: Int) -> Bool {
@@ -683,4 +714,15 @@ class PoieticObject: SwiftGodot.RefCounted {
         }
         return position.asGodotVector2()
     }
+}
+
+@Godot
+class PoieticDiagramChange: SwiftGodot.Object {
+    @Export var added_nodes: PackedInt64Array = PackedInt64Array()
+    @Export var current_nodes: PackedInt64Array = PackedInt64Array()
+    @Export var removed_nodes: PackedInt64Array = PackedInt64Array()
+    
+    @Export var added_edges: PackedInt64Array = PackedInt64Array()
+    @Export var current_edges: PackedInt64Array = PackedInt64Array()
+    @Export var removed_edges: PackedInt64Array = PackedInt64Array()
 }

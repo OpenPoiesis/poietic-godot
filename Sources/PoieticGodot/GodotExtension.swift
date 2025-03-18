@@ -12,8 +12,9 @@ import SwiftGodot
         PoieticObject.self,
         PoieticSelection.self,
         
-        PoieticPlayer.self,
+        PoieticReplayer.self,
 
+        PoieticDiagramChange.self,
         PoieticActionResult.self,
         PoieticIssue.self,
     ]
