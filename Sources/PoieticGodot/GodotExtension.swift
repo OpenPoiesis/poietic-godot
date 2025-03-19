@@ -11,6 +11,7 @@ import SwiftGodot
         PoieticObject.self,
         PoieticIssue.self,
         PoieticResult.self,
+        PoieticTimeSeries.self,
 
         // Controllers and other functioning objects
         PoieticDesignController.self,

@@ -14,6 +14,8 @@ import PoieticFlows
 class PoieticResult: SwiftGodot.Object {
     var plan: SimulationPlan? = nil
     var result: SimulationResult? = nil
+    // TODO: Store time-series directly, instead of SimulationResult
+    // var series: [Int:RegularTimeSeries]
     
     func set(plan: SimulationPlan, result: SimulationResult) {
         self.plan = plan
@@ -22,6 +24,11 @@ class PoieticResult: SwiftGodot.Object {
 
     @Export var initial_time: Double? {
         get { result?.initialTime }
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
+    @Export var end_time: Double? {
+        get { result?.endTime }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
 
@@ -36,7 +43,7 @@ class PoieticResult: SwiftGodot.Object {
     }
 
     @Callable
-    public func time_series(id: Int) -> PackedFloat64Array? {
+    public func time_series(id: Int) -> PoieticTimeSeries? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {
             GD.pushError("Invalid ID")
             return nil
@@ -49,8 +56,10 @@ class PoieticResult: SwiftGodot.Object {
             GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
             return nil
         }
-        let values = result.unsafeFloatValueTimeSeries(at: index)
-        return PackedFloat64Array(values)
+        let series = result.unsafeTimeSeries(at: index)
+        let retval = PoieticTimeSeries()
+        retval.series = series
+        return retval
     }
 }
 
@@ -106,7 +115,9 @@ class PoieticPlayer: SwiftGodot.Node {
             return _wrap
         }
         set(value) {
-            self._wrap = result
+            if let value {
+                self._wrap = value
+            }
             restart()
         }
     }
@@ -124,14 +135,12 @@ class PoieticPlayer: SwiftGodot.Node {
     
     @Callable
     public func run() {
-        GD.print("|> PLAYER RUN")
         self.is_running = true
         emit(signal: PoieticPlayer.simulationPlayerStarted)
     }
 
     @Callable
     public func stop() {
-        GD.print("|> PLAYER STOP")
         self.is_running = false
         emit(signal: PoieticPlayer.simulationPlayerStopped)
     }
@@ -150,13 +159,9 @@ class PoieticPlayer: SwiftGodot.Node {
     }
     
     func step() {
-        GD.print("|> PLAYER STEP")
         guard let _wrap, let result = _wrap.result else {
-            GD.printErr("Playing without result")
             return
         }
-        GD.print("Playing step ", current_step)
-        
         if current_step >= result.count {
             if is_looping {
                 current_step = 0

@@ -524,7 +524,6 @@ public class PoieticDesignController: SwiftGodot.Node {
         let reader = JSONFrameReader()
 
         do {
-            GD.print("Import: Reading")
             if url.hasDirectoryPath {
                 foreignFrame = try reader.read(bundleAtURL: url)
             }
@@ -539,21 +538,17 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
 
         // 2. Load
-        GD.print("Import: Loading")
         let loader = ForeignFrameLoader()
         do {
             try loader.load(foreignFrame, into: frame)
-            GD.print("Import: Loading successful")
         }
         catch {
             // TODO: Propagate error to the user
             GD.printErr("Unable to load frame \(path): \(error)")
             return false
         }
-        GD.print("Import: Accepting")
 
         accept(frame)
-        GD.print("Import finished.")
         return true
     }
 
