@@ -109,7 +109,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     // Called on: accept, undo, redo
     #signal("design_changed")
     #signal("simulation_started")
-    #signal("simulation_finished")
+    #signal("simulation_finished", arguments: ["result": PoieticResult.self])
     #signal("simulation_failed")
 
     required init() {
@@ -361,7 +361,6 @@ public class PoieticDesignController: SwiftGodot.Node {
         // TODO: Store issues somewhere
         emit(signal: PoieticDesignController.designChanged)
         
-        
         // Simulate
         simulate()
     }
@@ -558,7 +557,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         return true
     }
 
-    @Export var debugStats: GDictionary {
+    @Export var debug_stats: GDictionary {
         get {
             var dict = GDictionary()
             if let frame = design.currentFrame {
@@ -587,16 +586,15 @@ public class PoieticDesignController: SwiftGodot.Node {
             }
             return dict
         }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { GD.pushError("Trying to set read-only attribute") }
     }
 
-    // MARK: Simulation Result
+    // MARK: - Simulation Result
     func simulate() {
         guard let simulationPlan else {
             GD.pushError("Trying to simulate without a plan")
             return
         }
-        
         
         self.result = nil
         
@@ -627,10 +625,12 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         self.result = simulator.result
         GD.print("Simulation end. Result states: \(simulator.result.count)")
-        emit(signal: PoieticDesignController.simulationFinished)
+        let wrap = PoieticResult()
+        wrap.set(plan: simulationPlan, result: simulator.result)
+        emit(signal: PoieticDesignController.simulationFinished, wrap)
         
     }
-
+    
     @Callable
     public func result_time_series(id: Int) -> PackedFloat64Array? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {

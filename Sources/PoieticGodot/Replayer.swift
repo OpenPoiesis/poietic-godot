@@ -11,6 +11,50 @@ import PoieticFlows
 
 
 @Godot
+class PoieticResult: SwiftGodot.Object {
+    var plan: SimulationPlan? = nil
+    var result: SimulationResult? = nil
+    
+    func set(plan: SimulationPlan, result: SimulationResult) {
+        self.plan = plan
+        self.result = result
+    }
+
+    @Export var initial_time: Double? {
+        get { result?.initialTime }
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
+    @Export var time_delta: Double? {
+        get { result?.timeDelta }
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
+    @Export var count: Int {
+        get { result?.count ?? 0 }
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
+    @Callable
+    public func time_series(id: Int) -> PackedFloat64Array? {
+        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
+            GD.pushError("Invalid ID")
+            return nil
+        }
+        guard let result, let plan else {
+            GD.printErr("Empty result")
+            return nil
+        }
+        guard let index = plan.variableIndex(of: poieticID) else {
+            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
+            return nil
+        }
+        let values = result.unsafeFloatValueTimeSeries(at: index)
+        return PackedFloat64Array(values)
+    }
+}
+
+@Godot
 class PoieticTimeSeries: SwiftGodot.Object {
     var series: RegularTimeSeries? = nil
     
@@ -49,43 +93,47 @@ class PoieticTimeSeries: SwiftGodot.Object {
 
 // TODO: Replace this with just plain timer?
 @Godot
-class PoieticReplayer: SwiftGodot.Node {
-    var plan: SimulationPlan? = nil
-    var result: SimulationResult? = nil
-    
+class PoieticPlayer: SwiftGodot.Node {
     #signal("simulation_player_started")
     #signal("simulation_player_stopped")
     #signal("simulation_player_step")
     #signal("simulation_player_restarted")
     
+    var _wrap: PoieticResult? = nil
+    
+    @Export var result: PoieticResult? {
+        get {
+            return _wrap
+        }
+        set(value) {
+            self._wrap = result
+            restart()
+        }
+    }
     @Export var is_running: Bool = false
     @Export var is_looping: Bool = true
     @Export var time_to_step: Double = 0
     @Export var step_duration: Double = 0.1
-    
     @Export var current_step: Int = 0
 
-    var currentState: SimulationState? {
-        guard let result else { return nil }
-        return result[current_step]
-    }
-    
     @Callable
     func restart() {
         current_step = 0
-        emit(signal: PoieticReplayer.simulationPlayerRestarted)
+        emit(signal: PoieticPlayer.simulationPlayerRestarted)
     }
     
     @Callable
     public func run() {
+        GD.print("|> PLAYER RUN")
         self.is_running = true
-        emit(signal: PoieticReplayer.simulationPlayerStarted)
+        emit(signal: PoieticPlayer.simulationPlayerStarted)
     }
 
     @Callable
     public func stop() {
+        GD.print("|> PLAYER STOP")
         self.is_running = false
-        emit(signal: PoieticReplayer.simulationPlayerStopped)
+        emit(signal: PoieticPlayer.simulationPlayerStopped)
     }
 
     @Callable
@@ -102,7 +150,8 @@ class PoieticReplayer: SwiftGodot.Node {
     }
     
     func step() {
-        guard let result else {
+        GD.print("|> PLAYER STEP")
+        guard let _wrap, let result = _wrap.result else {
             GD.printErr("Playing without result")
             return
         }
@@ -120,16 +169,17 @@ class PoieticReplayer: SwiftGodot.Node {
         
         current_step += 1
         
-        emit(signal: PoieticReplayer.simulationPlayerStep)
+        emit(signal: PoieticPlayer.simulationPlayerStep)
     }
 
+    /// Get a numeric value of computed object with given ID.
     @Callable
     public func numeric_value(id: Int) -> Double? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {
             GD.pushError("Invalid ID")
             return nil
         }
-        guard let result, let plan else {
+        guard let _wrap, let result = _wrap.result, let plan = _wrap.plan else {
             GD.printErr("Playing without result or plan")
             return nil
         }

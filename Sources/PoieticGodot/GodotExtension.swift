@@ -6,17 +6,21 @@ import SwiftGodot
 #initSwiftExtension(
     cdecl: "swift_entry_point",
     types: [
+        // Data
         PoieticMetamodel.self,
-        PoieticDesignController.self,
-        PoieticTransaction.self,
         PoieticObject.self,
-        PoieticSelection.self,
-        
-        PoieticReplayer.self,
-
-        PoieticDiagramChange.self,
-        PoieticActionResult.self,
         PoieticIssue.self,
+        PoieticResult.self,
+
+        // Controllers and other functioning objects
+        PoieticDesignController.self,
+        PoieticPlayer.self,
+
+        // Auxiliary objects
+        PoieticTransaction.self,
+        PoieticSelection.self,
+        PoieticDiagramChange.self,
+
     ]
 )
 
