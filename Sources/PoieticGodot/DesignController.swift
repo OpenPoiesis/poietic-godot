@@ -359,7 +359,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             }
         }
         
-        emit(signal: PoieticDesignController.designChanged, !self.has_issues())
+        emit(signal: PoieticDesignController.designChanged, self.has_issues())
         
         // TODO: Simulate only when there are simulation-related changes.
         // Simulate

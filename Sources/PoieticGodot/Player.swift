@@ -116,19 +116,7 @@ class PoieticPlayer: SwiftGodot.Node {
     #signal("simulation_player_step")
     #signal("simulation_player_restarted")
     
-    var _wrap: PoieticResult? = nil
-    
-    @Export var result: PoieticResult? {
-        get {
-            return _wrap
-        }
-        set(value) {
-            if let value {
-                self._wrap = value
-            }
-            restart()
-        }
-    }
+    @Export var result: PoieticResult?
     @Export var is_running: Bool = false
     @Export var is_looping: Bool = true
     @Export var time_to_step: Double = 0
@@ -136,8 +124,7 @@ class PoieticPlayer: SwiftGodot.Node {
     @Export var current_step: Int = 0
     @Export var current_time: Double? {
         get {
-            guard let _wrap else { return nil }
-            guard let result = _wrap.result else { return nil }
+            guard let result = result?.result else { return nil }
             return result.initialTime + Double(current_step) * result.timeDelta
         }
         set(value) {
@@ -177,7 +164,7 @@ class PoieticPlayer: SwiftGodot.Node {
     }
     
     func step() {
-        guard let _wrap, let result = _wrap.result else {
+        guard let result = result?.result  else {
             return
         }
         if current_step >= result.count {
@@ -200,7 +187,7 @@ class PoieticPlayer: SwiftGodot.Node {
             GD.pushError("Invalid ID")
             return nil
         }
-        guard let _wrap, let result = _wrap.result, let plan = _wrap.plan else {
+        guard let wrappedResult = result?.result, let plan = result?.plan else {
             GD.printErr("Playing without result or plan")
             return nil
         }
@@ -208,7 +195,7 @@ class PoieticPlayer: SwiftGodot.Node {
             GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
             return nil
         }
-        guard let state = result[current_step] else {
+        guard let state = wrappedResult[current_step] else {
             GD.printErr("No current player state for step: \(current_step)")
             return nil
         }
