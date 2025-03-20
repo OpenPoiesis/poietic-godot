@@ -14,12 +14,21 @@ import PoieticFlows
 class PoieticResult: SwiftGodot.Object {
     var plan: SimulationPlan? = nil
     var result: SimulationResult? = nil
+    var objectSeries: [PoieticCore.ObjectID:PoieticTimeSeries]? = nil
+    
     // TODO: Store time-series directly, instead of SimulationResult
     // var series: [Int:RegularTimeSeries]
     
     func set(plan: SimulationPlan, result: SimulationResult) {
         self.plan = plan
         self.result = result
+        
+        self.objectSeries = [:]
+        for obj in plan.simulationObjects {
+            let series = PoieticTimeSeries()
+            series.series = result.unsafeTimeSeries(at: obj.variableIndex)
+            self.objectSeries![obj.id] = series
+        }
     }
 
     @Export var initial_time: Double? {
@@ -48,18 +57,11 @@ class PoieticResult: SwiftGodot.Object {
             GD.pushError("Invalid ID")
             return nil
         }
-        guard let result, let plan else {
+        guard let objectSeries else {
             GD.printErr("Empty result")
             return nil
         }
-        guard let index = plan.variableIndex(of: poieticID) else {
-            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
-            return nil
-        }
-        let series = result.unsafeTimeSeries(at: index)
-        let retval = PoieticTimeSeries()
-        retval.series = series
-        return retval
+        return objectSeries[poieticID]
     }
 }
 
@@ -69,25 +71,31 @@ class PoieticTimeSeries: SwiftGodot.Object {
     
     @Export var is_empty: Bool {
         get { series?.isEmpty ?? true }
-        set(value) { GD.pushError("Trying to set read-only variable is_empty") }
+        set(value) { GD.pushError("Trying to set read-only variable") }
     }
 
     @Export var start_time: Double {
         get { series?.startTime ?? 0}
-        set(value) { GD.pushError("Trying to set read-only variable start_time") }
+        set(value) { GD.pushError("Trying to set read-only variable") }
     }
     @Export var end_time: Double {
         get { series?.endTime ?? 0}
-        set(value) { GD.pushError("Trying to set read-only variable end_time") }
+        set(value) { GD.pushError("Trying to set read-only variable") }
     }
     @Export var data_min: Double {
         get { series?.dataMin ?? 0}
-        set(value) { GD.pushError("Trying to set read-only variable data_min") }
+        set(value) { GD.pushError("Trying to set read-only variable") }
     }
     @Export var data_max: Double {
-        get { series?.dataMin ?? 0}
-        set(value) { GD.pushError("Trying to set read-only variable data_max") }
+        get { series?.dataMax ?? 0}
+        set(value) { GD.pushError("Trying to set read-only variable") }
     }
+
+    @Export var first: Double? {
+        get { series?.data.first ?? 0}
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
     
     @Callable
     func get_values() -> PackedFloat64Array {
@@ -171,10 +179,8 @@ class PoieticPlayer: SwiftGodot.Node {
                 return
             }
         }
-        
-        current_step += 1
-        
         emit(signal: PoieticPlayer.simulationPlayerStep)
+        current_step += 1
     }
 
     /// Get a numeric value of computed object with given ID.
@@ -193,7 +199,7 @@ class PoieticPlayer: SwiftGodot.Node {
             return nil
         }
         guard let state = result[current_step] else {
-            GD.printErr("No current player state")
+            GD.printErr("No current player state for step: \(current_step)")
             return nil
         }
         

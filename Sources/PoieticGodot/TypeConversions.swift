@@ -25,10 +25,10 @@ extension Point {
         self.init(x: Double(vector.x), y: Double(vector.y))
     }
     func asGodotVariant() -> SwiftGodot.Variant {
-        return SwiftGodot.Variant(Vector2(x: Float(self.x), y: Float(self.y)))
+        return SwiftGodot.Variant(SwiftGodot.Vector2(x: Float(self.x), y: Float(self.y)))
     }
     func asGodotVector2() -> SwiftGodot.Vector2 {
-        return Vector2(x: Float(self.x), y: Float(self.y))
+        return SwiftGodot.Vector2(x: Float(self.x), y: Float(self.y))
     }
 }
 
@@ -46,7 +46,7 @@ extension PoieticCore.Variant {
         else if let value = Int(variant) {
             self.init(value)
         }
-        else if let value = Vector2(variant)  {
+        else if let value = SwiftGodot.Vector2(variant)  {
             self.init(Point(value))
         }
         else {
