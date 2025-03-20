@@ -107,10 +107,11 @@ public class PoieticDesignController: SwiftGodot.Node {
     // let canvas: PoieticCanvas?
     
     // Called on: accept, undo, redo
-    #signal("design_changed")
+    #signal("design_changed", arguments: ["has_issues": Bool.self])
+
     #signal("simulation_started")
-    #signal("simulation_finished", arguments: ["result": PoieticResult.self])
     #signal("simulation_failed")
+    #signal("simulation_finished", arguments: ["result": PoieticResult.self])
 
     required init() {
         self.design = Design(metamodel: FlowsMetamodel)
@@ -137,7 +138,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
-        emit(signal: PoieticDesignController.designChanged)
+        emit(signal: PoieticDesignController.designChanged, false)
     }
     
     // MARK: - Issues
@@ -358,9 +359,9 @@ public class PoieticDesignController: SwiftGodot.Node {
             }
         }
         
-        // TODO: Store issues somewhere
-        emit(signal: PoieticDesignController.designChanged)
+        emit(signal: PoieticDesignController.designChanged, !self.has_issues())
         
+        // TODO: Simulate only when there are simulation-related changes.
         // Simulate
         simulate()
     }
@@ -625,7 +626,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         emit(signal: PoieticDesignController.simulationFinished, wrap)
         
     }
-    
+
     @Callable
     public func result_time_series(id: Int) -> PackedFloat64Array? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {

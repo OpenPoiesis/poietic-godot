@@ -134,6 +134,16 @@ class PoieticPlayer: SwiftGodot.Node {
     @Export var time_to_step: Double = 0
     @Export var step_duration: Double = 0.1
     @Export var current_step: Int = 0
+    @Export var current_time: Double? {
+        get {
+            guard let _wrap else { return nil }
+            guard let result = _wrap.result else { return nil }
+            return result.initialTime + Double(current_step) * result.timeDelta
+        }
+        set(value) {
+            GD.pushError("Trying to set read-only attribute")
+        }
+    }
 
     @Callable
     func restart() {
