@@ -308,6 +308,10 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     func accept(_ frame: TransientFrame) {
+        guard frame.hasChanges else {
+            GD.print("Nothing to do with transient frame, moving on")
+            return
+        }
         do {
             try design.accept(frame, appendHistory: true)
             GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
@@ -661,7 +665,7 @@ class PoieticObject: SwiftGodot.RefCounted {
         set { GD.pushError("Trying to set read-only PoieticObject attribute") }
     }
 
-    @Export var name: String? {
+    @Export var object_name: String? {
         get { object?.name }
         set { GD.pushError("Trying to set read-only PoieticObject attribute") }
     }

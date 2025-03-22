@@ -16,6 +16,9 @@ extension PoieticCore.ObjectID {
     init?(_ value: Int64) {
         self.init(String(value))
     }
+    // For regular ints
+    var gdInt: Int { Int(self.intValue) }
+    // For PackedInt64Array (does not work for `Int64?`)
     var gdInt64: Int64 { Int64(self.intValue) }
     var gdVariant: SwiftGodot.Variant { SwiftGodot.Variant(Int64(self.intValue)) }
 }
