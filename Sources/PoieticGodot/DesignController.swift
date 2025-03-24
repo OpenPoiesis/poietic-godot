@@ -367,7 +367,9 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         // TODO: Simulate only when there are simulation-related changes.
         // Simulate
-        simulate()
+        if self.simulationPlan != nil {
+            simulate()
+        }
     }
 
     func debugPrintIssues(_ issues: DesignIssueCollection) {
@@ -602,7 +604,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let simulator = Simulator(simulation: simulation,
                                   parameters: simulationPlan.simulationParameters)
         
-        GD.print("Simulation start...")
+//        GD.print("Simulation start...")
         emit(signal: PoieticDesignController.simulationStarted)
         
         do {
@@ -624,7 +626,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         
         self.result = simulator.result
-        GD.print("Simulation end. Result states: \(simulator.result.count)")
+//        GD.print("Simulation end. Result states: \(simulator.result.count)")
         let wrap = PoieticResult()
         wrap.set(plan: simulationPlan, result: simulator.result)
         emit(signal: PoieticDesignController.simulationFinished, wrap)
@@ -703,6 +705,12 @@ class PoieticObject: SwiftGodot.RefCounted {
     @Callable
     func get_attribute(attribute: String) -> SwiftGodot.Variant? {
         object?[attribute]?.asGodotVariant()
+    }
+    
+    @Callable
+    func get_attribute_keys() -> [String] {
+        guard let object else { return [] }
+        return object.type.attributeKeys
     }
 
     @Callable
