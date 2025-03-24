@@ -704,7 +704,11 @@ class PoieticObject: SwiftGodot.RefCounted {
     
     @Callable
     func get_attribute(attribute: String) -> SwiftGodot.Variant? {
-        object?[attribute]?.asGodotVariant()
+        guard let object else {
+            GD.pushError("No object set")
+            return nil
+        }
+        return object[attribute]?.asGodotVariant()
     }
     
     @Callable

@@ -52,9 +52,28 @@ extension PoieticCore.Variant {
         else if let value = SwiftGodot.Vector2(variant)  {
             self.init(Point(value))
         }
+        else if let items = SwiftGodot.PackedInt32Array(variant)  {
+            let values: [Int] = items.map { Int($0) }
+            self.init(values)
+        }
+        else if let items = SwiftGodot.PackedInt64Array(variant)  {
+            let values: [Int] = items.map { Int($0) }
+            self.init(values)
+        }
+        else if let items = SwiftGodot.PackedFloat64Array(variant)  {
+            let values: [Double] = items.map { Double($0) }
+            self.init(values)
+        }
+        else if let items = SwiftGodot.PackedStringArray(variant)  {
+            let values: [String] = items.map { $0 }
+            self.init(values)
+        }
+        else if let items = SwiftGodot.PackedVector2Array(variant)  {
+            let points = items.map { Point($0) }
+            self.init(points)
+        }
         else {
             GD.pushError("Unhandled conversion from Godot variant type: \(variant.gtype)")
-            // FIXME: Add arrays
             return nil
         }
     }
@@ -70,7 +89,6 @@ extension PoieticCore.Variant {
             }
         case .array(let array):
             switch array {
-            // TODO: This is highly inefficient storage of bools
             case let .bool(value): SwiftGodot.Variant(PackedInt32Array(value.map { ($0) ? 1 : 0 }))
             case let .double(value): SwiftGodot.Variant(PackedFloat64Array(value))
             case let .int(value): SwiftGodot.Variant(PackedInt64Array(value.map {Int64($0)}))
