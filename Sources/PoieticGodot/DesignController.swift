@@ -95,6 +95,7 @@ public class PoieticActionResult: SwiftGodot.RefCounted {
 /// Manages design context, typically for a canvas and an inspector.
 @Godot
 public class PoieticDesignController: SwiftGodot.Node {
+    var metamodel: Metamodel { design.metamodel }
     var design: Design
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
@@ -102,9 +103,6 @@ public class PoieticDesignController: SwiftGodot.Node {
     var validatedFrame: ValidatedFrame? = nil
     var simulationPlan: SimulationPlan? = nil
     var result: SimulationResult? = nil
-    
-    var metamodel: Metamodel { design.metamodel }
-    // let canvas: PoieticCanvas?
     
     // Called on: accept, undo, redo
     #signal("design_changed", arguments: ["has_issues": Bool.self])
@@ -260,10 +258,6 @@ public class PoieticDesignController: SwiftGodot.Node {
 
         return change
     }
-    
-//    func difference(_ ids: [ObjectID]) -> (current: [ObjectID], added: [ObjectID], removed: [ObjectID]) {
-//
-//    }
     
     @Callable
     func can_connect(type_name: String, origin: Int, target: Int) -> Bool {

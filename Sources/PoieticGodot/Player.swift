@@ -74,11 +74,15 @@ class PoieticTimeSeries: SwiftGodot.Object {
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
 
-    @Export var start_time: Double {
+    @Export var time_delta: Double {
+        get { series?.timeDelta ?? 0}
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+    @Export var time_start: Double {
         get { series?.startTime ?? 0}
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-    @Export var end_time: Double {
+    @Export var time_end: Double {
         get { series?.endTime ?? 0}
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
@@ -94,6 +98,16 @@ class PoieticTimeSeries: SwiftGodot.Object {
     @Export var first: Double? {
         get { series?.data.first ?? 0}
         set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
+    @Callable
+    func get_points() -> PackedVector2Array {
+        guard let series else {
+            return PackedVector2Array()
+        }
+        var vectors: [Vector2] = series.points().map { $0.asGodotVector2() }
+
+        return PackedVector2Array(vectors)
     }
 
     
