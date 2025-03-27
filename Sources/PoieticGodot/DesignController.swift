@@ -104,6 +104,8 @@ public class PoieticDesignController: SwiftGodot.Node {
     var simulationPlan: SimulationPlan? = nil
     var result: SimulationResult? = nil
     
+    // Called on: load from path
+    #signal("design_reset")
     // Called on: accept, undo, redo
     #signal("design_changed", arguments: ["has_issues": Bool.self])
 
@@ -233,7 +235,16 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = currentFrame[poieticID]
         return object
     }
-    
+   
+    @Callable func get_simulation_parameters_object() -> PoieticObject? {
+        guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
+            return nil
+        }
+        var object = PoieticObject()
+        object.object = first
+        return object
+    }
+
     @Callable
     func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
         let change = PoieticDiagramChange()
@@ -464,12 +475,14 @@ public class PoieticDesignController: SwiftGodot.Node {
         do {
             let design = try store.load(metamodel: FlowsMetamodel)
             self.design = design
-            validateAndCompile()
         }
         catch {
             // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
             GD.pushError("Unable to open design: \(error)")
+            return
         }
+        emit(signal: PoieticDesignController.designReset)
+        validateAndCompile()
     }
     
     @Callable
