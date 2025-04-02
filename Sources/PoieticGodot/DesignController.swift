@@ -34,6 +34,10 @@ public class PoieticIssue: SwiftGodot.RefCounted {
         get { issue.hint }
         set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
     }
+    @Export var attribute: String? {
+        get { try? issue.details["attribute"]?.stringValue() }
+        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+    }
     @Export var details: GDictionary {
         get {
             var dict = GDictionary()
@@ -46,55 +50,12 @@ public class PoieticIssue: SwiftGodot.RefCounted {
     }
 }
 
-@Godot
-public class PoieticActionResult: SwiftGodot.RefCounted {
-    var issues: DesignIssueCollection? = nil
-    var createdObjects: [PoieticCore.ObjectID] = []
-    var removedObjects: [PoieticCore.ObjectID] = []
-    var modifiedObjects: [PoieticCore.ObjectID] = []
-
-    convenience init(fatalError message: String) {
-        self.init()
-
-        let issue = DesignIssue(domain: .validation,
-                                severity: .fatal,
-                                identifier: "internal_error",
-                                message: message,
-                                hint: "Let the developers know about this error")
-        var issues = DesignIssueCollection()
-        issues.append(issue)
-        self.issues = issues
-    }
-    required init() {
-        super.init()
-        onInit()
-    }
-
-    required init(nativeHandle: UnsafeRawPointer) {
-        super.init(nativeHandle: nativeHandle)
-        onInit()
-    }
-    
-    func onInit() {}
-    
-    @Callable
-    func is_success() -> Bool {
-        issues?.isEmpty ?? true
-    }
-
-    @Callable
-    func is_fatal() -> Bool {
-        guard let issues else {
-            return false
-        }
-        return issues.designIssues.contains { $0.severity == .fatal }
-    }
-}
-
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
 @Godot
 public class PoieticDesignController: SwiftGodot.Node {
+    static let DesignSettingsFrameName = "settings"
+    
     var metamodel: Metamodel { design.metamodel }
     var design: Design
     var checker: ConstraintChecker
@@ -218,9 +179,44 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     @Callable
     func get_diagram_edges() -> PackedInt64Array {
-        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnection) }
+        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnector) }
         return PackedInt64Array(edges.map { Int64($0.id.intValue) })
     }
+    @Callable
+    func get_diagram_settings() -> GDictionary? {
+        guard let frame = design.frame(name: PoieticDesignController.DesignSettingsFrameName) else {
+            return nil
+        }
+        guard let obj = frame.first(type: .DiagramSettings) else {
+            return nil
+        }
+        
+        return GDictionary(obj.attributes)
+    }
+    @Callable
+    func set_diagram_settings(settings: GDictionary) {
+        let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
+        let trans = design.createFrame(deriving: original)
+        let mut: MutableObject
+        if let obj = trans.first(type: .DiagramSettings) {
+            mut = trans.mutate(obj.id)
+        }
+        else {
+            mut = trans.create(.DiagramSettings)
+        }
+
+        for (attr, value) in settings.asLossyPoieticAttributes() {
+            mut[attr] = value
+        }
+        do {
+            try design.accept(trans, replacingName: PoieticDesignController.DesignSettingsFrameName)
+        }
+        catch /* StructuralIntegrityError */ {
+            GD.pushError("Structural integrity error")
+            return
+        }
+    }
+
     @Callable
     func get_object(id: Int) -> PoieticObject? {
         guard let poieticID = PoieticCore.ObjectID(String(id)) else {
@@ -260,7 +256,7 @@ public class PoieticDesignController: SwiftGodot.Node {
 
         let edges = edges.compactMap { ObjectID(String($0)) }
         let currentEdges = currentFrame.edges.filter {
-            $0.object.type.hasTrait(.DiagramConnection)
+            $0.object.type.hasTrait(.DiagramConnector)
         }.map { $0.id }
         let edgeDiff = difference(expected: edges, current: currentEdges)
 
@@ -426,18 +422,18 @@ public class PoieticDesignController: SwiftGodot.Node {
         let traits = frame.sharedTraits(frame.contained(selection.selection.ids))
         return traits.map { $0.name }
     }
-   
     // MARK: - Design Graph Transfomrations
     
     @Callable
-    func auto_connect_parameters() {
+    func auto_connect_parameters(ids: PackedInt64Array) {
         guard design.currentFrame != nil else {
             GD.pushError("Using design without a frame")
             return
         }
         
         let trans = design.createFrame(deriving: design.currentFrame)
-        let result = autoConnectParameters(trans)
+        let realIDs = ids.compactMap { PoieticCore.ObjectID($0) }
+        let result = autoConnectParameters(trans, nodes: realIDs)
 
         if !result.added.isEmpty {
             GD.print("Auto-connected parameters:")

@@ -44,7 +44,7 @@ struct AutoConnectResult {
 
 /// Automatically connect parameters in a frame.
 ///
-func autoConnectParameters(_ frame: TransientFrame) -> AutoConnectResult {
+func autoConnectParameters(_ frame: TransientFrame, nodes: [PoieticCore.ObjectID] = []) -> AutoConnectResult {
     let view = StockFlowView(frame)
     var added: [AutoConnectResult.ParameterInfo] = []
     var removed: [AutoConnectResult.ParameterInfo] = []
@@ -58,7 +58,16 @@ func autoConnectParameters(_ frame: TransientFrame) -> AutoConnectResult {
     var formulaCompiler = FormulaCompilerSystem()
     formulaCompiler.update(context)
 
-    for target in view.simulationNodes {
+    let nodesToFix: [DesignObject]
+    
+    if !nodes.isEmpty {
+        nodesToFix = frame.contained(nodes).map { frame[$0] }
+    }
+    else {
+        nodesToFix = view.simulationNodes
+    }
+    
+    for target in nodesToFix {
         guard let component: ParsedFormulaComponent = context.component(for: target.id) else {
             continue
         }

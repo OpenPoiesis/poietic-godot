@@ -100,6 +100,13 @@ extension PoieticCore.Variant {
 }
 
 extension GDictionary {
+    convenience init(_ dict: [String:PoieticCore.Variant]) {
+        self.init()
+
+        for (attr, value) in dict {
+            self[attr] = value.asGodotVariant()
+        }
+    }
     /// Convert the dictionary to an attribute dictionary.
     ///
     /// Items with keys not convertible to string and with values not convertible to Variant
