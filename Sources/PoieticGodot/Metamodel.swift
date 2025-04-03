@@ -12,20 +12,6 @@ import PoieticCore
 public class PoieticMetamodel: SwiftGodot.Node {
     var metamodel: Metamodel! = nil
     
-    required init() {
-        super.init()
-        onInit()
-    }
-
-    required init(nativeHandle: UnsafeRawPointer) {
-        super.init(nativeHandle: nativeHandle)
-        onInit()
-    }
-    
-    func onInit() {
-        self.metamodel = Metamodel.StockFlow
-    }
-
     @Callable
     public func has_type(typeName: String) -> Bool {
         return metamodel.types.contains { $0.name == typeName }

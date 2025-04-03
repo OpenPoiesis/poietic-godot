@@ -15,14 +15,14 @@ class PoieticTransaction: SwiftGodot.Object {
     func setFrame(_ frame: TransientFrame){
         self.frame = frame
     }
-
+    
     @Callable
     func create_node(typeName: String, name: SwiftGodot.Variant?, attributes: GDictionary) -> SwiftGodot.Variant? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
         }
-
+        
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
             return nil
@@ -38,10 +38,10 @@ class PoieticTransaction: SwiftGodot.Object {
         else {
             actualName = nil
         }
-
+        
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
         let object = frame.createNode(type, name: actualName, attributes: lossyAttributes)
-
+        
         return object.id.gdVariant
     }
     
@@ -59,7 +59,7 @@ class PoieticTransaction: SwiftGodot.Object {
             GD.pushError("Invalid target ID")
             return nil
         }
-
+        
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
             return nil
@@ -72,12 +72,12 @@ class PoieticTransaction: SwiftGodot.Object {
             GD.pushError("Unknown object ID \(target)")
             return nil
         }
-
+        
         let object = frame.createEdge(type, origin: originID, target: targetID)
         
         return object.id.gdVariant
     }
-   
+    
     @Callable
     func remove_object(object_id: Int) {
         guard let actual_id = PoieticCore.ObjectID(String(object_id)) else {
@@ -88,7 +88,7 @@ class PoieticTransaction: SwiftGodot.Object {
             GD.pushError("Unknown object ID \(object_id)")
             return
         }
-
+        
         frame.removeCascading(actual_id)
     }
     
@@ -112,4 +112,48 @@ class PoieticTransaction: SwiftGodot.Object {
             object[attribute] = nil
         }
     }
+
+    @Callable
+    func set_numeric_attribute_from_string(object_id: Int, attribute: String, stringValue: String) -> Bool {
+        // FIXME: Use INT type (change in other ObjectID(String...))
+        guard let actual_id = PoieticCore.ObjectID(String(object_id)) else {
+            GD.pushError("Invalid object ID type")
+            return false
+        }
+        guard let frame, frame.contains(actual_id) else {
+            GD.pushError("Unknown object ID \(object_id)")
+            return false
+        }
+        var metamodel = frame.design.metamodel
+        var original = frame[actual_id]
+        guard let valueType = original.type.attribute(attribute)?.type else {
+            return false
+        }
+        
+        let object = frame.mutate(actual_id)
+        let variant: PoieticCore.Variant
+        
+        switch valueType {
+        case .int:
+            if let number = Int(stringValue) {
+                variant = PoieticCore.Variant(number)
+            }
+            else {
+                return false
+            }
+        case .double:
+            if let number = Double(stringValue) {
+                variant = PoieticCore.Variant(number)
+            }
+            else {
+                return false
+            }
+        default:
+            return false
+        }
+
+        object[attribute] = variant
+        return true
+    }
+
 }

@@ -56,7 +56,8 @@ public class PoieticIssue: SwiftGodot.RefCounted {
 public class PoieticDesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
     
-    var metamodel: Metamodel { design.metamodel }
+    var _metamodel: Metamodel { design.metamodel }
+    let _gdMetamodelWrapper: PoieticMetamodel
     var design: Design
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
@@ -74,9 +75,17 @@ public class PoieticDesignController: SwiftGodot.Node {
     #signal("simulation_failed")
     #signal("simulation_finished", arguments: ["result": PoieticResult.self])
 
+    @Export var metamodel: PoieticMetamodel? {
+        get { return _gdMetamodelWrapper }
+        set { GD.pushError("Trying to set read-only attribute") }
+    }
+
     required init() {
         self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
+        self._gdMetamodelWrapper = PoieticMetamodel()
+        self._gdMetamodelWrapper.metamodel = design.metamodel
+
         super.init()
         onInit()
     }
@@ -84,6 +93,9 @@ public class PoieticDesignController: SwiftGodot.Node {
     required init(nativeHandle: UnsafeRawPointer) {
         self.design = Design(metamodel: FlowsMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
+        self._gdMetamodelWrapper = PoieticMetamodel()
+        self._gdMetamodelWrapper.metamodel = design.metamodel
+
         super.init(nativeHandle: nativeHandle)
         onInit()
     }
@@ -280,7 +292,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Unknown connection endpoints")
             return false
         }
-        guard let type = metamodel.objectType(name: type_name) else {
+        guard let type = _metamodel.objectType(name: type_name) else {
             GD.pushError("Unknown edge type '\(name)'")
             return false
         }
@@ -295,6 +307,16 @@ public class PoieticDesignController: SwiftGodot.Node {
         return trans
     }
     
+    @Callable
+    func discard(transaction: PoieticTransaction) {
+        guard let frame = transaction.frame else {
+            GD.pushError("Using design without a frame")
+            return
+        }
+        design.discard(frame)
+        
+    }
+
     // TODO: Signal design_frame_changed(errors) (also handle errors)
     /// Accept and validate the frame.
     ///
@@ -703,6 +725,14 @@ class PoieticObject: SwiftGodot.RefCounted {
     @Callable
     func get_id() -> Int64? {
         return object?.id.gdInt64
+    }
+    
+    @Callable
+    func get_traits() -> PackedStringArray {
+        guard let type = object?.type else {
+            return PackedStringArray()
+        }
+        return PackedStringArray(type.traits.map { String($0.name) })
     }
     
     @Callable
