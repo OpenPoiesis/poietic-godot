@@ -26,6 +26,7 @@ class PoieticResult: SwiftGodot.Object {
         self.objectSeries = [:]
         for obj in plan.simulationObjects {
             let series = PoieticTimeSeries()
+            series._object_id = obj.id
             series.series = result.unsafeTimeSeries(at: obj.variableIndex)
             self.objectSeries![obj.id] = series
         }
@@ -67,8 +68,17 @@ class PoieticResult: SwiftGodot.Object {
 
 @Godot
 class PoieticTimeSeries: SwiftGodot.Object {
+    var _object_id: PoieticCore.ObjectID? = nil
     var series: RegularTimeSeries? = nil
     
+    @Export var object_id: Int? {
+        get {
+            if let _object_id { _object_id.gdInt }
+            else { nil }
+        }
+        set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+
     @Export var is_empty: Bool {
         get { series?.isEmpty ?? true }
         set(value) { GD.pushError("Trying to set read-only variable") }

@@ -8,6 +8,20 @@
 import SwiftGodot
 import PoieticCore
 
+struct PoieticSelectionTypeInfo {
+    var distinct_types: [String]
+    var shared_traits: [String]
+    var count: Int
+    var has_issues: Bool
+    
+    func is_empty() -> Bool {
+        return count == 0
+    }
+    func matches(traits: [String], multiple: Bool, issues: Bool) -> Bool {
+        return false
+    }
+}
+
 @Godot
 class PoieticSelection: SwiftGodot.Node {
     var selection: Selection = Selection()

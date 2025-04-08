@@ -584,6 +584,39 @@ public class PoieticDesignController: SwiftGodot.Node {
         return true
     }
 
+    @Callable
+    func import_from_data(data: PackedByteArray) -> Bool {
+        let frame: TransientFrame = design.createFrame(deriving: design.currentFrame)
+        let nativeData: Data = Data(data)
+        // 1. Read
+        GD.print("Importing from data")
+        let foreignFrame: any ForeignFrameProtocol
+        let reader = JSONFrameReader()
+
+        do {
+            foreignFrame = try reader.read(data: nativeData)
+        }
+        catch {
+            // TODO: Propagate error to the user
+            GD.printErr("Unable to read frame from data: \(error)")
+            return false
+        }
+
+        // 2. Load
+        let loader = ForeignFrameLoader()
+        do {
+            try loader.load(foreignFrame, into: frame)
+        }
+        catch {
+            // TODO: Propagate error to the user
+            GD.printErr("Unable to load frame from data: \(error)")
+            return false
+        }
+
+        accept(frame)
+        return true
+    }
+
     @Export var debug_stats: GDictionary {
         get {
             var dict = GDictionary()
