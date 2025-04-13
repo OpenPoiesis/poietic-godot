@@ -17,7 +17,7 @@ class PoieticTransaction: SwiftGodot.Object {
     }
     
     @Callable
-    func create_node(typeName: String, name: SwiftGodot.Variant?, attributes: GDictionary) -> SwiftGodot.Variant? {
+    func create_object(typeName: String, attributes: GDictionary) -> Int64? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
@@ -27,35 +27,41 @@ class PoieticTransaction: SwiftGodot.Object {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
             return nil
         }
-        let actualName: String?
-        if let name {
-            guard let name = String(name) else {
-                GD.pushError("Expected string for name")
-                return nil
-            }
-            actualName = name
-        }
-        else {
-            actualName = nil
-        }
-        
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
-        let object = frame.createNode(type, name: actualName, attributes: lossyAttributes)
+        let object = frame.create(type, attributes: lossyAttributes)
         
-        return object.id.gdVariant
+        return object.id.godotInt
     }
-    
+
     @Callable
-    func create_edge(typeName: String, origin: Int64, target: Int64) -> SwiftGodot.Variant? {
+    func create_node(typeName: String, name: String?, attributes: GDictionary) -> Int64? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
         }
-        guard let originID = PoieticCore.ObjectID(String(origin)) else {
+        
+        guard let type = frame.design.metamodel.objectType(name: typeName) else {
+            GD.pushError("Trying to create a node of unknown type '\(typeName)'")
+            return nil
+        }
+
+        var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
+        let object = frame.createNode(type, name: name, attributes: lossyAttributes)
+        
+        return object.id.godotInt
+    }
+    
+    @Callable
+    func create_edge(typeName: String, origin: Int64, target: Int64) -> Int64? {
+        guard let frame else {
+            GD.pushError("Using transaction without a frame")
+            return nil
+        }
+        guard let originID = PoieticCore.ObjectID(origin) else {
             GD.pushError("Invalid origin ID")
             return nil
         }
-        guard let targetID = PoieticCore.ObjectID(String(target)) else {
+        guard let targetID = PoieticCore.ObjectID(target) else {
             GD.pushError("Invalid target ID")
             return nil
         }
@@ -75,12 +81,12 @@ class PoieticTransaction: SwiftGodot.Object {
         
         let object = frame.createEdge(type, origin: originID, target: targetID)
         
-        return object.id.gdVariant
+        return object.id.godotInt
     }
     
     @Callable
-    func remove_object(object_id: Int) {
-        guard let actual_id = PoieticCore.ObjectID(String(object_id)) else {
+    func remove_object(object_id: Int64) {
+        guard let actual_id = PoieticCore.ObjectID(object_id) else {
             GD.pushError("Invalid object ID type")
             return
         }
@@ -93,9 +99,8 @@ class PoieticTransaction: SwiftGodot.Object {
     }
     
     @Callable
-    func set_attribute(object_id: Int, attribute: String, value: SwiftGodot.Variant?) {
-        // FIXME: Use INT type (change in other ObjectID(String...))
-        guard let actual_id = PoieticCore.ObjectID(String(object_id)) else {
+    func set_attribute(object_id: Int64, attribute: String, value: SwiftGodot.Variant?) {
+        guard let actual_id = PoieticCore.ObjectID(object_id) else {
             GD.pushError("Invalid object ID type")
             return
         }
@@ -114,9 +119,8 @@ class PoieticTransaction: SwiftGodot.Object {
     }
 
     @Callable
-    func set_numeric_attribute_from_string(object_id: Int, attribute: String, stringValue: String) -> Bool {
-        // FIXME: Use INT type (change in other ObjectID(String...))
-        guard let actual_id = PoieticCore.ObjectID(String(object_id)) else {
+    func set_numeric_attribute_from_string(object_id: Int64, attribute: String, stringValue: String) -> Bool {
+        guard let actual_id = PoieticCore.ObjectID(object_id) else {
             GD.pushError("Invalid object ID type")
             return false
         }

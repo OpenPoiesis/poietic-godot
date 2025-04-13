@@ -16,27 +16,27 @@ public class PoieticIssue: SwiftGodot.RefCounted {
 
     @Export var domain: String {
         get { issue.domain.description}
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var severity: String {
         get { issue.severity.description }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var identifier: String {
         get { issue.identifier }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var message: String {
         get { issue.message }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var hint: String? {
         get { issue.hint }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var attribute: String? {
         get { try? issue.details["attribute"]?.stringValue() }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
     @Export var details: GDictionary {
         get {
@@ -46,7 +46,7 @@ public class PoieticIssue: SwiftGodot.RefCounted {
             }
             return dict
         }
-        set { GD.pushError("Trying to set read-only PoieticIssue attribute") }
+        set { readOnlyAttributeError() }
     }
 }
 
@@ -124,8 +124,8 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     @Callable
-    func issues_for_object(id: Int) -> [PoieticIssue] {
-        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
+    func issues_for_object(id: Int64) -> [PoieticIssue] {
+        guard let poieticID = PoieticCore.ObjectID(id) else {
             GD.pushError("Invalid object ID")
             return []
         }
@@ -145,15 +145,8 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     // MARK: - Undo/Redo
     
-    @Callable
-    func can_undo() -> Bool {
-        self.design.canUndo
-    }
-    
-    @Callable
-    func can_redo() -> Bool {
-        self.design.canRedo
-    }
+    @Callable func can_undo() -> Bool { self.design.canUndo }
+    @Callable func can_redo() -> Bool { self.design.canRedo }
     
     /// Undo last command. Returns `true` if something was undone, `false` when there was nothing
     /// to undo.
@@ -205,6 +198,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         return GDictionary(obj.attributes)
     }
+    
     @Callable
     func set_diagram_settings(settings: GDictionary) {
         let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
@@ -263,8 +257,8 @@ public class PoieticDesignController: SwiftGodot.Node {
         }.map { $0.id }
         let nodeDiff = difference(expected: nodes, current: currentNodes)
 
-        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.gdInt64})
-        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.gdInt64})
+        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
+        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.godotInt})
 
         let edges = edges.compactMap { ObjectID(String($0)) }
         let currentEdges = currentFrame.edges.filter {
@@ -272,19 +266,19 @@ public class PoieticDesignController: SwiftGodot.Node {
         }.map { $0.id }
         let edgeDiff = difference(expected: edges, current: currentEdges)
 
-        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.gdInt64})
-        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.gdInt64})
+        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
+        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.godotInt})
 
         return change
     }
     
     @Callable
-    func can_connect(type_name: String, origin: Int, target: Int) -> Bool {
-        guard let originID = PoieticCore.ObjectID(String(origin)) else {
+    func can_connect(type_name: String, origin: Int64, target: Int64) -> Bool {
+        guard let originID = PoieticCore.ObjectID(origin) else {
             GD.pushError("Invalid origin ID")
             return false
         }
-        guard let targetID = PoieticCore.ObjectID(String(target)) else {
+        guard let targetID = PoieticCore.ObjectID(target) else {
             GD.pushError("Invalid target ID")
             return false
         }
@@ -320,19 +314,23 @@ public class PoieticDesignController: SwiftGodot.Node {
     // TODO: Signal design_frame_changed(errors) (also handle errors)
     /// Accept and validate the frame.
     ///
+    /// If the transaction has no changes, then it is discarded and no changes are applied. History
+    /// stays untouched.
+    ///
     @Callable
     func accept(transaction: PoieticTransaction) {
         guard let frame = transaction.frame else {
             GD.pushError("Using design without a frame")
             return
         }
+        transaction.frame = nil
         accept(frame)
-        
     }
     
     func accept(_ frame: TransientFrame) {
         guard frame.hasChanges else {
-            GD.print("Nothing to do with transient frame, moving on")
+            GD.print("Nothing to do with transient frame, discarding and moving on")
+            design.discard(frame)
             return
         }
         do {
@@ -662,7 +660,6 @@ public class PoieticDesignController: SwiftGodot.Node {
         let simulator = Simulator(simulation: simulation,
                                   parameters: simulationPlan.simulationParameters)
         
-//        GD.print("Simulation start...")
         emit(signal: PoieticDesignController.simulationStarted)
         
         do {
@@ -684,121 +681,13 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         
         self.result = simulator.result
-//        GD.print("Simulation end. Result states: \(simulator.result.count)")
         let wrap = PoieticResult()
         wrap.set(plan: simulationPlan, result: simulator.result)
         emit(signal: PoieticDesignController.simulationFinished, wrap)
         
     }
-
-    @Callable
-    public func result_time_series(id: Int) -> PackedFloat64Array? {
-        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
-            GD.pushError("Invalid ID")
-            return nil
-        }
-        guard let result, let plan = simulationPlan else {
-            GD.printErr("Playing without result or plan")
-            return nil
-        }
-        guard let index = plan.variableIndex(of: poieticID) else {
-            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
-            return nil
-        }
-        let values = result.unsafeFloatValueTimeSeries(at: index)
-        return PackedFloat64Array(values)
-    }
-    
 }
 
-/// Wrapper for the Design object.
-///
-@Godot
-class PoieticObject: SwiftGodot.RefCounted {
-    var object: DesignObject?
-    
-    @Export var object_id: Int? {
-        get {
-            // TODO: Workaround, since SwiftGodot does not allow Int64 properties
-            return object.map { Int($0.id.intValue) }
-        }
-        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
-    }
-
-    @Export var object_name: String? {
-        get { object?.name }
-        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
-    }
-
-    @Export var type_name: String? {
-        get { object?.type.name }
-        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
-    }
-    
-    @Export var origin: Int? {
-        get {
-            guard let object, case let .edge(origin, _) = object.structure else {
-                return nil
-            }
-            return Int(origin.intValue)
-        }
-        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
-    }
-
-    @Export var target: Int? {
-        get {
-            guard let object, case let .edge(_, target) = object.structure else {
-                return nil
-            }
-            return Int(target.intValue)
-        }
-        set { GD.pushError("Trying to set read-only PoieticObject attribute") }
-    }
-
-    @Callable
-    func get_id() -> Int64? {
-        return object?.id.gdInt64
-    }
-    
-    @Callable
-    func get_traits() -> PackedStringArray {
-        guard let type = object?.type else {
-            return PackedStringArray()
-        }
-        return PackedStringArray(type.traits.map { String($0.name) })
-    }
-    
-    @Callable
-    func has_trait(trait_name: String) -> Bool {
-        guard let type = object?.type else {
-            return false
-        }
-        return type.hasTrait(trait_name)
-    }
-
-    @Callable
-    func get_attribute(attribute: String) -> SwiftGodot.Variant? {
-        guard let object else {
-            GD.pushError("No object set")
-            return nil
-        }
-        return object[attribute]?.asGodotVariant()
-    }
-    
-    @Callable
-    func get_attribute_keys() -> [String] {
-        guard let object else { return [] }
-        return object.type.attributeKeys
-    }
-
-    @Callable
-    func get_position() -> SwiftGodot.Vector2? {
-        guard let position = object?.position else {
-            return nil
-        }
-        return position.asGodotVector2()
-    }
-}
 
 @Godot
 class PoieticDiagramChange: SwiftGodot.Object {

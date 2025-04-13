@@ -30,7 +30,7 @@ class PoieticSelection: SwiftGodot.Node {
 
     @Callable
     func get_ids() -> PackedInt64Array {
-        return PackedInt64Array(selection.map { $0.gdInt64 })
+        return PackedInt64Array(selection.map { $0.godotInt })
     }
     
     @Callable
@@ -50,8 +50,8 @@ class PoieticSelection: SwiftGodot.Node {
     }
     
     @Callable
-    func contains(id: Int) -> Bool {
-        guard let actual_id = ObjectID(Int64(id)) else {
+    func contains(id: Int64) -> Bool {
+        guard let actual_id = ObjectID(id) else {
             GD.pushError("Invalid ID: \(id)")
             return false
         }
@@ -59,8 +59,8 @@ class PoieticSelection: SwiftGodot.Node {
     }
     
     @Callable
-    func append(id: Int) {
-        guard let actual_id = ObjectID(Int64(id)) else {
+    func append(id: Int64) {
+        guard let actual_id = ObjectID(id) else {
             GD.pushError("Invalid ID: \(id)")
             return
         }
@@ -71,7 +71,7 @@ class PoieticSelection: SwiftGodot.Node {
     @Callable
     func replace(ids: PackedInt64Array) {
         var actualIDs: [PoieticCore.ObjectID] = ids.compactMap {
-            PoieticCore.ObjectID(Int64($0))
+            PoieticCore.ObjectID($0)
         }
         guard ids.count == actualIDs.count else {
             GD.pushError("Some IDs are invalid")
@@ -82,8 +82,8 @@ class PoieticSelection: SwiftGodot.Node {
     }
     
     @Callable
-    func remove(id: Int) {
-        guard let actual_id = ObjectID(Int64(id)) else {
+    func remove(id: Int64) {
+        guard let actual_id = ObjectID(id) else {
             GD.pushError("Invalid ID: \(id)")
             return
         }
@@ -92,8 +92,8 @@ class PoieticSelection: SwiftGodot.Node {
     }
 
     @Callable
-    func toggle(id: Int) {
-        guard let actual_id = ObjectID(Int64(id)) else {
+    func toggle(id: Int64) {
+        guard let actual_id = ObjectID(id) else {
             GD.pushError("Invalid ID: \(id)")
             return
         }

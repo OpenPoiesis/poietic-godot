@@ -39,33 +39,8 @@ public class PoieticMetamodel: SwiftGodot.Node {
         }
         
         return PackedStringArray(
-            metamodel.types.filter {
-                $0.hasTrait(trait)
-            }.map { String($0.name) }
+            metamodel.types.filter { $0.hasTrait(trait) }
+                .map { String($0.name) }
         )
-    }
-
-    @Callable
-    public func get_trait_list() -> PackedStringArray {
-        return PackedStringArray(metamodel.traits.map { String($0.name) })
-    }
-
-    @Callable
-    public func type_get_traits(typeName: String) -> PackedStringArray {
-        guard let type = metamodel.objectType(name: typeName) else {
-            return PackedStringArray()
-        }
-        return PackedStringArray(type.traits.map { String($0.name) })
-    }
-    
-    @Callable
-    public func type_has_trait(typeName: String, traitName: String) -> Bool {
-        guard let type = metamodel.objectType(name: typeName) else {
-            return false
-        }
-        guard let trait = metamodel.trait(name: traitName) else {
-            return false
-        }
-        return type.hasTrait(trait)
     }
 }
