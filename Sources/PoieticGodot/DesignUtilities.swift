@@ -42,68 +42,46 @@ struct AutoConnectResult {
     let unknown: [String]
 }
 
+// FIXME: Sync with poietic-tool and actually make cleaner, shared in PoieticFlows
 /// Automatically connect parameters in a frame.
 ///
-func autoConnectParameters(_ frame: TransientFrame, nodes: [PoieticCore.ObjectID] = []) -> AutoConnectResult {
-    let view = StockFlowView(frame)
-    var added: [AutoConnectResult.ParameterInfo] = []
-    var removed: [AutoConnectResult.ParameterInfo] = []
-    var unknown: [String] = []
+func resolveParameters(objects: [DesignObject], view: StockFlowView) -> [PoieticCore.ObjectID:ResolvedParameters] {
+    var result: [PoieticCore.ObjectID:ResolvedParameters] = [:]
+    let builtinNames = Set(BuiltinVariable.allCases.map { $0.name })
     
-    let builtinNames: Set<String> = Set(BuiltinVariable.allCases.map {
-        $0.name
-    })
-
-    let context = RuntimeContext(frame: frame)
-    var formulaCompiler = FormulaCompilerSystem()
-    formulaCompiler.update(context)
-
-    let nodesToFix: [DesignObject]
-    
-    if !nodes.isEmpty {
-        nodesToFix = frame.contained(nodes).map { frame[$0] }
-    }
-    else {
-        nodesToFix = view.simulationNodes
-    }
-    
-    for target in nodesToFix {
-        guard let component: ParsedFormulaComponent = context.component(for: target.id) else {
+    for object in objects {
+        guard let formulaText = try? object["formula"]?.stringValue() else {
             continue
         }
-        let allNodeVars: Set<String> = Set(component.parsedFormula.allVariables)
-        let required = Array(allNodeVars.subtracting(builtinNames))
-        let resolved = view.resolveParameters(target.id, required: required)
-        
+        let parser = ExpressionParser(string: formulaText)
+        guard let formula = try? parser.parse() else {
+            continue
+        }
+        let variables: Set<String> = Set(formula.allVariables)
+        let required = Array(variables.subtracting(builtinNames))
+        let resolved = view.resolveParameters(object.id, required: required)
+        result[object.id] = resolved
+    }
+    return result
+}
+
+/// Automatically connect parameters in a frame.
+///
+func autoConnectParameters(_ resolvedMap: [PoieticCore.ObjectID:ResolvedParameters], in frame: TransientFrame) {
+    for (id, resolved) in resolvedMap {
+        let object = frame[id]
         for name in resolved.missing {
             guard let paramNode = frame.object(named: name) else {
-                unknown.append(name)
                 continue
             }
-            let edge = frame.createEdge(.Parameter, origin: paramNode.id, target: target.id)
-            let info = AutoConnectResult.ParameterInfo(parameterName: name,
-                                     parameterID: paramNode.id,
-                                     targetName: target.name,
-                                     targetID: target.id,
-                                     edgeID: edge.id)
-            added.append(info)
+            let edge = frame.createEdge(.Parameter, origin: paramNode.id, target: object.id)
         }
 
         for edge in resolved.unused {
             let node = frame.object(edge.origin)
             frame.removeCascading(edge.id)
-            
-            let info = AutoConnectResult.ParameterInfo(parameterName: node.name,
-                                     parameterID: node.id,
-                                     targetName: target.name,
-                                     targetID: target.id,
-                                     edgeID: edge.id)
-            removed.append(info)
         }
-        
     }
-
-    return AutoConnectResult(added: added, removed: removed, unknown: unknown)
 }
 
 struct ObjectDifference {

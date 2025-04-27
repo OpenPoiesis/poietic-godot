@@ -10,7 +10,6 @@ import Foundation
 import PoieticFlows
 import PoieticCore
 
-@Godot
 public class PoieticIssue: SwiftGodot.RefCounted {
     var issue: DesignIssue! = nil
 
@@ -114,6 +113,275 @@ public class PoieticDesignController: SwiftGodot.Node {
         emit(signal: PoieticDesignController.designChanged, false)
     }
     
+    // MARK: - Object Graph
+    
+    @Callable
+    func get_object(id: Int64) -> PoieticObject? {
+        guard let id = PoieticCore.ObjectID(id) else {
+            GD.pushError("Invalid object ID")
+            return nil
+        }
+        guard currentFrame.contains(id) else {
+            GD.pushError("Unknown object ID \(id)")
+            return nil
+        }
+        var object = PoieticObject()
+        object.object = currentFrame[id]
+        return object
+    }
+
+    @Callable
+    func get_object_ids(type_name: String) -> PackedInt64Array {
+        guard let type = design.metamodel.objectType(name: type_name) else {
+            GD.pushError("Unknown object type '\(type_name)'")
+            return PackedInt64Array()
+        }
+        var objects = currentFrame.filter { $0.type === type }
+        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+    }
+
+    /// Order given IDs by the given attribute in ascending order.
+    ///
+    /// Rules:
+    /// - If the object does not have the given attribute, it is ordered last
+    /// - Attribute-less objects are ordered by a value derived from their ID,
+    ///   which is arbitrary but consistent within design.
+    ///
+    @Callable
+    func vaguely_ordered(ids: PackedInt64Array, order_attribute: String) -> PackedInt64Array {
+        // TODO: Make this method Frame.vaguelyOrdered(ids, orderAttribute:)
+        var objects:[DesignObject] = ids.compactMap {
+            guard let id = ObjectID($0) else { return nil }
+            return currentFrame[id]
+        }
+        if objects.count != ids.count {
+            GD.pushError("Some IDs were not found in the frame")
+        }
+        objects.sort { (left, right) in
+            switch (left[order_attribute], right[order_attribute]) {
+            case let (.some(lvalue), .some(rvalue)):
+                if let flag = lvalue.vaguelyInAscendingOrder(after: rvalue) {
+                    return flag
+                }
+                else {
+                    return left.id.intValue < right.id.intValue
+                }
+            case (.none, .some(_)): return false
+            case (.some(_), .none): return true
+            case (.none, .none):
+                return left.id.intValue < right.id.intValue
+            }
+        }
+
+        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+    }
+    
+    @Callable
+    func get_outgoing_ids(origin_id: Int64, type_name: String) -> PackedInt64Array {
+        guard let origin_id = PoieticCore.ObjectID(origin_id) else {
+            GD.pushError("Invalid object ID")
+            return PackedInt64Array()
+        }
+
+        guard let type = design.metamodel.objectType(name: type_name) else {
+            GD.pushError("Unknown object type '\(type_name)'")
+            return PackedInt64Array()
+        }
+        
+        let objects = currentFrame.outgoing(origin_id).filter { $0.object.type === type }
+        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+    }
+    
+    @Callable
+    func get_diagram_nodes() -> PackedInt64Array {
+        let nodes = currentFrame.nodes.filter { $0.type.hasTrait(.DiagramNode) }
+        return PackedInt64Array(nodes.map { Int64($0.id.intValue) })
+    }
+    
+    @Callable
+    func get_diagram_edges() -> PackedInt64Array {
+        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnector) }
+        return PackedInt64Array(edges.map { Int64($0.id.intValue) })
+    }
+
+    @Callable
+    func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
+        let change = PoieticDiagramChange()
+  
+        let nodes = nodes.compactMap { ObjectID(String($0)) }
+        let currentNodes = currentFrame.nodes.filter {
+            $0.type.hasTrait(.DiagramNode)
+        }.map { $0.id }
+        let nodeDiff = difference(expected: nodes, current: currentNodes)
+
+        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
+        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.godotInt})
+
+        let edges = edges.compactMap { ObjectID(String($0)) }
+        let currentEdges = currentFrame.edges.filter {
+            $0.object.type.hasTrait(.DiagramConnector)
+        }.map { $0.id }
+        let edgeDiff = difference(expected: edges, current: currentEdges)
+
+        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
+        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.godotInt})
+
+        return change
+    }
+    
+    // MARK: - Special Objects
+    @Callable
+    func get_diagram_settings() -> GDictionary? {
+        guard let frame = design.frame(name: PoieticDesignController.DesignSettingsFrameName) else {
+            return nil
+        }
+        guard let obj = frame.first(type: .DiagramSettings) else {
+            return nil
+        }
+        
+        return GDictionary(obj.attributes)
+    }
+    @Callable
+    func set_diagram_settings(settings: GDictionary) {
+        let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
+        let trans = design.createFrame(deriving: original)
+        let mut: MutableObject
+        if let obj = trans.first(type: .DiagramSettings) {
+            mut = trans.mutate(obj.id)
+        }
+        else {
+            mut = trans.create(.DiagramSettings)
+        }
+
+        for (attr, value) in settings.asLossyPoieticAttributes() {
+            mut[attr] = value
+        }
+        do {
+            try design.accept(trans, replacingName: PoieticDesignController.DesignSettingsFrameName)
+        }
+        catch /* StructuralIntegrityError */ {
+            GD.pushError("Structural integrity error")
+            return
+        }
+    }
+
+    @Callable func get_design_info_object() -> PoieticObject? {
+        guard let first = currentFrame.filter(type: ObjectType.DesignInfo).first else {
+            return nil
+        }
+        var object = PoieticObject()
+        object.object = first
+        return object
+    }
+
+    @Callable func get_simulation_parameters_object() -> PoieticObject? {
+        guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
+            return nil
+        }
+        var object = PoieticObject()
+        object.object = first
+        return object
+    }
+    // MARK: - Transaction -
+    @Callable
+    func new_transaction() -> PoieticTransaction {
+        let frame = design.createFrame(deriving: design.currentFrame)
+        let trans = PoieticTransaction()
+        trans.setFrame(frame)
+        return trans
+    }
+    
+    @Callable
+    func discard(transaction: PoieticTransaction) {
+        guard let frame = transaction.frame else {
+            GD.pushError("Using design without a frame")
+            return
+        }
+        design.discard(frame)
+        
+    }
+    // TODO: Signal design_frame_changed(errors) (also handle errors)
+    /// Accept and validate the frame.
+    ///
+    /// If the transaction has no changes, then it is discarded and no changes are applied. History
+    /// stays untouched.
+    ///
+    @Callable
+    func accept(transaction: PoieticTransaction) {
+        guard let frame = transaction.frame else {
+            GD.pushError("Using design without a frame")
+            return
+        }
+        transaction.frame = nil
+        accept(frame)
+    }
+    
+    func accept(_ frame: TransientFrame) {
+        guard frame.hasChanges else {
+            GD.print("Nothing to do with transient frame, discarding and moving on")
+            design.discard(frame)
+            return
+        }
+        do {
+            try design.accept(frame, appendHistory: true)
+            GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
+        }
+        catch /* StructuralIntegrityError */ {
+            GD.pushError("Structural integrity error")
+            return
+        }
+        validateAndCompile()
+    }
+    /// Called when current frame has been changed.
+    ///
+    /// Must be called on accept, undo, redo.
+    ///
+    func validateAndCompile() {
+        guard let currentFrame = design.currentFrame else {
+            GD.pushError("No current frame")
+            return
+        }
+        
+        // Reset the controller
+        self.issues = nil
+        self.validatedFrame = nil
+        self.simulationPlan = nil
+        
+        do {
+            self.validatedFrame = try design.validate(currentFrame)
+        }
+        catch let error as FrameValidationError {
+            self.issues = error.asDesignIssueCollection()
+            debugPrintIssues(self.issues!)
+        }
+
+        if let frame = self.validatedFrame {
+            // TODO: Sync with ToolEnviornment, make cleaner
+            let compiler = Compiler(frame: frame)
+            do {
+                self.simulationPlan = try compiler.compile()
+            }
+            catch {
+                switch error {
+                case .issues(let issues):
+                    self.issues = issues.asDesignIssueCollection()
+                    debugPrintIssues(self.issues!)
+                case .internalError(let error):
+                    GD.pushError("INTERNAL ERROR (compiler): \(error)")
+                }
+            }
+        }
+        
+        emit(signal: PoieticDesignController.designChanged, self.has_issues())
+        
+        // TODO: Simulate only when there are simulation-related changes.
+        // Simulate
+        if self.simulationPlan != nil {
+            simulate()
+        }
+    }
+
+    
     // MARK: - Issues
     @Callable
     func has_issues() -> Bool {
@@ -173,105 +441,6 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
     }
-    
-    // MARK: - Content
-    
-    @Callable
-    func get_diagram_nodes() -> PackedInt64Array {
-        let nodes = currentFrame.nodes.filter { $0.type.hasTrait(.DiagramNode) }
-        return PackedInt64Array(nodes.map { Int64($0.id.intValue) })
-    }
-    
-    @Callable
-    func get_diagram_edges() -> PackedInt64Array {
-        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnector) }
-        return PackedInt64Array(edges.map { Int64($0.id.intValue) })
-    }
-    @Callable
-    func get_diagram_settings() -> GDictionary? {
-        guard let frame = design.frame(name: PoieticDesignController.DesignSettingsFrameName) else {
-            return nil
-        }
-        guard let obj = frame.first(type: .DiagramSettings) else {
-            return nil
-        }
-        
-        return GDictionary(obj.attributes)
-    }
-    
-    @Callable
-    func set_diagram_settings(settings: GDictionary) {
-        let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
-        let trans = design.createFrame(deriving: original)
-        let mut: MutableObject
-        if let obj = trans.first(type: .DiagramSettings) {
-            mut = trans.mutate(obj.id)
-        }
-        else {
-            mut = trans.create(.DiagramSettings)
-        }
-
-        for (attr, value) in settings.asLossyPoieticAttributes() {
-            mut[attr] = value
-        }
-        do {
-            try design.accept(trans, replacingName: PoieticDesignController.DesignSettingsFrameName)
-        }
-        catch /* StructuralIntegrityError */ {
-            GD.pushError("Structural integrity error")
-            return
-        }
-    }
-
-    @Callable
-    func get_object(id: Int) -> PoieticObject? {
-        guard let poieticID = PoieticCore.ObjectID(String(id)) else {
-            GD.pushError("Invalid object ID")
-            return nil
-        }
-        guard currentFrame.contains(poieticID) else {
-            GD.pushError("Unknown object ID \(poieticID)")
-            return nil
-        }
-        var object = PoieticObject()
-        object.object = currentFrame[poieticID]
-        return object
-    }
-   
-    @Callable func get_simulation_parameters_object() -> PoieticObject? {
-        guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
-            return nil
-        }
-        var object = PoieticObject()
-        object.object = first
-        return object
-    }
-
-    @Callable
-    func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
-        let change = PoieticDiagramChange()
-  
-        let nodes = nodes.compactMap { ObjectID(String($0)) }
-        let currentNodes = currentFrame.nodes.filter {
-            $0.type.hasTrait(.DiagramNode)
-        }.map { $0.id }
-        let nodeDiff = difference(expected: nodes, current: currentNodes)
-
-        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
-        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.godotInt})
-
-        let edges = edges.compactMap { ObjectID(String($0)) }
-        let currentEdges = currentFrame.edges.filter {
-            $0.object.type.hasTrait(.DiagramConnector)
-        }.map { $0.id }
-        let edgeDiff = difference(expected: edges, current: currentEdges)
-
-        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
-        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.godotInt})
-
-        return change
-    }
-    
     @Callable
     func can_connect(type_name: String, origin: Int64, target: Int64) -> Bool {
         guard let originID = PoieticCore.ObjectID(origin) else {
@@ -293,106 +462,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         return checker.canConnect(type: type, from: originID, to: targetID, in: currentFrame)
     }
     
-    @Callable
-    func new_transaction() -> PoieticTransaction {
-        let frame = design.createFrame(deriving: design.currentFrame)
-        let trans = PoieticTransaction()
-        trans.setFrame(frame)
-        return trans
-    }
     
-    @Callable
-    func discard(transaction: PoieticTransaction) {
-        guard let frame = transaction.frame else {
-            GD.pushError("Using design without a frame")
-            return
-        }
-        design.discard(frame)
-        
-    }
-
-    // TODO: Signal design_frame_changed(errors) (also handle errors)
-    /// Accept and validate the frame.
-    ///
-    /// If the transaction has no changes, then it is discarded and no changes are applied. History
-    /// stays untouched.
-    ///
-    @Callable
-    func accept(transaction: PoieticTransaction) {
-        guard let frame = transaction.frame else {
-            GD.pushError("Using design without a frame")
-            return
-        }
-        transaction.frame = nil
-        accept(frame)
-    }
-    
-    func accept(_ frame: TransientFrame) {
-        guard frame.hasChanges else {
-            GD.print("Nothing to do with transient frame, discarding and moving on")
-            design.discard(frame)
-            return
-        }
-        do {
-            try design.accept(frame, appendHistory: true)
-            GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
-        }
-        catch /* StructuralIntegrityError */ {
-            GD.pushError("Structural integrity error")
-            return
-        }
-        validateAndCompile()
-    }
-    
-    /// Called when current frame has been changed.
-    ///
-    /// Must be called on accept, undo, redo.
-    ///
-    func validateAndCompile() {
-        guard let currentFrame = design.currentFrame else {
-            GD.pushError("No current frame")
-            return
-        }
-        
-        // Reset the controller
-        self.issues = nil
-        self.validatedFrame = nil
-        self.simulationPlan = nil
-        
-        do {
-            self.validatedFrame = try design.validate(currentFrame)
-        }
-        catch let error as FrameValidationError {
-            self.issues = error.asDesignIssueCollection()
-            debugPrintIssues(self.issues!)
-        }
-
-        if let frame = self.validatedFrame {
-            // TODO: Sync with ToolEnviornment, make cleaner
-            let compiler = Compiler(frame: frame)
-            do {
-                self.simulationPlan = try compiler.compile()
-            }
-            catch {
-                switch error {
-                case .issues(let issues):
-                    self.issues = issues.asDesignIssueCollection()
-                    debugPrintIssues(self.issues!)
-                case .internalError(let error):
-                    GD.pushError("INTERNAL ERROR (compiler): \(error)")
-                }
-            }
-        }
-        
-        emit(signal: PoieticDesignController.designChanged, self.has_issues())
-        
-        // TODO: Simulate only when there are simulation-related changes.
-        // Simulate
-        if self.simulationPlan != nil {
-            simulate()
-        }
-    }
-
     func debugPrintIssues(_ issues: DesignIssueCollection) {
         GD.printErr("Validation error")
         for issue in issues.designIssues {
@@ -446,32 +516,32 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     @Callable
     func auto_connect_parameters(ids: PackedInt64Array) {
-        guard design.currentFrame != nil else {
+        guard let validated = validatedFrame else {
             GD.pushError("Using design without a frame")
             return
         }
         
+        let ids = ids.compactMap { PoieticCore.ObjectID($0) }
+        let view = StockFlowView(validated)
+        let nodes: [DesignObject]
+        if ids.isEmpty {
+            nodes = view.simulationNodes
+        }
+        else {
+            nodes = ids.map { validated[$0] }
+        }
+        let resolvedParams = resolveParameters(objects: nodes, view: view)
+        // TODO: Know whether there is anything to do at this point
+
+        if resolvedParams.isEmpty {
+            GD.print("Nothing to auto-connect")
+            return
+        }
+        
         let trans = design.createFrame(deriving: design.currentFrame)
-        let realIDs = ids.compactMap { PoieticCore.ObjectID($0) }
-        let result = autoConnectParameters(trans, nodes: realIDs)
+        let result = autoConnectParameters(resolvedParams, in: trans)
 
-        if !result.added.isEmpty {
-            GD.print("Auto-connected parameters:")
-            for info in result.added {
-                GD.print("    \(info.parameterName ?? "(unnamed)") (\(info.parameterID)) to \(info.targetName ?? "(unnamed)") (\(info.targetID)), edge: \(info.edgeID)")
-            }
-        }
-
-        if !result.removed.isEmpty {
-            GD.print("Auto-disconnected parameters:")
-            for info in result.removed {
-                GD.print("    \(info.parameterName ?? "(unnamed)") (\(info.parameterID)) from \(info.targetName ?? "(unnamed)") (\(info.targetID)), edge: \(info.edgeID)")
-            }
-        }
-        if !result.unknown.isEmpty {
-            let list = result.unknown.joined(separator: ", ")
-            GD.print("Unknown parameters: \(list)")
-        }
+        GD.print("Auto-connected \(resolvedParams.count) objects")
 
         if trans.hasChanges {
             accept(trans)

@@ -8,6 +8,7 @@
 import SwiftGodot
 import PoieticCore
 
+
 @Godot
 public class PoieticMetamodel: SwiftGodot.Node {
     var metamodel: Metamodel! = nil
@@ -23,13 +24,33 @@ public class PoieticMetamodel: SwiftGodot.Node {
     }
 
     @Callable
-    public func get_node_type_list() -> PackedStringArray {
-        return PackedStringArray(metamodel.nodeTypes.map { String($0.name) })
-    }
+    public func get_node_type_list(traits: PackedStringArray? = nil) -> PackedStringArray {
+        let types: [ObjectType]
+        if let traits {
+            types = metamodel.nodeTypes.filter { type in
+                traits.allSatisfy { type.hasTrait($0) }
+            }
+        }
+        else {
+            types = metamodel.nodeTypes
+        }
 
+        return PackedStringArray(types.map { String($0.name) })
+    }
+    
     @Callable
-    public func get_edge_type_list() -> PackedStringArray {
-        return PackedStringArray(metamodel.edgeTypes.map { String($0.name) })
+    public func get_edge_type_list(traits: PackedStringArray? = nil) -> PackedStringArray {
+        let types: [ObjectType]
+        if let traits {
+            types = metamodel.edgeTypes.filter { type in
+                traits.allSatisfy { type.hasTrait($0) }
+            }
+        }
+        else {
+            types = metamodel.edgeTypes
+        }
+
+        return PackedStringArray(types.map { String($0.name) })
     }
 
     @Callable

@@ -14,8 +14,8 @@ import PoieticCore
 class PoieticObject: SwiftGodot.RefCounted {
     var object: DesignObject?
     
-    @Export var object_id: Int? {
-        get { object.map { Int($0.id.intValue) } }
+    @Export var object_id: Int64? {
+        get { object.map { $0.id.godotInt } }
         set { readOnlyAttributeError() }
     }
 
@@ -29,22 +29,22 @@ class PoieticObject: SwiftGodot.RefCounted {
         set { readOnlyAttributeError() }
     }
     
-    @Export var origin: Int? {
+    @Export var origin: Int64? {
         get {
             guard let object, case let .edge(origin, _) = object.structure else {
                 return nil
             }
-            return Int(origin.intValue)
+            return origin.godotInt
         }
         set { readOnlyAttributeError() }
     }
 
-    @Export var target: Int? {
+    @Export var target: Int64? {
         get {
             guard let object, case let .edge(_, target) = object.structure else {
                 return nil
             }
-            return Int(target.intValue)
+            return target.godotInt
         }
         set { readOnlyAttributeError() }
     }

@@ -34,7 +34,7 @@ class PoieticTransaction: SwiftGodot.Object {
     }
 
     @Callable
-    func create_node(typeName: String, name: String?, attributes: GDictionary) -> Int64? {
+    func create_node(typeName: String, name: String? = nil, attributes: GDictionary = GDictionary()) -> Int64? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
