@@ -10,6 +10,7 @@ import Foundation
 import PoieticFlows
 import PoieticCore
 
+@Godot
 public class PoieticIssue: SwiftGodot.RefCounted {
     var issue: DesignIssue! = nil
 
