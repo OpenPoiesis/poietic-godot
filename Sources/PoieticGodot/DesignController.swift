@@ -80,23 +80,13 @@ public class PoieticDesignController: SwiftGodot.Node {
         set { GD.pushError("Trying to set read-only attribute") }
     }
 
-    required init() {
+    required init(_ context: InitContext) {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self._gdMetamodelWrapper = PoieticMetamodel()
         self._gdMetamodelWrapper.metamodel = design.metamodel
 
-        super.init()
-        onInit()
-    }
-    
-    required init(nativeHandle: UnsafeRawPointer) {
-        self.design = Design(metamodel: StockFlowMetamodel)
-        self.checker = ConstraintChecker(design.metamodel)
-        self._gdMetamodelWrapper = PoieticMetamodel()
-        self._gdMetamodelWrapper.metamodel = design.metamodel
-
-        super.init(nativeHandle: nativeHandle)
+        super.init(context)
         onInit()
     }
     
