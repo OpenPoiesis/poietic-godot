@@ -81,7 +81,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
 
     required init() {
-        self.design = Design(metamodel: FlowsMetamodel)
+        self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self._gdMetamodelWrapper = PoieticMetamodel()
         self._gdMetamodelWrapper.metamodel = design.metamodel
@@ -91,7 +91,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     
     required init(nativeHandle: UnsafeRawPointer) {
-        self.design = Design(metamodel: FlowsMetamodel)
+        self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self._gdMetamodelWrapper = PoieticMetamodel()
         self._gdMetamodelWrapper.metamodel = design.metamodel
@@ -107,7 +107,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     @Callable
     func new_design() {
-        self.design = Design(metamodel: FlowsMetamodel)
+        self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
@@ -560,7 +560,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let url = URL(fileURLWithPath: path)
         let store = MakeshiftDesignStore(url: url)
         do {
-            let design = try store.load(metamodel: FlowsMetamodel)
+            let design = try store.load(metamodel: StockFlowMetamodel)
             self.design = design
         }
         catch {
