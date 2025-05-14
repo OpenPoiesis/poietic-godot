@@ -24,4 +24,3 @@ import SwiftGodot
 
     ]
 )
-

@@ -67,13 +67,13 @@ public class PoieticDesignController: SwiftGodot.Node {
     var result: SimulationResult? = nil
     
     // Called on: load from path
-    #signal("design_reset")
+    @Signal var designReset: SimpleSignal
     // Called on: accept, undo, redo
-    #signal("design_changed", arguments: ["has_issues": Bool.self])
+    @Signal var designChanged: SignalWithArguments<Bool>
 
-    #signal("simulation_started")
-    #signal("simulation_failed")
-    #signal("simulation_finished", arguments: ["result": PoieticResult.self])
+    @Signal var simulationStarted: SimpleSignal
+    @Signal var simulationFailed: SimpleSignal
+    @Signal var simulationFinished: SignalWithArguments<PoieticResult>
 
     @Export var metamodel: PoieticMetamodel? {
         get { return _gdMetamodelWrapper }
@@ -101,7 +101,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
-        emit(signal: PoieticDesignController.designChanged, false)
+        designChanged.emit(false)
     }
     
     // MARK: - Object Graph
@@ -363,7 +363,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             }
         }
         
-        emit(signal: PoieticDesignController.designChanged, self.has_issues())
+        designChanged.emit(self.has_issues())
         
         // TODO: Simulate only when there are simulation-related changes.
         // Simulate
@@ -548,7 +548,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func load_from_path(path: String) {
         let url = URL(fileURLWithPath: path)
-        let store = MakeshiftDesignStore(url: url)
+        let store = DesignStore(url: url)
         do {
             let design = try store.load(metamodel: StockFlowMetamodel)
             self.design = design
@@ -558,14 +558,14 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Unable to open design: \(error)")
             return
         }
-        emit(signal: PoieticDesignController.designReset)
+        designReset.emit()
         validateAndCompile()
     }
     
     @Callable
     func save_to_path(path: String) {
         let url = URL(fileURLWithPath: path)
-        let store = MakeshiftDesignStore(url: url)
+        let store = DesignStore(url: url)
         do {
             try store.save(design: design)
         }
@@ -607,31 +607,26 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
         
-        let frame: TransientFrame = design.createFrame(deriving: design.currentFrame)
+        let trans: TransientFrame = design.createFrame(deriving: design.currentFrame)
         
         // 1. Read
         GD.print("Importing from \(path)")
-        let foreignFrame: any ForeignFrameProtocol
-        let reader = JSONFrameReader()
-
+        let reader = JSONDesignReader(variantCoding: .dictionaryWithFallback)
+        let rawDesign: RawDesign
+        
         do {
-            if url.hasDirectoryPath {
-                foreignFrame = try reader.read(bundleAtURL: url)
-            }
-            else {
-                foreignFrame = try reader.read(fileAtURL: url)
-            }
+            rawDesign = try reader.read(fileAtURL: url)
         }
         catch {
-            // TODO: Propagate error to the user
             GD.printErr("Unable to read frame '\(path)': \(error)")
             return false
         }
 
         // 2. Load
-        let loader = ForeignFrameLoader()
+        let loader = RawDesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
-            try loader.load(foreignFrame, into: frame)
+            // FIXME: [WIP] add which frame to load
+            try loader.load(rawDesign.snapshots, into: trans)
         }
         catch {
             // TODO: Propagate error to the user
@@ -639,32 +634,33 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
 
-        accept(frame)
+        accept(trans)
         return true
     }
 
     @Callable
     func import_from_data(data: PackedByteArray) -> Bool {
-        let frame: TransientFrame = design.createFrame(deriving: design.currentFrame)
         let nativeData: Data = Data(data)
+        let trans: TransientFrame = design.createFrame(deriving: design.currentFrame)
+        
         // 1. Read
         GD.print("Importing from data")
-        let foreignFrame: any ForeignFrameProtocol
-        let reader = JSONFrameReader()
-
+        let reader = JSONDesignReader(variantCoding: .dictionaryWithFallback)
+        let rawDesign: RawDesign
+        
         do {
-            foreignFrame = try reader.read(data: nativeData)
+            rawDesign = try reader.read(data: nativeData)
         }
         catch {
-            // TODO: Propagate error to the user
             GD.printErr("Unable to read frame from data: \(error)")
             return false
         }
 
         // 2. Load
-        let loader = ForeignFrameLoader()
+        let loader = RawDesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
-            try loader.load(foreignFrame, into: frame)
+            // FIXME: [WIP] add which frame to load
+            try loader.load(rawDesign.snapshots, into: trans)
         }
         catch {
             // TODO: Propagate error to the user
@@ -672,7 +668,8 @@ public class PoieticDesignController: SwiftGodot.Node {
             return false
         }
 
-        accept(frame)
+        accept(trans)
+        return true
         return true
     }
 
@@ -721,14 +718,14 @@ public class PoieticDesignController: SwiftGodot.Node {
         let simulator = Simulator(simulation: simulation,
                                   parameters: simulationPlan.simulationParameters)
         
-        emit(signal: PoieticDesignController.simulationStarted)
+        simulationStarted.emit()
         
         do {
             try simulator.initializeState()
         }
         catch {
             GD.pushError("Simulation initialisation failed: \(error)")
-            emit(signal: PoieticDesignController.simulationFailed)
+            simulationFailed.emit()
             return
         }
         
@@ -737,15 +734,14 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         catch {
             GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
-            emit(signal: PoieticDesignController.simulationFailed)
+            simulationFailed.emit()
             return
         }
         
         self.result = simulator.result
         let wrap = PoieticResult()
         wrap.set(plan: simulationPlan, result: simulator.result)
-        emit(signal: PoieticDesignController.simulationFinished, wrap)
-        
+        simulationFinished.emit(wrap)
     }
 }
 
