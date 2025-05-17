@@ -12,10 +12,10 @@ import PoieticFlows
 
 @Godot
 class PoieticPlayer: SwiftGodot.Node {
-    #signal("simulation_player_started")
-    #signal("simulation_player_stopped")
-    #signal("simulation_player_step")
-    #signal("simulation_player_restarted")
+    @Signal var simulationPlayerStarted: SimpleSignal
+    @Signal var simulationPlayerStopped: SimpleSignal
+    @Signal var simulationPlayerStep: SimpleSignal
+    @Signal var simulationPlayerRestarted: SimpleSignal
     
     @Export var result: PoieticResult?
     @Export var is_running: Bool = false
@@ -36,19 +36,19 @@ class PoieticPlayer: SwiftGodot.Node {
     @Callable
     func restart() {
         current_step = 0
-        emit(signal: PoieticPlayer.simulationPlayerRestarted)
+        simulationPlayerRestarted.emit()
     }
     
     @Callable
     public func run() {
         self.is_running = true
-        emit(signal: PoieticPlayer.simulationPlayerStarted)
+        simulationPlayerStarted.emit()
     }
 
     @Callable
     public func stop() {
         self.is_running = false
-        emit(signal: PoieticPlayer.simulationPlayerStopped)
+        simulationPlayerStopped.emit()
     }
 
     @Callable
@@ -77,7 +77,7 @@ class PoieticPlayer: SwiftGodot.Node {
                 return
             }
         }
-        emit(signal: PoieticPlayer.simulationPlayerStep)
+        simulationPlayerStep.emit()
         current_step += 1
     }
 

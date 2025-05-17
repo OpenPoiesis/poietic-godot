@@ -25,8 +25,8 @@ struct PoieticSelectionTypeInfo {
 @Godot
 class PoieticSelection: SwiftGodot.Node {
     var selection: Selection = Selection()
-    
-    #signal("selection_changed", arguments: ["selection": PoieticSelection.self])
+   
+    @Signal var selectionChanged: SignalWithArguments<PoieticSelection>
 
     @Callable
     func get_ids() -> PackedInt64Array {
@@ -46,7 +46,7 @@ class PoieticSelection: SwiftGodot.Node {
     @Callable
     func clear() {
         selection.removeAll()
-        emit(signal: PoieticSelection.selectionChanged, self)
+        selectionChanged.emit(self)
     }
     
     @Callable
@@ -65,7 +65,7 @@ class PoieticSelection: SwiftGodot.Node {
             return
         }
         selection.append(actual_id)
-        emit(signal: PoieticSelection.selectionChanged, self)
+        selectionChanged.emit(self)
     }
 
     @Callable
@@ -78,7 +78,7 @@ class PoieticSelection: SwiftGodot.Node {
             return
         }
         selection.replaceAll(actualIDs)
-        emit(signal: PoieticSelection.selectionChanged, self)
+        selectionChanged.emit(self)
     }
     
     @Callable
@@ -88,7 +88,7 @@ class PoieticSelection: SwiftGodot.Node {
             return
         }
         selection.remove(actual_id)
-        emit(signal: PoieticSelection.selectionChanged, self)
+        selectionChanged.emit(self)
     }
 
     @Callable
@@ -98,6 +98,6 @@ class PoieticSelection: SwiftGodot.Node {
             return
         }
         selection.toggle(actual_id)
-        emit(signal: PoieticSelection.selectionChanged, self)
+        selectionChanged.emit(self)
     }
 }
