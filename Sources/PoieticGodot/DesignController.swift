@@ -623,7 +623,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
 
         // 2. Load
-        let loader = RawDesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
+        let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
             // FIXME: [WIP] add which frame to load
             try loader.load(rawDesign.snapshots, into: trans)
@@ -657,7 +657,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
 
         // 2. Load
-        let loader = RawDesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
+        let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
             // FIXME: [WIP] add which frame to load
             try loader.load(rawDesign.snapshots, into: trans)
