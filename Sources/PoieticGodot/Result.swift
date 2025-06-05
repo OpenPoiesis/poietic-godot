@@ -24,9 +24,9 @@ class PoieticResult: SwiftGodot.Object {
         self.objectSeries = [:]
         for obj in plan.simulationObjects {
             let series = PoieticTimeSeries()
-            series._object_id = obj.id
+            series._object_id = obj.objectID
             series.series = result.unsafeTimeSeries(at: obj.variableIndex)
-            self.objectSeries![obj.id] = series
+            self.objectSeries![obj.objectID] = series
         }
     }
 
