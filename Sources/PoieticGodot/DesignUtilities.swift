@@ -45,7 +45,7 @@ struct AutoConnectResult {
 // FIXME: Sync with poietic-tool and actually make cleaner, shared in PoieticFlows
 /// Automatically connect parameters in a frame.
 ///
-func resolveParameters(objects: [DesignObject], view: StockFlowView) -> [PoieticCore.ObjectID:ResolvedParameters] {
+func resolveParameters(objects: [ObjectSnapshot], view: StockFlowView) -> [PoieticCore.ObjectID:ResolvedParameters] {
     var result: [PoieticCore.ObjectID:ResolvedParameters] = [:]
     let builtinNames = Set(BuiltinVariable.allCases.map { $0.name })
     
@@ -59,8 +59,8 @@ func resolveParameters(objects: [DesignObject], view: StockFlowView) -> [Poietic
         }
         let variables: Set<String> = Set(formula.allVariables)
         let required = Array(variables.subtracting(builtinNames))
-        let resolved = view.resolveParameters(object.id, required: required)
-        result[object.id] = resolved
+        let resolved = view.resolveParameters(object.objectID, required: required)
+        result[object.objectID] = resolved
     }
     return result
 }
@@ -74,12 +74,12 @@ func autoConnectParameters(_ resolvedMap: [PoieticCore.ObjectID:ResolvedParamete
             guard let paramNode = frame.object(named: name) else {
                 continue
             }
-            let edge = frame.createEdge(.Parameter, origin: paramNode.id, target: object.id)
+            let edge = frame.createEdge(.Parameter, origin: paramNode.objectID, target: object.objectID)
         }
 
         for edge in resolved.unused {
             let node = frame.object(edge.origin)
-            frame.removeCascading(edge.id)
+            frame.removeCascading(edge.object.objectID)
         }
     }
 }

@@ -60,7 +60,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     let _gdMetamodelWrapper: PoieticMetamodel
     var design: Design
     var checker: ConstraintChecker
-    var currentFrame: DesignFrame { self.design.currentFrame! }
+    var currentFrame: StableFrame { self.design.currentFrame! }
     var issues: DesignIssueCollection? = nil
     var validatedFrame: ValidatedFrame? = nil
     var simulationPlan: SimulationPlan? = nil
@@ -128,7 +128,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             return PackedInt64Array()
         }
         var objects = currentFrame.filter { $0.type === type }
-        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+        return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
     }
 
     /// Order given IDs by the given attribute in ascending order.
@@ -141,7 +141,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Callable
     func vaguely_ordered(ids: PackedInt64Array, order_attribute: String) -> PackedInt64Array {
         // TODO: Make this method Frame.vaguelyOrdered(ids, orderAttribute:)
-        var objects:[DesignObject] = ids.compactMap {
+        var objects:[ObjectSnapshot] = ids.compactMap {
             guard let id = ObjectID($0) else { return nil }
             return currentFrame[id]
         }
@@ -155,16 +155,16 @@ public class PoieticDesignController: SwiftGodot.Node {
                     return flag
                 }
                 else {
-                    return left.id.intValue < right.id.intValue
+                    return left.objectID.intValue < right.objectID.intValue
                 }
             case (.none, .some(_)): return false
             case (.some(_), .none): return true
             case (.none, .none):
-                return left.id.intValue < right.id.intValue
+                return left.objectID.intValue < right.objectID.intValue
             }
         }
 
-        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+        return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
     }
     
     @Callable
@@ -180,19 +180,19 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         
         let objects = currentFrame.outgoing(origin_id).filter { $0.object.type === type }
-        return PackedInt64Array(objects.map { Int64($0.id.intValue) })
+        return PackedInt64Array(objects.map { Int64($0.object.objectID.intValue) })
     }
     
     @Callable
     func get_diagram_nodes() -> PackedInt64Array {
-        let nodes = currentFrame.nodes.filter { $0.type.hasTrait(.DiagramNode) }
-        return PackedInt64Array(nodes.map { Int64($0.id.intValue) })
+        let nodes = currentFrame.nodes(withTrait: .DiagramNode)
+        return PackedInt64Array(nodes.map { Int64($0.objectID.intValue) })
     }
     
     @Callable
     func get_diagram_edges() -> PackedInt64Array {
-        let edges = currentFrame.edges.filter { $0.object.type.hasTrait(.DiagramConnector) }
-        return PackedInt64Array(edges.map { Int64($0.id.intValue) })
+        let edges = currentFrame.edges(withTrait: .DiagramConnector)
+        return PackedInt64Array(edges.map { Int64($0.object.objectID.intValue) })
     }
 
     @Callable
@@ -202,7 +202,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let nodes = nodes.compactMap { ObjectID(String($0)) }
         let currentNodes = currentFrame.nodes.filter {
             $0.type.hasTrait(.DiagramNode)
-        }.map { $0.id }
+        }.map { $0.objectID }
         let nodeDiff = difference(expected: nodes, current: currentNodes)
 
         change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
@@ -211,7 +211,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let edges = edges.compactMap { ObjectID(String($0)) }
         let currentEdges = currentFrame.edges.filter {
             $0.object.type.hasTrait(.DiagramConnector)
-        }.map { $0.id }
+        }.map { $0.object.objectID }
         let edgeDiff = difference(expected: edges, current: currentEdges)
 
         change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
@@ -236,9 +236,9 @@ public class PoieticDesignController: SwiftGodot.Node {
     func set_diagram_settings(settings: GDictionary) {
         let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
         let trans = design.createFrame(deriving: original)
-        let mut: MutableObject
+        let mut: TransientObject
         if let obj = trans.first(type: .DiagramSettings) {
-            mut = trans.mutate(obj.id)
+            mut = trans.mutate(obj.objectID)
         }
         else {
             mut = trans.create(.DiagramSettings)
@@ -514,7 +514,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         let ids = ids.compactMap { PoieticCore.ObjectID($0) }
         let view = StockFlowView(validated)
-        let nodes: [DesignObject]
+        let nodes: [ObjectSnapshot]
         if ids.isEmpty {
             nodes = view.simulationNodes
         }
@@ -672,7 +672,24 @@ public class PoieticDesignController: SwiftGodot.Node {
         return true
         return true
     }
-
+    
+    @Callable func copy_selection(ids godotIDs: PackedInt64Array) -> String {
+        // Safely sanitizse IDs
+        let ids = godotIDs.compactMap { ObjectID(String($0)) }
+        let extractor = DesignExtractor()
+        let extract = extractor.extractPruning(objects: ids, frame: self.currentFrame)
+        var rawDesign = RawDesign(metamodelName: design.metamodel.name,
+                                  metamodelVersion: design.metamodel.version,
+                                  snapshots: extract)
+                                  
+        let writer = JSONDesignWriter()
+        guard let text: String = writer.write(rawDesign) else {
+            GD.printErr("Unable to get textual representation for pasteboard")
+            return ""
+        }
+        return text
+    }
+    
     @Export var debug_stats: GDictionary {
         get {
             var dict = GDictionary()

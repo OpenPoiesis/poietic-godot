@@ -12,10 +12,10 @@ import PoieticCore
 ///
 @Godot
 class PoieticObject: SwiftGodot.RefCounted {
-    var object: DesignObject?
+    var object: ObjectSnapshot?
     
     @Export var object_id: Int64? {
-        get { object.map { $0.id.godotInt } }
+        get { object.map { $0.objectID.godotInt } }
         set { readOnlyAttributeError() }
     }
 

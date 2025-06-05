@@ -7,6 +7,7 @@
 
 import SwiftGodot
 import PoieticCore
+import Foundation
 
 @Godot
 class PoieticTransaction: SwiftGodot.Object {
@@ -30,7 +31,7 @@ class PoieticTransaction: SwiftGodot.Object {
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
         let object = frame.create(type, attributes: lossyAttributes)
         
-        return object.id.godotInt
+        return object.objectID.godotInt
     }
 
     @Callable
@@ -49,7 +50,7 @@ class PoieticTransaction: SwiftGodot.Object {
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
         let object = frame.createNode(type, name: name, attributes: lossyAttributes)
         
-        return object.id.godotInt
+        return object.objectID.godotInt
     }
     
     @Callable
@@ -82,7 +83,7 @@ class PoieticTransaction: SwiftGodot.Object {
         
         let object = frame.createEdge(type, origin: originID, target: targetID)
         
-        return object.id.godotInt
+        return object.objectID.godotInt
     }
     
     @Callable
@@ -160,5 +161,41 @@ class PoieticTransaction: SwiftGodot.Object {
         object[attribute] = variant
         return true
     }
+    
+    @Callable
+    func paste_from_text(text: String) -> PackedInt64Array {
+        guard let frame else {
+            GD.pushError("Using transaction without a frame")
+            return PackedInt64Array()
+        }
+        guard let data = text.data(using: .utf8) else {
+            GD.pushError("Can not get data from text")
+            return PackedInt64Array()
+        }
 
+        let reader = JSONDesignReader()
+        let rawDesign: RawDesign
+        do {
+            rawDesign = try reader.read(data: data)
+        }
+        catch {
+            GD.pushError("Unable to paste: \(error)")
+            return PackedInt64Array()
+        }
+        
+        let loader = DesignLoader(metamodel: frame.design.metamodel)
+        let ids: [PoieticCore.ObjectID]
+        do {
+            ids = try loader.load(rawDesign.snapshots,
+                                  into: frame,
+                                  identityStrategy: .preserveOrCreate)
+        }
+        catch {
+            GD.pushError("Unable to load: \(error)")
+            return PackedInt64Array()
+//            let position = $0.position ?? Point(0.0, 0.0)
+//            $0.position = Point(position.x + offset.x, position.y + offset.y)
+        }
+        return PackedInt64Array( ids.map {$0.godotInt} )
+    }
 }
