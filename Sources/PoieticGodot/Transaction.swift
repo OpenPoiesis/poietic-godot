@@ -25,7 +25,7 @@ class PoieticTransaction: SwiftGodot.Object {
         }
         
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
-            GD.pushError("Trying to create a node of unknown type '\(typeName)'")
+            GD.pushError("Trying to create an object of unknown type '\(typeName)'")
             return nil
         }
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
@@ -36,7 +36,6 @@ class PoieticTransaction: SwiftGodot.Object {
 
     @Callable
     func create_node(typeName: String, name: String? = nil, attributes: GDictionary = GDictionary()) -> Int64? {
-        GD.print("CREATE NODE: ", typeName, " name: '", name, "'")
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
@@ -44,6 +43,8 @@ class PoieticTransaction: SwiftGodot.Object {
         
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
+            let names = frame.design.metamodel.types.map { $0.name }.joined(separator: ", ")
+            GD.pushError("Available types: \(names)")
             return nil
         }
 

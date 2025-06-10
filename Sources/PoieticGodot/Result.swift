@@ -29,25 +29,46 @@ class PoieticResult: SwiftGodot.Object {
             self.objectSeries![obj.objectID] = series
         }
     }
-
+    
     @Export var initial_time: Double? {
         get { result?.initialTime }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var end_time: Double? {
         get { result?.endTime }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var time_delta: Double? {
         get { result?.timeDelta }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var count: Int {
         get { result?.count ?? 0 }
         set(value) { GD.pushError("Trying to set read-only variable") }
+    }
+    
+    /// Get list of IDs of state variables representing computed objects.
+    ///
+    /// This list does not include internal states.
+    ///
+    @Callable
+    func get_computed_object_ids() -> PackedInt64Array {
+        guard let plan else {
+            return PackedInt64Array()
+        }
+        let ids = plan.stateVariables.compactMap {
+            if case let .object(id) = $0.content {
+                id
+            }
+            else {
+                nil
+            }
+        }
+        
+        return PackedInt64Array(ids.map { $0.godotInt} )
     }
 
     @Callable

@@ -70,22 +70,22 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Signal var designReset: SimpleSignal
     // Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
-
+    
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
-
+    
     @Export var metamodel: PoieticMetamodel? {
         get { return _gdMetamodelWrapper }
         set { GD.pushError("Trying to set read-only attribute") }
     }
-
+    
     required init(_ context: InitContext) {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self._gdMetamodelWrapper = PoieticMetamodel()
         self._gdMetamodelWrapper.metamodel = design.metamodel
-
+        
         super.init(context)
         onInit()
     }
@@ -120,7 +120,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = currentFrame[id]
         return object
     }
-
+    
     @Callable
     func get_object_ids(type_name: String) -> PackedInt64Array {
         guard let type = design.metamodel.objectType(name: type_name) else {
@@ -130,7 +130,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         var objects = currentFrame.filter { $0.type === type }
         return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
     }
-
+    
     /// Order given IDs by the given attribute in ascending order.
     ///
     /// Rules:
@@ -163,7 +163,7 @@ public class PoieticDesignController: SwiftGodot.Node {
                 return left.objectID.intValue < right.objectID.intValue
             }
         }
-
+        
         return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
     }
     
@@ -173,7 +173,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.pushError("Invalid object ID")
             return PackedInt64Array()
         }
-
+        
         guard let type = design.metamodel.objectType(name: type_name) else {
             GD.pushError("Unknown object type '\(type_name)'")
             return PackedInt64Array()
@@ -194,29 +194,29 @@ public class PoieticDesignController: SwiftGodot.Node {
         let edges = currentFrame.edges(withTrait: .DiagramConnector)
         return PackedInt64Array(edges.map { Int64($0.object.objectID.intValue) })
     }
-
+    
     @Callable
     func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
         let change = PoieticDiagramChange()
-  
+        
         let nodes = nodes.compactMap { ObjectID(String($0)) }
         let currentNodes = currentFrame.nodes.filter {
             $0.type.hasTrait(.DiagramNode)
         }.map { $0.objectID }
         let nodeDiff = difference(expected: nodes, current: currentNodes)
-
+        
         change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
         change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.godotInt})
-
+        
         let edges = edges.compactMap { ObjectID(String($0)) }
         let currentEdges = currentFrame.edges.filter {
             $0.object.type.hasTrait(.DiagramConnector)
         }.map { $0.object.objectID }
         let edgeDiff = difference(expected: edges, current: currentEdges)
-
+        
         change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
         change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.godotInt})
-
+        
         return change
     }
     
@@ -243,7 +243,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         else {
             mut = trans.create(.DiagramSettings)
         }
-
+        
         for (attr, value) in settings.asLossyPoieticAttributes() {
             mut[attr] = value
         }
@@ -255,7 +255,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             return
         }
     }
-
+    
     @Callable func get_design_info_object() -> PoieticObject? {
         guard let first = currentFrame.filter(type: ObjectType.DesignInfo).first else {
             return nil
@@ -264,7 +264,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = first
         return object
     }
-
+    
     @Callable func get_simulation_parameters_object() -> PoieticObject? {
         guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
             return nil
@@ -345,7 +345,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             self.issues = error.asDesignIssueCollection()
             debugPrintIssues(self.issues!)
         }
-
+        
         if let frame = self.validatedFrame {
             // TODO: Sync with ToolEnviornment, make cleaner
             let compiler = Compiler(frame: frame)
@@ -371,7 +371,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             simulate()
         }
     }
-
+    
     
     // MARK: - Issues
     @Callable
@@ -503,7 +503,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         let traits = frame.sharedTraits(frame.contained(selection.selection.ids))
         return traits.map { $0.name }
     }
-    // MARK: - Design Graph Transfomrations
+    // MARK: - Design Graph Transformations
     
     @Callable
     func auto_connect_parameters(ids: PackedInt64Array) {
@@ -523,7 +523,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         let resolvedParams = resolveParameters(objects: nodes, view: view)
         // TODO: Know whether there is anything to do at this point
-
+        
         if resolvedParams.isEmpty {
             GD.print("Nothing to auto-connect")
             return
@@ -531,9 +531,9 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         let trans = design.createFrame(deriving: design.currentFrame)
         let result = autoConnectParameters(resolvedParams, in: trans)
-
+        
         GD.print("Auto-connected \(resolvedParams.count) objects")
-
+        
         if trans.hasChanges {
             accept(trans)
         }
@@ -578,7 +578,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         // TODO: See same method in poietic-tool
         let url: URL
         let manager = FileManager()
-
+        
         if !manager.fileExists(atPath: path) {
             return nil
         }
@@ -596,10 +596,10 @@ public class PoieticDesignController: SwiftGodot.Node {
         else {
             url = URL(fileURLWithPath: path)
         }
-
+        
         return url
     }
-
+    
     @Callable
     func import_from_path(path: String) -> Bool {
         guard let url = makeFileURL(fromPath: path) else {
@@ -621,7 +621,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.printErr("Unable to read frame '\(path)': \(error)")
             return false
         }
-
+        
         // 2. Load
         let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
@@ -633,11 +633,11 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.printErr("Unable to load frame \(path): \(error)")
             return false
         }
-
+        
         accept(trans)
         return true
     }
-
+    
     @Callable
     func import_from_data(data: PackedByteArray) -> Bool {
         let nativeData: Data = Data(data)
@@ -655,7 +655,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.printErr("Unable to read frame from data: \(error)")
             return false
         }
-
+        
         // 2. Load
         let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
@@ -667,7 +667,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             GD.printErr("Unable to load frame from data: \(error)")
             return false
         }
-
+        
         accept(trans)
         return true
         return true
@@ -681,7 +681,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         var rawDesign = RawDesign(metamodelName: design.metamodel.name,
                                   metamodelVersion: design.metamodel.version,
                                   snapshots: extract)
-                                  
+        
         let writer = JSONDesignWriter()
         guard let text: String = writer.write(rawDesign) else {
             GD.printErr("Unable to get textual representation for pasteboard")
@@ -721,7 +721,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
         set { GD.pushError("Trying to set read-only attribute") }
     }
-
+    
     // MARK: - Simulation Result
     func simulate() {
         guard let simulationPlan else {
@@ -760,6 +760,62 @@ public class PoieticDesignController: SwiftGodot.Node {
         wrap.set(plan: simulationPlan, result: simulator.result)
         simulationFinished.emit(wrap)
     }
+    
+    
+    @Callable
+    func write_to_csv(path: String, result: PoieticResult, ids: PackedInt64Array) {
+        guard let plan = result.plan else {
+            GD.pushError("No simulation plan for result export")
+            return
+        }
+        guard let result = result.result else {
+            GD.pushError("No simulation result to export")
+            return
+        }
+
+        do {
+            let actualIDs: [PoieticCore.ObjectID] = ids.compactMap { PoieticCore.ObjectID($0) }
+            try writeToCSV(path: path, result: result, plan: plan, ids: actualIDs)
+        }
+        catch {
+            // TODO: Handle error gracefuly
+            GD.pushError("Unable to write to '\(path)'. Reason: \(error)")
+            return
+        }
+    }
+    
+    func writeToCSV(path: String,
+                    result: SimulationResult,
+                    plan: SimulationPlan,
+                    ids: [PoieticCore.ObjectID]) throws {
+        var variableIndices: [Int] = []
+        variableIndices.append(plan.builtins.step)
+        variableIndices.append(plan.builtins.time)
+        
+        if ids.isEmpty {
+            variableIndices += Array(plan.stateVariables.indices)
+        }
+        else {
+            variableIndices += ids.compactMap { plan.variableIndex(of: $0) }
+        }
+
+        let writer: CSVWriter = try CSVWriter(path: path)
+        let header: [String] = variableIndices.map { plan.stateVariables[$0].name }
+
+        try writer.write(row: header)
+        
+        for state in result.states {
+            var row: [String] = []
+            for index in variableIndices {
+                let value: PoieticCore.Variant = state[index]
+                row.append(try value.stringValue())
+            }
+            try writer.write(row: row)
+            
+        }
+        try writer.close()
+    }
+    
 }
 
 
