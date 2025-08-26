@@ -21,6 +21,14 @@ import SwiftGodot
         PoieticTransaction.self,
         PoieticSelection.self,
         PoieticDiagramChange.self,
+        
+        
+        // Diagram Canvas
+        PoieticDiagramController.self,
+        PoieticCanvas.self,
+        PoieticCanvasObject.self,
+        PoieticConnector.self,
+        PoieticBlock.self,
 
     ]
 )

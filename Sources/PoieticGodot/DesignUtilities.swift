@@ -110,3 +110,27 @@ func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID
 
     return ObjectDifference(added: added, removed: Array(remaining))
 }
+
+struct ObjectDifference2 {
+    let added: [PoieticCore.ObjectID]
+    let removed: [PoieticCore.ObjectID]
+    let remaining: [PoieticCore.ObjectID]
+}
+func difference2(current: [PoieticCore.ObjectID], required: [PoieticCore.ObjectID])
+-> ObjectDifference {
+    var current = Set(current)
+    var added: [PoieticCore.ObjectID] = []
+    var remaining: [PoieticCore.ObjectID] = []
+
+    for id in required {
+        if current.contains(id) {
+            current.remove(id)
+            remaining.append(id)
+        }
+        else {
+            added.append(id)
+        }
+    }
+
+    return ObjectDifference(added: added, removed: Array(remaining))
+}

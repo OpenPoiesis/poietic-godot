@@ -9,6 +9,7 @@ import SwiftGodot
 import Foundation
 import PoieticFlows
 import PoieticCore
+import Diagramming
 
 @Godot
 public class PoieticIssue: SwiftGodot.RefCounted {
@@ -185,7 +186,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     
     @Callable
     func get_diagram_nodes() -> PackedInt64Array {
-        let nodes = currentFrame.nodes(withTrait: .DiagramNode)
+        let nodes = currentFrame.nodes(withTrait: .DiagramBlock)
         return PackedInt64Array(nodes.map { Int64($0.objectID.intValue) })
     }
     
@@ -201,7 +202,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         
         let nodes = nodes.compactMap { ObjectID(String($0)) }
         let currentNodes = currentFrame.nodes.filter {
-            $0.type.hasTrait(.DiagramNode)
+            $0.type.hasTrait(.DiagramBlock)
         }.map { $0.objectID }
         let nodeDiff = difference(expected: nodes, current: currentNodes)
         
@@ -273,6 +274,7 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = first
         return object
     }
+    
     // MARK: - Transaction -
     @Callable
     func new_transaction() -> PoieticTransaction {
