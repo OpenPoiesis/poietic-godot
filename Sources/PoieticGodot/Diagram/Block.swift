@@ -38,11 +38,13 @@ public class PoieticBlock: PoieticCanvasObject {
     func _prepareChildren(for block: Block) {
         if self.primaryLabel == nil {
             self.primaryLabel = SwiftGodot.Label()
-            self.addChild(node: self.primaryLabel)
+            self.primaryLabel!.horizontalAlignment = .center
+            self.addChild(node: self.primaryLabel!)
         }
         if self.secondaryLabel == nil {
             self.secondaryLabel = SwiftGodot.Label()
-            self.addChild(node: self.secondaryLabel)
+            self.secondaryLabel!.horizontalAlignment = .center
+            self.addChild(node: self.secondaryLabel!)
         }
 //        if self.collisionShape == nil {
 //            self.collisionShape = SwiftGodot.CollisionShape2D()
@@ -98,7 +100,8 @@ public class PoieticBlock: PoieticCanvasObject {
 //                collisionShape.position = (-pictogram.origin).asGodotVector2()
 //            }
             
-            self.pictogramCurves = pictogram.path.asGodotCurves()
+            let translatedPath = pictogram.path.transform(AffineTransform(translation: -pictogram.origin))
+            self.pictogramCurves = translatedPath.asGodotCurves()
         }
         else {
 //            self.collisionShape = nil

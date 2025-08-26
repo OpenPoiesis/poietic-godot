@@ -63,6 +63,8 @@ public class PoieticConnector: PoieticCanvasObject {
     }
     
     func updateContent(from connector: Connector) {
+        self.objectID = connector.objectID
+
         let curves = connector.paths().flatMap { $0.asGodotCurves() }
         self.openCurves = curves
         self.filledCurves = []
