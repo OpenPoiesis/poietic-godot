@@ -18,9 +18,9 @@ import SwiftGodot
         PoieticPlayer.self,
 
         // Auxiliary objects
-        PoieticTransaction.self,
+        PoieticTransaction.self, // TODO: Maybe remove?
         PoieticSelection.self,
-        PoieticDiagramChange.self,
+        PoieticDiagramChange.self, // TODO: Remove
         
         
         // Diagram Canvas
@@ -29,6 +29,10 @@ import SwiftGodot
         PoieticCanvasObject.self,
         PoieticConnector.self,
         PoieticBlock.self,
+        
+        PoieticHitTarget.self,
+        PoieticCanvasHandle.self,
+        PoieticIssueIndicator.self,
 
     ]
 )

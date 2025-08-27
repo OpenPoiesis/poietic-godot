@@ -20,7 +20,7 @@ public class PoieticBlock: PoieticCanvasObject {
     @Export var pictogramColor: SwiftGodot.Color
     @Export var pictogramLineWidth: Double = 1.0
     
-//    @Export var collisionShape: SwiftGodot.CollisionShape2D?
+    @Export var collisionShape: SwiftGodot.CollisionShape2D?
     @Export var hasPrimaryLabel: Bool = true
     @Export var primaryLabel: SwiftGodot.Label?
     @Export var hasSecondaryLabel: Bool = false
@@ -46,10 +46,10 @@ public class PoieticBlock: PoieticCanvasObject {
             self.secondaryLabel!.horizontalAlignment = .center
             self.addChild(node: self.secondaryLabel!)
         }
-//        if self.collisionShape == nil {
-//            self.collisionShape = SwiftGodot.CollisionShape2D()
-//            self.addChild(node: self.collisionShape)
-//        }
+        if self.collisionShape == nil {
+            self.collisionShape = SwiftGodot.CollisionShape2D()
+            self.addChild(node: self.collisionShape)
+        }
     }
     
     func setLabel(_ label: SwiftGodot.Label, text: String?, emptyText: String? = nil, themeType: SwiftGodot.StringName = "Label") {
@@ -122,6 +122,17 @@ public class PoieticBlock: PoieticCanvasObject {
 //        }
 
         self.queueRedraw()
+    }
+    
+    var savedPrimaryLabelEditVisible: Bool = false
+    
+    func beginLabelEdit() {
+        savedPrimaryLabelEditVisible = self.primaryLabel?.visible ?? false
+        self.primaryLabel?.visible = false
+    }
+    
+    func finishLabelEdit() {
+        self.primaryLabel?.visible = savedPrimaryLabelEditVisible
     }
     
 }

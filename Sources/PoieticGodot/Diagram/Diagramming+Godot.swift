@@ -17,22 +17,19 @@ extension Diagramming.ShapeType {
             let shape:CircleShape2D = SwiftGodot.CircleShape2D()
             shape.radius = r
             return shape
-        case .polygon(let points):
-            if Geometry.isConvex(polygon: points) {
-                let shape = SwiftGodot.ConvexPolygonShape2D()
-                shape.points = PackedVector2Array(points)
-                return shape
+        case .convexPolygon(let points):
+            let shape = SwiftGodot.ConvexPolygonShape2D()
+            shape.points = PackedVector2Array(points)
+            return shape
+        case .concavePolygon(let points):
+            let shape = SwiftGodot.ConcavePolygonShape2D()
+            var result: [Vector2D] = []
+            for segment in Geometry.toSegments(polygon: points) {
+                result.append(segment.start)
+                result.append(segment.end)
             }
-            else {
-                let shape = SwiftGodot.ConcavePolygonShape2D()
-                var result: [Vector2D] = []
-                for segment in Geometry.toSegments(polygon: points) {
-                    result.append(segment.start)
-                    result.append(segment.end)
-                }
-                shape.segments = PackedVector2Array(result)
-                return shape
-            }
+            shape.segments = PackedVector2Array(result)
+            return shape
         case .rectangle(let size):
             let shape: RectangleShape2D = SwiftGodot.RectangleShape2D()
             shape.size = size.asGodotVector2()
@@ -43,9 +40,9 @@ extension Diagramming.ShapeType {
 
 extension BezierPath {
     func asGodotCurves() -> [SwiftGodot.Curve2D] {
-        let curves = godotCurves()
         var result: [SwiftGodot.Curve2D] = []
-        for curvePoints in godotCurves() {
+
+        for curvePoints in self.toCubicCurves() {
             let curve = SwiftGodot.Curve2D()
             for item in curvePoints {
                 curve.addPoint(position: item.position.asGodotVector2(),

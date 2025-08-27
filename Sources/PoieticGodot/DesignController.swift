@@ -121,6 +121,14 @@ public class PoieticDesignController: SwiftGodot.Node {
         object.object = currentFrame[id]
         return object
     }
+   
+    func getObject(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
+        guard currentFrame.contains(id) else {
+            GD.pushError("Unknown object ID \(id)")
+            return nil
+        }
+        return currentFrame[id]
+    }
     
     @Callable
     func get_object_ids(type_name: String) -> PackedInt64Array {
@@ -284,6 +292,10 @@ public class PoieticDesignController: SwiftGodot.Node {
         return trans
     }
     
+    func newTransaction() -> TransientFrame {
+        return design.createFrame(deriving: design.currentFrame)
+    }
+    
     @Callable
     func discard(transaction: PoieticTransaction) {
         guard let frame = transaction.frame else {
@@ -293,6 +305,10 @@ public class PoieticDesignController: SwiftGodot.Node {
         design.discard(frame)
         
     }
+    func discard(_ frame: TransientFrame) {
+        design.discard(frame)
+    }
+
     // TODO: Signal design_frame_changed(errors) (also handle errors)
     /// Accept and validate the frame.
     ///

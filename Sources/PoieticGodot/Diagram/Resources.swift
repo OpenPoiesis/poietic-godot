@@ -8,8 +8,22 @@
 // NOTE: This file needs to be synced between poietic-tool and poietic-godot.
 
 import Diagramming
+import SwiftGodot
 
 let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms.json"
+let IssueIndicatorIcon: String = "res://resources/icons/error.png"
+let IssueIndicatorIconSize: Float = 10.0
+let IssueIndicatorIconOffset = Diagramming.Vector2D(x: 0.0, y: -3.0)
+let IssueIndicatorZIndex: Int32 = 1000
+let DefaultHandleZIndex: Int32 = 900
+let DefaultHandleSize: Double = 10.0
+
+// Themeable
+let CanvasThemeType = "DiagramCanvas"
+let MidpointHandleFillColorKey = "midpoint_handle_fill"
+let MidpointHandleOutlineColorKey = "midpoint_handle_outline"
+
+
 
 // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
 /// Scale used for pictograms during development/prototyping.

@@ -24,6 +24,7 @@ struct PoieticSelectionTypeInfo {
 
 @Godot
 class PoieticSelection: SwiftGodot.Node {
+    // TODO: Consider removing this selection wrapper, just add get_ids() on Canvas
     var selection: Selection = Selection()
    
     @Signal var selectionChanged: SignalWithArguments<PoieticSelection>
