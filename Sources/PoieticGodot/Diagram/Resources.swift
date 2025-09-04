@@ -22,6 +22,7 @@ let DefaultHandleSize: Double = 10.0
 let CanvasThemeType = "DiagramCanvas"
 let MidpointHandleFillColorKey = "midpoint_handle_fill"
 let MidpointHandleOutlineColorKey = "midpoint_handle_outline"
+let ShadowColorKey = "shadow_color"
 
 
 

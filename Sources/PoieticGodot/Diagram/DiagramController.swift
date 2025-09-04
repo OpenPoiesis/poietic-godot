@@ -12,7 +12,8 @@ import Foundation
 
 @Godot
 public class PoieticDiagramController: SwiftGodot.Node {
-    @Export var canvas: PoieticCanvas?
+    // TODO: Rename to DiagramCanvasController
+    @Export var canvas: DiagramCanvas?
     var designController: PoieticDesignController?
     
     var pictograms: PictogramCollection?
@@ -22,7 +23,7 @@ public class PoieticDiagramController: SwiftGodot.Node {
     }
     
     @Callable
-    func initialize(designController: PoieticDesignController, canvas: PoieticCanvas) {
+    func initialize(designController: PoieticDesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
         _loadPictograms()
@@ -90,8 +91,8 @@ public class PoieticDiagramController: SwiftGodot.Node {
             return
         }
         
-        var existing: [PoieticCore.ObjectID:PoieticBlock] = [:]
-        var updated: [PoieticBlock] = []
+        var existing: [PoieticCore.ObjectID:DiagramCanvasBlock] = [:]
+        var updated: [DiagramCanvasBlock] = []
         
         for node in canvas.blocks {
             guard let id = node.objectID else { continue }
@@ -99,13 +100,13 @@ public class PoieticDiagramController: SwiftGodot.Node {
         }
         
         for diagramObject in diagram.blocks {
-            let canvasNode: PoieticBlock
+            let canvasNode: DiagramCanvasBlock
             if let node = existing[diagramObject.objectID] {
                 canvasNode = node
                 existing[diagramObject.objectID] = nil
             }
             else {
-                canvasNode = PoieticBlock()
+                canvasNode = DiagramCanvasBlock()
                 canvas.addChild(node: canvasNode)
             }
             canvasNode.updateContent(from: diagramObject)
@@ -126,8 +127,8 @@ public class PoieticDiagramController: SwiftGodot.Node {
             return
         }
         
-        var existing: [PoieticCore.ObjectID:PoieticConnector] = [:]
-        var updated: [PoieticConnector] = []
+        var existing: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
+        var updated: [DiagramCanvasConnector] = []
         
         for node in canvas.connectors {
             guard let id = node.objectID else { continue }
@@ -135,13 +136,13 @@ public class PoieticDiagramController: SwiftGodot.Node {
         }
         
         for diagramObject in diagram.connectors {
-            let canvasNode: PoieticConnector
+            let canvasNode: DiagramCanvasConnector
             if let node = existing[diagramObject.objectID] {
                 canvasNode = node
                 existing[diagramObject.objectID] = nil
             }
             else {
-                canvasNode = PoieticConnector()
+                canvasNode = DiagramCanvasConnector()
                 canvas.addChild(node: canvasNode)
             }
             canvasNode.updateContent(from: diagramObject)
@@ -199,7 +200,7 @@ public class PoieticDiagramController: SwiftGodot.Node {
         }
         var trans = ctrl.newTransaction()
         var obj = trans.mutate(id)
-        obj["formula"] = PoieticCore.Variant(new_text)
+        obj["formula"] = PoieticCore.Variant(new_text)  
         ctrl.accept(trans)
     }
 

@@ -8,10 +8,9 @@ import SwiftGodot
 import PoieticCore
 
 @Godot
-public class PoieticCanvasObject: SwiftGodot.Node2D {
+public class DiagramCanvasObject: SwiftGodot.Node2D {
     var objectID: PoieticCore.ObjectID?
-    @Export
-    var hasIssues: Bool = false
+    @Export var hasIssues: Bool = false
     var issue_indicator: SwiftGodot.CanvasItem?
     
     func update(from: ObjectSnapshot) {

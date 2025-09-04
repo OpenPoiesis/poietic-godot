@@ -59,6 +59,10 @@ class PoieticSelection: SwiftGodot.Node {
         return selection.contains(actual_id) ?? false
     }
     
+    func contains(_ id: PoieticCore.ObjectID) -> Bool {
+        return selection.contains(id)
+    }
+
     @Callable
     func append(id: Int64) {
         guard let actual_id = ObjectID(id) else {
@@ -82,6 +86,11 @@ class PoieticSelection: SwiftGodot.Node {
         selectionChanged.emit(self)
     }
     
+    func replace(_ ids: [PoieticCore.ObjectID]) {
+        selection.replaceAll(ids)
+        selectionChanged.emit(self)
+    }
+    
     @Callable
     func remove(id: Int64) {
         guard let actual_id = ObjectID(id) else {
@@ -99,6 +108,10 @@ class PoieticSelection: SwiftGodot.Node {
             return
         }
         selection.toggle(actual_id)
+        selectionChanged.emit(self)
+    }
+    func toggle(_ id: PoieticCore.ObjectID) {
+        selection.toggle(id)
         selectionChanged.emit(self)
     }
 }

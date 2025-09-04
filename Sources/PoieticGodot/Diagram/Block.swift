@@ -13,7 +13,7 @@ import PoieticCore
 // FIXME: Label positions
 
 @Godot
-public class PoieticBlock: PoieticCanvasObject {
+public class DiagramCanvasBlock: DiagramCanvasObject {
     var didMove: Bool = false
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]

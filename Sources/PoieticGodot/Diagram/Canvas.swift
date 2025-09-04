@@ -15,9 +15,8 @@ public let DiagramConnectorNamePrefix: String = "connector"
 public let EmptyLabelTextFontKey = "empty_text_font"
 public let EmptyLabelTextFontColorKey = "empty_text_color"
 
-
 @Godot
-public class PoieticCanvas: SwiftGodot.Node2D {
+public class DiagramCanvas: SwiftGodot.Node2D {
     static let ChartsVisibleZoomLevel: Float = 2.0
     static let FormulasVisibleZoomLevel: Float = 1.0
     @Signal var canvasViewChanged: SignalWithArguments<SwiftGodot.Vector2, Float>
@@ -28,9 +27,11 @@ public class PoieticCanvas: SwiftGodot.Node2D {
     @Export var chartsVisible: Bool = false
     @Export var formulasVisible: Bool = false
     
-    var blocks: [PoieticBlock] = []
-    var connectors: [PoieticConnector] = []
+    var blocks: [DiagramCanvasBlock] = []
+    var connectors: [DiagramCanvasConnector] = []
     @Export var selection: PoieticSelection
+   
+    var toolManager: ToolManager?
     
     required init(_ context: InitContext) {
         self.selection = PoieticSelection()
@@ -38,6 +39,22 @@ public class PoieticCanvas: SwiftGodot.Node2D {
     }
     public override func _process(delta: Double) {
         // Find moved blocks
+    }
+   
+    func currentTool() -> CanvasTool? {
+        guard let global = getNode(path: "/root/Global") else {
+            GD.pushWarning("Unable to get current tool, no Global set")
+            return nil
+        }
+        guard let variant = global.get(property: "current_tool") else {
+            GD.pushWarning("Unable to get current tool")
+            return nil
+        }
+        guard let tool: CanvasTool? = CanvasTool.fromVariant(variant) else {
+            GD.pushWarning("Unable to get current tool: Invalid tool type")
+            return nil
+        }
+        return tool
     }
     
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
@@ -52,20 +69,12 @@ public class PoieticCanvas: SwiftGodot.Node2D {
             updateCanvasView()
             self.getViewport()?.setInputAsHandled()
         default:
-            let global = Engine.getSingleton(name: StringName("Global"))
-            let ctool = global?.get(property: StringName("current_tool"))
-            let boo = Array(Engine.getSingletonList())
-            GD.print("--- Singletons: \(boo)")
-            GD.print("--- Global: \(global) Tool: \(ctool)")
-            break// Regular tool use
-//            var tool = Global.current_tool
-//            if not tool {
-//                return
-//            }
-//            tool.canvas = self
-//            if tool.handle_input(event): {
-//                get_viewport().set_input_as_handled()
-//            }
+            guard let tool = currentTool() else { break }
+            // FIXME: Pass canvas as handle input parameter
+            tool.canvas = self
+            if tool.handleInput(event: event) {
+                self.getViewport()?.setInputAsHandled()
+            }
         }
     }
     
@@ -92,30 +101,35 @@ public class PoieticCanvas: SwiftGodot.Node2D {
         chartsVisible = zoomLevel > Self.ChartsVisibleZoomLevel
         formulasVisible = zoomLevel > Self.FormulasVisibleZoomLevel
     }
-    public func block(id: PoieticCore.ObjectID) -> PoieticBlock? {
+    public func block(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
         return blocks.first { $0.objectID == id }
     }
-    public func connector(id: PoieticCore.ObjectID) -> PoieticConnector? {
+    public func connector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
         return connectors.first { $0.objectID == id }
     }
     
-    public func objectsAtTouch(_ point: Vector2D, radius: Double=10.0) -> [PoieticCanvasObject] {
-        var result: [PoieticCanvasObject] = []
+    public func objectsAtTouch(_ point: Vector2D, radius: Double=10.0) -> [DiagramCanvasObject] {
+        var result: [DiagramCanvasObject] = []
         result += blocks.filter { $0.block?.containsTouch(at: point, radius: radius) ?? false }
         result += connectors.filter { $0.connector?.containsTouch(at: point, radius: radius) ?? false }
         return result
     }
     
     
-    @Callable
-    func hit_target(hitPosition: SwiftGodot.Vector2) -> PoieticHitTarget? {
+    /// Get a target wrapping a canvas item at given hit position.
+    ///
+    /// If you want to get only objects and ignore handles or indicators, then use
+    /// ``hitObject(at:)``.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func hitTarget(at hitPosition: SwiftGodot.Vector2) -> PoieticHitTarget? {
         var targets: [PoieticHitTarget] = []
         var children = self.getChildren()
         
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
-            guard let child = child as? PoieticCanvasObject else {
+            guard let child = child as? DiagramCanvasObject else {
                 continue
             }
             
@@ -125,7 +139,7 @@ public class PoieticCanvas: SwiftGodot.Node2D {
                 }
             }
             
-            if let child = child as? PoieticBlock {
+            if let child = child as? DiagramCanvasBlock {
                 if let indicator = child.issue_indicator as? PoieticIssueIndicator,
                    indicator.visible,
                    indicator.contains_point(child.toLocal(globalPoint: hitPosition))
@@ -161,7 +175,33 @@ public class PoieticCanvas: SwiftGodot.Node2D {
             return targets[0]
         }
     }
-    
+    /// Get a canvas object at given position.
+    ///
+    /// This method returns the first canvas object, ignoring handles and indicators, at the
+    /// position ``hitPosition``.
+    ///
+    /// - SeeAlso: ``hitTarget(at:)``
+    ///
+    @Callable(autoSnakeCase: true)
+    public func hitObject(at hitPosition: SwiftGodot.Vector2) -> DiagramCanvasObject? {
+        var targets: [PoieticHitTarget] = []
+        var children = self.getChildren()
+        
+        // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
+        children.reverse()
+        for child in children {
+            guard let child = child as? DiagramCanvasObject else {
+                continue
+            }
+            
+            if child.contains_point(point: hitPosition) {
+                return child
+            }
+        }
+        
+        return nil
+    }
+
 
 }
 

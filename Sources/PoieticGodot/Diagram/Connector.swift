@@ -14,7 +14,7 @@ class Handle {
 }
 
 @Godot
-public class PoieticConnector: PoieticCanvasObject {
+public class DiagramCanvasConnector: DiagramCanvasObject {
     var connector: Diagramming.Connector?
    
     var midpointHandles: [PoieticCanvasHandle] = []

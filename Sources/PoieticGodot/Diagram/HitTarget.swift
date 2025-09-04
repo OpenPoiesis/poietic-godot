@@ -20,7 +20,7 @@ enum HitTargetType: Int, CaseIterable {
 
 @Godot
 public class PoieticHitTarget: SwiftGodot.Object {
-    @Export var object: PoieticCanvasObject?
+    @Export var object: Node2D?
     @Export var type: HitTargetType = .object
     /// Custom tag associated with hit target.
     ///
@@ -32,7 +32,7 @@ public class PoieticHitTarget: SwiftGodot.Object {
         super.init(context)
     }
     
-    convenience init(object: PoieticCanvasObject, type: HitTargetType, tag: Int? = nil) {
+    convenience init(object: DiagramCanvasObject, type: HitTargetType, tag: Int? = nil) {
         self.init()
         self.object = object
         self.type = type

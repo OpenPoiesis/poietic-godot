@@ -22,13 +22,15 @@ import SwiftGodot
         PoieticSelection.self,
         PoieticDiagramChange.self, // TODO: Remove
         
+        // Tool
+        CanvasTool.self,
         
         // Diagram Canvas
         PoieticDiagramController.self,
-        PoieticCanvas.self,
-        PoieticCanvasObject.self,
-        PoieticConnector.self,
-        PoieticBlock.self,
+        DiagramCanvas.self,
+        DiagramCanvasObject.self,
+        DiagramCanvasConnector.self,
+        DiagramCanvasBlock.self,
         
         PoieticHitTarget.self,
         PoieticCanvasHandle.self,
