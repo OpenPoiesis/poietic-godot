@@ -16,7 +16,7 @@ class CanvasPromptManager: SwiftGodot.Node {
 
 @Godot
 class CanvasPrompt: SwiftGodot.Control {
-    @Export var diagramController: PoieticDiagramController?
+    @Export var diagramController: DiagramController?
 //    @Export var isActive: Bool = false
     
     required init(_ context: SwiftGodot.InitContext) {

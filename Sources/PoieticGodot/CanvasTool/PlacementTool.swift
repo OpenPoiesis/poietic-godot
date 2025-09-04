@@ -1,5 +1,5 @@
 //
-//  PlacementTool.swift
+//  PlaceTool.swift
 //  poietic-godot
 //
 //  Created by Stefan Urbanek on 02/09/2025.
@@ -11,7 +11,8 @@ import PoieticCore
 typealias ObjectPalette = Int
 typealias ObjectPanel = Int
 
-class PlacementTool: CanvasTool {
+@Godot
+class PlaceTool: CanvasTool {
     var selectedItemIdentifier: String?
     var lastPointerPosition = Vector2()
     var intentShadow: CanvasShadow?

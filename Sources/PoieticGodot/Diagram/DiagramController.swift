@@ -11,10 +11,10 @@ import Diagramming
 import Foundation
 
 @Godot
-public class PoieticDiagramController: SwiftGodot.Node {
+public class DiagramController: SwiftGodot.Node {
     // TODO: Rename to DiagramCanvasController
     @Export var canvas: DiagramCanvas?
-    var designController: PoieticDesignController?
+    var designController: DesignController?
     
     var pictograms: PictogramCollection?
     
@@ -23,7 +23,7 @@ public class PoieticDiagramController: SwiftGodot.Node {
     }
     
     @Callable
-    func initialize(designController: PoieticDesignController, canvas: DiagramCanvas) {
+    func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
         _loadPictograms()
@@ -100,10 +100,11 @@ public class PoieticDiagramController: SwiftGodot.Node {
         }
         
         for diagramObject in diagram.blocks {
+            guard let objectID = diagramObject.objectID else { continue }
             let canvasNode: DiagramCanvasBlock
-            if let node = existing[diagramObject.objectID] {
+            if let node = existing[objectID] {
                 canvasNode = node
-                existing[diagramObject.objectID] = nil
+                existing[objectID] = nil
             }
             else {
                 canvasNode = DiagramCanvasBlock()
@@ -136,10 +137,11 @@ public class PoieticDiagramController: SwiftGodot.Node {
         }
         
         for diagramObject in diagram.connectors {
+            guard let objectID = diagramObject.objectID else { continue }
             let canvasNode: DiagramCanvasConnector
-            if let node = existing[diagramObject.objectID] {
+            if let node = existing[objectID] {
                 canvasNode = node
-                existing[diagramObject.objectID] = nil
+                existing[objectID] = nil
             }
             else {
                 canvasNode = DiagramCanvasConnector()

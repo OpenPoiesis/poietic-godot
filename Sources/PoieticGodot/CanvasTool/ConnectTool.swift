@@ -13,6 +13,7 @@ enum ConnectToolState: Int, CaseIterable {
     case connect
 }
 
+@Godot
 class ConnectTool: CanvasTool {
     var selectedItemIdentifier: String?
     

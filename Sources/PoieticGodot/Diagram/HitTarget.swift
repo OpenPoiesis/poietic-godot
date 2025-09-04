@@ -19,7 +19,7 @@ enum HitTargetType: Int, CaseIterable {
 }
 
 @Godot
-public class PoieticHitTarget: SwiftGodot.Object {
+public class CanvasHitTarget: SwiftGodot.Object {
     @Export var object: Node2D?
     @Export var type: HitTargetType = .object
     /// Custom tag associated with hit target.

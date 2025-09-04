@@ -6,6 +6,7 @@
 //
 import SwiftGodot
 import PoieticCore
+import Diagramming
 
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
@@ -23,14 +24,27 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
         return false
     }
     
-    func getHandles() -> [PoieticCanvasHandle]{
+    func getHandles() -> [CanvasHandle]{
         return []
     }
     
 }
 
+extension DiagramObject {
+    func godotName(prefix: String) -> String {
+        var name: String = prefix
+        if let objectID {
+            name += objectID.stringValue
+        }
+        if let tag {
+            name += "-" + String(tag)
+        }
+        return name
+    }
+}
+
 @Godot
-public class PoieticCanvasHandle: SwiftGodot.Node2D {
+public class CanvasHandle: SwiftGodot.Node2D {
     var shape: CircleShape2D
     var tag: Int?
     
@@ -65,7 +79,7 @@ public class PoieticCanvasHandle: SwiftGodot.Node2D {
 }
 
 @Godot
-public class PoieticIssueIndicator: SwiftGodot.Node2D {
+public class CanvasIssueIndicator: SwiftGodot.Node2D {
     @Export var icon: SwiftGodot.Sprite2D?
 
     @Callable

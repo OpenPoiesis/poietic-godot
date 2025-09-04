@@ -88,7 +88,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         
         // 1. Basics
         self.objectID = block.objectID
-        self.name = StringName(DiagramBlockNamePrefix + block.objectID.stringValue)
+        self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
         self.position = block.position.asGodotVector2()
 
         // 2. Pictogram

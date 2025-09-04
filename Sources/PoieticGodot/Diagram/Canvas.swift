@@ -31,8 +31,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     var connectors: [DiagramCanvasConnector] = []
     @Export var selection: PoieticSelection
    
-    var toolManager: ToolManager?
-    
     required init(_ context: InitContext) {
         self.selection = PoieticSelection()
         super.init(context)
@@ -42,6 +40,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
    
     func currentTool() -> CanvasTool? {
+        // FIXME: Use application
         guard let global = getNode(path: "/root/Global") else {
             GD.pushWarning("Unable to get current tool, no Global set")
             return nil
@@ -122,8 +121,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// ``hitObject(at:)``.
     ///
     @Callable(autoSnakeCase: true)
-    public func hitTarget(at hitPosition: SwiftGodot.Vector2) -> PoieticHitTarget? {
-        var targets: [PoieticHitTarget] = []
+    public func hitTarget(at hitPosition: SwiftGodot.Vector2) -> CanvasHitTarget? {
+        var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
@@ -135,34 +134,34 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             
             for handle in child.getHandles() where handle.visible {
                 if handle.containsPoint(point: hitPosition) {
-                    targets.append(PoieticHitTarget(object: child, type: .handle, tag: handle.tag))
+                    targets.append(CanvasHitTarget(object: child, type: .handle, tag: handle.tag))
                 }
             }
             
             if let child = child as? DiagramCanvasBlock {
-                if let indicator = child.issue_indicator as? PoieticIssueIndicator,
+                if let indicator = child.issue_indicator as? CanvasIssueIndicator,
                    indicator.visible,
                    indicator.contains_point(child.toLocal(globalPoint: hitPosition))
                 {
-                    targets.append(PoieticHitTarget(object: child, type: .errorIndicator))
+                    targets.append(CanvasHitTarget(object: child, type: .errorIndicator))
                 }
                 if let label = child.primaryLabel,
                    label.visible &&
                     label.getRect().hasPoint(child.toLocal(globalPoint: hitPosition))
                 {
-                    targets.append(PoieticHitTarget(object: child, type: .primaryLabel))
+                    targets.append(CanvasHitTarget(object: child, type: .primaryLabel))
                 }
 
                 if let label = child.secondaryLabel,
                    label.visible &&
                     label.getRect().hasPoint(child.toLocal(globalPoint: hitPosition))
                 {
-                    targets.append(PoieticHitTarget(object: child, type: .secondaryLabel))
+                    targets.append(CanvasHitTarget(object: child, type: .secondaryLabel))
                 }
             }
 
             if child.contains_point(point: hitPosition) {
-                targets.append(PoieticHitTarget(object: child, type: .object))
+                targets.append(CanvasHitTarget(object: child, type: .object))
             }
         }
         
@@ -184,7 +183,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     @Callable(autoSnakeCase: true)
     public func hitObject(at hitPosition: SwiftGodot.Vector2) -> DiagramCanvasObject? {
-        var targets: [PoieticHitTarget] = []
+        var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.

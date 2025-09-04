@@ -6,35 +6,38 @@ import SwiftGodot
 #initSwiftExtension(
     cdecl: "swift_entry_point",
     types: [
-        // Data
-        PoieticMetamodel.self,
+        // Controllers
+        PoieticApplication.self,
+        DesignController.self,
+        ResultPlayer.self,
+
+        // Design content and other data
         PoieticObject.self,
         PoieticIssue.self,
         PoieticResult.self,
         PoieticTimeSeries.self,
 
-        // Controllers and other functioning objects
-        PoieticDesignController.self,
-        PoieticPlayer.self,
-
         // Auxiliary objects
-        PoieticTransaction.self, // TODO: Maybe remove?
+        PoieticTransaction.self, // TODO: Remove in favour of command objects
         PoieticSelection.self,
-        PoieticDiagramChange.self, // TODO: Remove
-        
+
         // Tool
         CanvasTool.self,
-        
+        SelectionTool.self,
+        PlaceTool.self,
+        ConnectTool.self,
+        PanTool.self,
+
         // Diagram Canvas
-        PoieticDiagramController.self,
+        DiagramController.self,
         DiagramCanvas.self,
         DiagramCanvasObject.self,
         DiagramCanvasConnector.self,
         DiagramCanvasBlock.self,
         
-        PoieticHitTarget.self,
-        PoieticCanvasHandle.self,
-        PoieticIssueIndicator.self,
+        CanvasHitTarget.self,
+        CanvasHandle.self,
+        CanvasIssueIndicator.self,
 
     ]
 )

@@ -7,24 +7,24 @@
 
 import SwiftGodot
 
+/// Abstract class for tools operating on diagram canvas.
+///
 @Godot
 class CanvasTool: SwiftGodot.Node {
     @Export var canvas: DiagramCanvas?
-    @Export var diagramController: PoieticDiagramController?
-    @Export var designController: PoieticDesignController?
+    @Export var diagramController: DiagramController?
+    @Export var designController: DesignController?
     
     var objectPalette: PanelContainer?
     
-    required init(_ context: SwiftGodot.InitContext) {
-        super.init(context)
-    }
-    
+    /// Bind the tool to a diagram controller.
     @Callable
-    func initialize(diagramController: PoieticDiagramController,
-                    designController: PoieticDesignController) {
+    func bind(_ diagramController: DiagramController) {
         self.diagramController = diagramController
         self.canvas = diagramController.canvas
-        self.designController = designController
+        self.designController = diagramController.designController
+        
+        // FIXME: Missing object palette
     }
     
     @Callable

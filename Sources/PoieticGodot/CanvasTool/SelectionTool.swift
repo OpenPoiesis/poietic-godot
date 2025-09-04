@@ -16,6 +16,7 @@ enum SelectToolState: Int, CaseIterable {
     case handleMove
 }
 
+@Godot
 class SelectionTool: CanvasTool {
     // TODO: Target Priority
     // 1. Selection -> Handles
@@ -28,7 +29,7 @@ class SelectionTool: CanvasTool {
 
     @Export var lastPointerPosition = Vector2()
     @Export var state: SelectToolState = .empty
-    @Export var draggingHandle: PoieticCanvasHandle?
+    @Export var draggingHandle: CanvasHandle?
 
     override func toolName() -> String {
         "select"
@@ -41,7 +42,7 @@ class SelectionTool: CanvasTool {
         // TODO: Move this to tool
         guard let event = event as? InputEventWithModifiers else { return false }
         guard let canvas else { return false }
-        guard let target = canvas.hit_target(hitPosition: pointerPosition) else {
+        guard let target = canvas.hitTarget(at: pointerPosition) else {
             canvas.selection.clear()
             state = .objectSelect
             return true
@@ -69,7 +70,7 @@ class SelectionTool: CanvasTool {
             lastPointerPosition = pointerPosition
             state = .objectHit
         case .handle:
-            guard let handle = target.object as? PoieticCanvasHandle else {
+            guard let handle = target.object as? CanvasHandle else {
                 return false
             }
             state = .handleHit

@@ -17,7 +17,7 @@ class Handle {
 public class DiagramCanvasConnector: DiagramCanvasObject {
     var connector: Diagramming.Connector?
    
-    var midpointHandles: [PoieticCanvasHandle] = []
+    var midpointHandles: [CanvasHandle] = []
     
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
@@ -35,7 +35,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
 
     // FIXME: Implement this
     @Callable
-    override func getHandles() -> [PoieticCanvasHandle] {
+    override func getHandles() -> [CanvasHandle] {
         return midpointHandles
     }
 
@@ -66,6 +66,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     func updateContent(from connector: Connector) {
         self.objectID = connector.objectID
         self.connector = connector
+        self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
         self.contentChanged()
     }
     func contentChanged() {
@@ -82,7 +83,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
             GD.pushError("Canvas connector has no diagram connector")
             return
         }
-        let handle: PoieticCanvasHandle
+        let handle: CanvasHandle
         if midpointHandles.isEmpty {
             let segment = LineSegment(from: connector.originPoint, to: connector.targetPoint)
             // TODO: Store the -1 as constant
@@ -91,7 +92,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         else {
             for index in 0..<connector.midpoints.count {
                 let midpoint = connector.midpoints[index]
-                let handle: PoieticCanvasHandle
+                let handle: CanvasHandle
                 if index < midpointHandles.count {
                     handle = midpointHandles[index]
                     handle.tag = index
@@ -133,9 +134,9 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.contentChanged()
     }
     
-    func createMidpointHandle(tag: Int, position: Vector2) -> PoieticCanvasHandle {
+    func createMidpointHandle(tag: Int, position: Vector2) -> CanvasHandle {
         let theme = ThemeDB.getProjectTheme()
-        let handle = PoieticCanvasHandle()
+        let handle = CanvasHandle()
         if let color = theme?.getColor(name: SwiftGodot.StringName(MidpointHandleFillColorKey), themeType: StringName(CanvasThemeType)) {
             handle.fillColor = color
         }

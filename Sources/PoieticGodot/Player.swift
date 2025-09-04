@@ -11,7 +11,7 @@ import PoieticFlows
 
 
 @Godot
-class PoieticPlayer: SwiftGodot.Node {
+class ResultPlayer: SwiftGodot.Node {
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
     @Signal var simulationPlayerStep: SimpleSignal

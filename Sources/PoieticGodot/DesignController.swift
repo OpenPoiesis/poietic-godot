@@ -54,11 +54,11 @@ public class PoieticIssue: SwiftGodot.RefCounted {
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
 @Godot
-public class PoieticDesignController: SwiftGodot.Node {
+public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
     
+    // TODO: Remove this or rename to `metamodel`
     var _metamodel: Metamodel { design.metamodel }
-    let _gdMetamodelWrapper: PoieticMetamodel
     var design: Design
     var checker: ConstraintChecker
     var currentFrame: StableFrame { self.design.currentFrame! }
@@ -76,22 +76,12 @@ public class PoieticDesignController: SwiftGodot.Node {
     @Signal var simulationFailed: SimpleSignal
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
     
-    @Export var metamodel: PoieticMetamodel? {
-        get { return _gdMetamodelWrapper }
-        set { GD.pushError("Trying to set read-only attribute") }
-    }
-    
     required init(_ context: InitContext) {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
-        self._gdMetamodelWrapper = PoieticMetamodel()
-        self._gdMetamodelWrapper.metamodel = design.metamodel
         
         super.init(context)
-        onInit()
-    }
-    
-    func onInit() {
+        
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
     }
@@ -203,36 +193,11 @@ public class PoieticDesignController: SwiftGodot.Node {
         let edges = currentFrame.edges(withTrait: .DiagramConnector)
         return PackedInt64Array(edges.map { Int64($0.object.objectID.intValue) })
     }
-    
-    @Callable
-    func get_difference(nodes: PackedInt64Array, edges: PackedInt64Array) -> PoieticDiagramChange {
-        let change = PoieticDiagramChange()
         
-        let nodes = nodes.compactMap { ObjectID(String($0)) }
-        let currentNodes = currentFrame.nodes.filter {
-            $0.type.hasTrait(.DiagramBlock)
-        }.map { $0.objectID }
-        let nodeDiff = difference(expected: nodes, current: currentNodes)
-        
-        change.added_nodes = PackedInt64Array(nodeDiff.added.map {$0.godotInt})
-        change.removed_nodes = PackedInt64Array(nodeDiff.removed.map {$0.godotInt})
-        
-        let edges = edges.compactMap { ObjectID(String($0)) }
-        let currentEdges = currentFrame.edges.filter {
-            $0.object.type.hasTrait(.DiagramConnector)
-        }.map { $0.object.objectID }
-        let edgeDiff = difference(expected: edges, current: currentEdges)
-        
-        change.added_edges = PackedInt64Array(edgeDiff.added.map {$0.godotInt})
-        change.removed_edges = PackedInt64Array(edgeDiff.removed.map {$0.godotInt})
-        
-        return change
-    }
-    
     // MARK: - Special Objects
     @Callable
     func get_diagram_settings() -> GDictionary? {
-        guard let frame = design.frame(name: PoieticDesignController.DesignSettingsFrameName) else {
+        guard let frame = design.frame(name: DesignController.DesignSettingsFrameName) else {
             return nil
         }
         guard let obj = frame.first(type: .DiagramSettings) else {
@@ -243,7 +208,7 @@ public class PoieticDesignController: SwiftGodot.Node {
     }
     @Callable
     func set_diagram_settings(settings: GDictionary) {
-        let original = design.frame(name: PoieticDesignController.DesignSettingsFrameName)
+        let original = design.frame(name: DesignController.DesignSettingsFrameName)
         let trans = design.createFrame(deriving: original)
         let mut: TransientObject
         if let obj = trans.first(type: .DiagramSettings) {
@@ -257,7 +222,7 @@ public class PoieticDesignController: SwiftGodot.Node {
             mut[attr] = value
         }
         do {
-            try design.accept(trans, replacingName: PoieticDesignController.DesignSettingsFrameName)
+            try design.accept(trans, replacingName: DesignController.DesignSettingsFrameName)
         }
         catch /* StructuralIntegrityError */ {
             GD.pushError("Structural integrity error")
@@ -420,36 +385,6 @@ public class PoieticDesignController: SwiftGodot.Node {
         }
     }
     
-    // MARK: - Undo/Redo
-    
-    @Callable func can_undo() -> Bool { self.design.canUndo }
-    @Callable func can_redo() -> Bool { self.design.canRedo }
-    
-    /// Undo last command. Returns `true` if something was undone, `false` when there was nothing
-    /// to undo.
-    @Callable
-    func undo() -> Bool {
-        if design.undo() {
-            validateAndCompile()
-            return true
-        }
-        else {
-            return false
-        }
-    }
-    
-    /// Redo last command. Returns `true` if something was redone, `false` when there was nothing
-    /// to redo.
-    @Callable
-    func redo() -> Bool {
-        if design.redo() {
-            validateAndCompile()
-            return true
-        }
-        else {
-            return false
-        }
-    }
     @Callable
     func can_connect(type_name: String, origin: Int64, target: Int64) -> Bool {
         guard let originID = PoieticCore.ObjectID(origin) else {
@@ -834,16 +769,4 @@ public class PoieticDesignController: SwiftGodot.Node {
         try writer.close()
     }
     
-}
-
-
-@Godot
-class PoieticDiagramChange: SwiftGodot.Object {
-    @Export var added_nodes: PackedInt64Array = PackedInt64Array()
-    @Export var current_nodes: PackedInt64Array = PackedInt64Array()
-    @Export var removed_nodes: PackedInt64Array = PackedInt64Array()
-    
-    @Export var added_edges: PackedInt64Array = PackedInt64Array()
-    @Export var current_edges: PackedInt64Array = PackedInt64Array()
-    @Export var removed_edges: PackedInt64Array = PackedInt64Array()
 }

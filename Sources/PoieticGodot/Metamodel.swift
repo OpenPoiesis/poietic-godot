@@ -9,8 +9,8 @@ import SwiftGodot
 import PoieticCore
 
 
-@Godot
-public class PoieticMetamodel: SwiftGodot.Node {
+// FIXME: Remove this
+public class OBSOLETE_PoieticMetamodel: SwiftGodot.Node {
     var metamodel: Metamodel! = nil
     
     @Callable
