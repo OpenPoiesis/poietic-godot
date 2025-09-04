@@ -14,7 +14,7 @@ import Foundation
 public class DiagramController: SwiftGodot.Node {
     // TODO: Rename to DiagramCanvasController
     @Export var canvas: DiagramCanvas?
-    var designController: DesignController?
+    @Export var designController: DesignController?
     
     var pictograms: PictogramCollection?
     

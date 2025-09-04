@@ -40,20 +40,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
    
     func currentTool() -> CanvasTool? {
-        // FIXME: Use application
-        guard let global = getNode(path: "/root/Global") else {
-            GD.pushWarning("Unable to get current tool, no Global set")
+        guard let app = getNode(path: NodePath(AppNodePath)) as? PoieticApplication else {
+            GD.pushWarning("Unable to get app")
             return nil
         }
-        guard let variant = global.get(property: "current_tool") else {
-            GD.pushWarning("Unable to get current tool")
-            return nil
-        }
-        guard let tool: CanvasTool? = CanvasTool.fromVariant(variant) else {
-            GD.pushWarning("Unable to get current tool: Invalid tool type")
-            return nil
-        }
-        return tool
+        return app.currentTool
     }
     
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
