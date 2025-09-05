@@ -155,5 +155,13 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         midpointHandles.append(handle)
         return handle
     }
+    public override func contains_point(point: SwiftGodot.Vector2) -> Bool {
+        guard let connector else { return false }
+        let localPoint = self.toLocal(globalPoint: point)
+        let flag = connector.containsTouch(at: Vector2D(localPoint), radius: TouchShapeRadius) ?? false
+        GD.print("Hit connector at \(localPoint) (\(point)): \(flag)")
+        return flag
+    }
+
 }
 

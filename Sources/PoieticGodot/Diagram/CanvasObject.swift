@@ -18,8 +18,9 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
         fatalError("Subclasses should override \(#function)")
     }
     
+    // FIXME: make explicit that this uses global point
     @Callable
-    func contains_point(point: SwiftGodot.Vector2) -> Bool {
+    open func contains_point(point: SwiftGodot.Vector2) -> Bool {
         GD.printErr("Subclasses of canvas object must override contains_point")
         return false
     }

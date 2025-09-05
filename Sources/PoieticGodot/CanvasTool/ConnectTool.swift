@@ -74,7 +74,8 @@ class ConnectTool: CanvasTool {
         
         let node = DiagramCanvasConnector()
         guard let typeName = selectedItemIdentifier else {
-            preconditionFailure("No selected item identifier")
+            GD.pushError("No selected item identifier for drag connector")
+            return
         }
         // FIXME: Use centralised style
         let targetPoint = Vector2D(canvas.toLocal(globalPoint: pointerPosition))

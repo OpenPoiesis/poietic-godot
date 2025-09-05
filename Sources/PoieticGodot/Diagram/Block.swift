@@ -11,6 +11,7 @@ import PoieticCore
 
 // FIXME: Selection shape
 // FIXME: Label positions
+let TouchShapeRadius: Double = 2.0
 
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject {
@@ -88,17 +89,18 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         
         // 1. Basics
         self.objectID = block.objectID
+        self.block = block
         self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
         self.position = block.position.asGodotVector2()
 
         // 2. Pictogram
         if let pictogram = block.pictogram {
-//            let shape = pictogram.collisionShape.shape.asGodotShape2D()
+            let shape = pictogram.collisionShape.shape.asGodotShape2D()
             
-//            if let collisionShape = self.collisionShape {
-//                collisionShape.shape = shape
-//                collisionShape.position = (-pictogram.origin).asGodotVector2()
-//            }
+            if let collisionShape = self.collisionShape {
+                collisionShape.shape = shape
+                collisionShape.position = (-pictogram.origin).asGodotVector2()
+            }
             
             let translatedPath = pictogram.path.transform(AffineTransform(translation: -pictogram.origin))
             self.pictogramCurves = translatedPath.asGodotCurves()
@@ -134,5 +136,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     func finishLabelEdit() {
         self.primaryLabel?.visible = savedPrimaryLabelEditVisible
     }
-    
+
+    public override func contains_point(point: SwiftGodot.Vector2) -> Bool {
+        guard let block else { return false }
+        let localPoint = self.toLocal(globalPoint: point)
+        let diagramPoint = Vector2D(localPoint) + block.position
+        let flag = block.containsTouch(at: Vector2D(diagramPoint), radius: TouchShapeRadius) ?? false
+        GD.print("Hit block at \(diagramPoint) (\(point)): \(flag)")
+        return flag
+    }
 }

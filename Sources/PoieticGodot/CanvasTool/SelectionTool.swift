@@ -6,6 +6,7 @@
 //
 
 import SwiftGodot
+import Diagramming
 
 enum SelectToolState: Int, CaseIterable {
     case empty
@@ -52,7 +53,7 @@ class SelectionTool: CanvasTool {
         case .object:
             guard let object = target.object as? DiagramCanvasObject, let objectID = object.objectID else {
                 GD.pushWarning("Hit object is not a diagram canvas object")
-                return true
+                return false
             }
             if event.shiftPressed {
                 canvas.selection.toggle(objectID)
@@ -104,34 +105,65 @@ class SelectionTool: CanvasTool {
             GD.pushError("Issue inspector not implemented")
             // FIXME: prompt_manager.open_issues_for(node.object_id)
         }
+        GD.print("--- selection began: \(state)")
         return true
     }
     
-//    func input_moved(event: InputEvent, move_delta: Vector2) -> bool:
-//        var mouse_position = event.global_position
-//        last_pointer_position += move_delta
-//        # FIXME
-//        #prompt_manager.close()
-//
-//        match state:
-//            SelectToolState.OBJECT_SELECT:
-//                pass
-//            SelectToolState.OBJECT_HIT:
-//                Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-//                self.canvas.begin_drag_selection(mouse_position)
-//                state = SelectToolState.OBJECT_MOVE
-//            SelectToolState.OBJECT_MOVE:
-//                Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-//                self.canvas.drag_selection(move_delta)
-//            SelectToolState.HANDLE_HIT:
-//                Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-//                self.canvas.begin_drag_handle(dragging_handle, mouse_position)
-//                state = SelectToolState.HANDLE_MOVE
-//            SelectToolState.HANDLE_MOVE:
-//                Input.set_default_cursor_shape(Input.CURSOR_DRAG)
-//                self.canvas.drag_handle(dragging_handle, move_delta)
-//        return true
-//        
+    override func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
+        guard let event = event as? InputEventMouse else { return false }
+        let mousePosition = event.globalPosition
+        // FIXME: add this
+        // prompt_manager.close()
+        
+        switch state {
+        case .empty: break
+        case .objectSelect: break
+        case .objectHit:
+            Input.setDefaultCursorShape(.drag)
+            state = .objectMove
+            GD.print("--> Begin drag selection")
+        case .objectMove:
+            GD.print("--- Moving drag selection")
+            Input.setDefaultCursorShape(.drag)
+            moveSelection(by: moveDelta)
+        case .handleHit:
+            Input.setDefaultCursorShape(.drag)
+//            self.canvas.begin_drag_handle(dragging_handle, mouse_position)
+            state = .handleMove
+            GD.print("--> Begin drag handle")
+        case .handleMove:
+            Input.setDefaultCursorShape(.drag)
+//            self.canvas.drag_handle(dragging_handle, move_delta)
+            GD.print("--- Moving drag handle")
+        }
+        return true
+    }
+    override func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
+        return false
+    }
+    func moveSelection(by moveDelta: Vector2) {
+        guard let canvas else { return }
+        let blocks: [DiagramCanvasBlock] = canvas.selection.selection.compactMap {
+            canvas.block(id: $0)
+        }
+        let connectors: [DiagramCanvasConnector] = canvas.selection.selection.compactMap {
+            canvas.connector(id: $0)
+        }
+        for block in blocks {
+            block.position += moveDelta
+        }
+        for connector in connectors {
+            guard let diagramConnector = connector.connector else { continue }
+            guard !diagramConnector.midpoints.isEmpty else { continue }
+            let movedMidpoints = diagramConnector.midpoints.map { $0 + Vector2D(moveDelta) }
+            connector.connector!.midpoints = movedMidpoints
+            // FIXME: This is convoluted, simplify and make it more clear
+            connector.contentChanged()
+        }
+
+        canvas.queueRedraw()
+    }
+    //
 //    func input_ended(_event: InputEvent, mouse_position: Vector2) -> bool:
 //        match state:
 //            SelectToolState.OBJECT_SELECT:

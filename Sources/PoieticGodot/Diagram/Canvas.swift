@@ -29,6 +29,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     
     var blocks: [DiagramCanvasBlock] = []
     var connectors: [DiagramCanvasConnector] = []
+    // FIXME: Use regular selection, not the wrapper
+    // FIXME: [IMPORTANT] move selection to DiagramController
     @Export var selection: PoieticSelection
    
     required init(_ context: InitContext) {

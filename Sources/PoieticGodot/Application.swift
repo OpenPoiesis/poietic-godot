@@ -8,7 +8,7 @@
 import SwiftGodot
 import PoieticCore
 
-public let AppNodePath = "/root/Global/app"
+public let AppNodePath = "/root/Main/PoieticApplication"
 
 /// Main node for graphical Poietic applications and design editors.
 @Godot
