@@ -27,20 +27,24 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Export var chartsVisible: Bool = false
     @Export var formulasVisible: Bool = false
     
-    var blocks: [DiagramCanvasBlock] = []
-    var connectors: [DiagramCanvasConnector] = []
-    // FIXME: Use regular selection, not the wrapper
-    // FIXME: [IMPORTANT] move selection to DiagramController
-    @Export var selection: PoieticSelection
+    // TODO: Move represented* to diagram controller
+    /// Blocks that represent design nodes.
+    ///
+    /// Blocks representing design nodes have their `objectID` set to the object they represent.
+    ///
+    public var representedBlocks: [DiagramCanvasBlock] { Array(_representedBlocks.values) }
+    private var _representedBlocks: [PoieticCore.ObjectID:DiagramCanvasBlock] = [:]
+    /// Connectors that represent design edges.
+    ///
+    /// Connectors representing design nodes have their `objectID` set to the object they represent.
+    ///
+    public var representedConnectors: [DiagramCanvasConnector] { Array(_representedConnectors.values) }
+    private var _representedConnectors: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
    
     required init(_ context: InitContext) {
-        self.selection = PoieticSelection()
         super.init(context)
     }
-    public override func _process(delta: Double) {
-        // Find moved blocks
-    }
-   
+    
     func currentTool() -> CanvasTool? {
         guard let app = getNode(path: NodePath(AppNodePath)) as? PoieticApplication else {
             GD.pushWarning("Unable to get app")
@@ -48,7 +52,57 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         }
         return app.currentTool
     }
-    
+   
+    func clear() {
+        for child in getChildren() {
+            guard let child = child as? DiagramCanvasObject else { continue }
+            child.queueFree()
+        }
+        _representedBlocks.removeAll()
+        _representedConnectors.removeAll()
+    }
+
+    /// Add a block that represents a design node. The block must have `ObjectID` set to a non-nil
+    /// value. Existing block with the same ID will be replaced.
+    ///
+    public func insertRepresentedBlock(_ representedBlock: DiagramCanvasBlock) {
+        guard let id = representedBlock.objectID else { return }
+        
+        if let existing = _representedBlocks[id] {
+            removeChild(node: existing)
+        }
+        addChild(node: representedBlock)
+        _representedBlocks[id] = representedBlock
+    }
+    public func removeRepresentedBlock(_ id: PoieticCore.ObjectID) {
+        guard let object = _representedBlocks.removeValue(forKey: id) else {
+            return
+        }
+        object.queueFree()
+    }
+    public func representedBlock(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
+        return _representedBlocks[id]
+    }
+    public func insertRepresentedConnector(_ representedConnector: DiagramCanvasConnector) {
+        guard let id = representedConnector.objectID else { return }
+        
+        if let existing = _representedConnectors[id] {
+            removeChild(node: existing)
+        }
+        addChild(node: representedConnector)
+        _representedConnectors[id] = representedConnector
+    }
+    public func removeRepresentedConnector(_ id: PoieticCore.ObjectID) {
+        guard let object = _representedConnectors.removeValue(forKey: id) else {
+            return
+        }
+        object.queueFree()
+    }
+
+    public func representedConnector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
+        return _representedConnectors[id]
+    }
+
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
         guard let event else { return }
         switch event {
@@ -93,21 +147,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         chartsVisible = zoomLevel > Self.ChartsVisibleZoomLevel
         formulasVisible = zoomLevel > Self.FormulasVisibleZoomLevel
     }
-    public func block(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
-        return blocks.first { $0.objectID == id }
-    }
-    public func connector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
-        return connectors.first { $0.objectID == id }
-    }
-    
-    public func objectsAtTouch(_ point: Vector2D, radius: Double=10.0) -> [DiagramCanvasObject] {
-        var result: [DiagramCanvasObject] = []
-        result += blocks.filter { $0.block?.containsTouch(at: point, radius: radius) ?? false }
-        result += connectors.filter { $0.connector?.containsTouch(at: point, radius: radius) ?? false }
-        return result
-    }
-    
-    
+        
     /// Get a target wrapping a canvas item at given hit position.
     ///
     /// If you want to get only objects and ignore handles or indicators, then use
@@ -192,6 +232,18 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         }
         
         return nil
+    }
+    
+    // TODO: Observe how we are using it and adjust types accordingly
+    // TODO: Add screen scaling (retina)
+    /// Converts a point from canvas coordinates to design coordinates.
+    func toDesign(globalPoint: SwiftGodot.Vector2) -> Vector2D {
+        let local = self.toLocal(globalPoint: globalPoint)
+        return Vector2D(local)
+    }
+    /// Converts a point from design coordinates to canvas coordinates.
+    func fromDesign(_ position: Vector2D) -> SwiftGodot.Vector2 {
+        return position.asGodotVector2()
     }
 
 

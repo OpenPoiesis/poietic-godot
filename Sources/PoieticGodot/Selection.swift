@@ -23,11 +23,11 @@ struct PoieticSelectionTypeInfo {
 }
 
 @Godot
-class PoieticSelection: SwiftGodot.Node {
+class SelectionManager: SwiftGodot.Node {
     // TODO: Consider removing this selection wrapper, just add get_ids() on Canvas
     var selection: Selection = Selection()
    
-    @Signal var selectionChanged: SignalWithArguments<PoieticSelection>
+    @Signal var selectionChanged: SignalWithArguments<SelectionManager>
 
     @Callable
     func get_ids() -> PackedInt64Array {
@@ -86,7 +86,7 @@ class PoieticSelection: SwiftGodot.Node {
         selectionChanged.emit(self)
     }
     
-    func replace(_ ids: [PoieticCore.ObjectID]) {
+    func replaceAll(_ ids: [PoieticCore.ObjectID]) {
         selection.replaceAll(ids)
         selectionChanged.emit(self)
     }

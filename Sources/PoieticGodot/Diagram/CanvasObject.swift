@@ -11,6 +11,12 @@ import Diagramming
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
     var objectID: PoieticCore.ObjectID?
+    /// Flag denoting whether the node requires update of visuals.
+    ///
+    /// See also: ``updateVisuals()``
+    ///
+    @Export var isDirty: Bool = true
+
     @Export var hasIssues: Bool = false
     var issue_indicator: SwiftGodot.CanvasItem?
     

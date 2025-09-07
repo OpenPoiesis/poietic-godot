@@ -66,12 +66,14 @@ public class DesignController: SwiftGodot.Node {
     var validatedFrame: ValidatedFrame? = nil
     var simulationPlan: SimulationPlan? = nil
     var result: SimulationResult? = nil
+
+    @Export var selectionManager: SelectionManager
     
     // Called on: load from path
     @Signal var designReset: SimpleSignal
     // Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
-    
+
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
@@ -79,6 +81,7 @@ public class DesignController: SwiftGodot.Node {
     required init(_ context: InitContext) {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
+        self.selectionManager = SelectionManager()
         
         super.init(context)
         
@@ -96,7 +99,6 @@ public class DesignController: SwiftGodot.Node {
     }
     
     // MARK: - Object Graph
-    
     @Callable
     func get_object(id: Int64) -> PoieticObject? {
         guard let id = PoieticCore.ObjectID(id) else {
@@ -421,7 +423,8 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable
-    func get_distinct_values(selection: PoieticSelection, attribute: String) -> SwiftGodot.Variant {
+    func get_distinct_values(selection: SelectionManager, attribute: String) -> SwiftGodot.Variant {
+        // FIXME: Use array not selection
         guard let frame = design.currentFrame else {
             GD.pushError("Using design without a frame")
             return SwiftGodot.Variant(GArray())
@@ -438,7 +441,8 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable
-    func get_distinct_types(selection: PoieticSelection) -> [String] {
+    func get_distinct_types(selection: SelectionManager) -> [String] {
+        // FIXME: Use array not selection
         guard let frame = design.currentFrame else {
             GD.pushError("Using design without a frame")
             return []
@@ -448,7 +452,7 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable
-    func get_shared_traits(selection: PoieticSelection) -> [String] {
+    func get_shared_traits(selection: SelectionManager) -> [String] {
         guard let frame = design.currentFrame else {
             GD.pushError("Using design without a frame")
             return []

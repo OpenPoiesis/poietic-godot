@@ -15,9 +15,9 @@ let TouchShapeRadius: Double = 2.0
 
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject {
-    var didMove: Bool = false
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]
+
     @Export var pictogramColor: SwiftGodot.Color
     @Export var pictogramLineWidth: Double = 1.0
     
@@ -34,6 +34,21 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.pictogramCurves = []
         self.pictogramColor = SwiftGodot.Color(code: "green")
         super.init(context)
+    }
+    
+    public override func _process(delta: Double) {
+        if isDirty {
+            updateVisuals()
+        }
+    }
+    
+    /// Sets the object as needing to update visuals.
+    ///
+    /// - SeeAlso: ``updateVisuals()``
+    ///
+    @Callable(autoSnakeCase: true)
+    public func setDirty() {
+        self.isDirty = true
     }
 
     func _prepareChildren(for block: Block) {
@@ -91,12 +106,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.objectID = block.objectID
         self.block = block
         self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
-        self.position = block.position.asGodotVector2()
+        self.updateVisuals()
 
         // 2. Pictogram
         if let pictogram = block.pictogram {
             let shape = pictogram.collisionShape.shape.asGodotShape2D()
             
+            // TODO: We are not using it
             if let collisionShape = self.collisionShape {
                 collisionShape.shape = shape
                 collisionShape.position = (-pictogram.origin).asGodotVector2()
@@ -106,7 +122,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             self.pictogramCurves = translatedPath.asGodotCurves()
         }
         else {
-//            self.collisionShape = nil
+            self.collisionShape = nil
             self.pictogramCurves = []
         }
         // 3. Labels
@@ -126,6 +142,12 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.queueRedraw()
     }
     
+    func updateVisuals() {
+        guard let block else { return }
+        guard let canvas = self.getParent() as? DiagramCanvas else { return }
+        self.position = canvas.fromDesign(block.position)
+    }
+    
     var savedPrimaryLabelEditVisible: Bool = false
     
     func beginLabelEdit() {
@@ -142,7 +164,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         let localPoint = self.toLocal(globalPoint: point)
         let diagramPoint = Vector2D(localPoint) + block.position
         let flag = block.containsTouch(at: Vector2D(diagramPoint), radius: TouchShapeRadius) ?? false
-        GD.print("Hit block at \(diagramPoint) (\(point)): \(flag)")
         return flag
     }
 }

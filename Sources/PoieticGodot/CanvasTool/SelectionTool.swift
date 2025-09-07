@@ -7,6 +7,7 @@
 
 import SwiftGodot
 import Diagramming
+import PoieticCore
 
 enum SelectToolState: Int, CaseIterable {
     case empty
@@ -43,8 +44,9 @@ class SelectionTool: CanvasTool {
         // TODO: Move this to tool
         guard let event = event as? InputEventWithModifiers else { return false }
         guard let canvas else { return false }
+        guard let selectionManager = designController?.selectionManager else { return false }
         guard let target = canvas.hitTarget(at: pointerPosition) else {
-            canvas.selection.clear()
+            selectionManager.clear()
             state = .objectSelect
             return true
         }
@@ -56,14 +58,15 @@ class SelectionTool: CanvasTool {
                 return false
             }
             if event.shiftPressed {
-                canvas.selection.toggle(objectID)
+                selectionManager.toggle(objectID)
             }
             else {
-                if canvas.selection.is_empty() || !canvas.selection.contains(objectID) {
-                    canvas.selection.replace([objectID])
+                if !selectionManager.contains(objectID) {
+                    selectionManager.replaceAll([objectID])
                 }
                 else {
                     let position = canvas.toLocal(globalPoint: pointerPosition)
+                    GD.pushWarning("Context menu not implemented yet")
                     // TODO: Make this some clever canvas.get_context_menu_position(click_position)
                     // FIXME: prompt_manager.open_context_menu(canvas.selection, canvas.to_global(position))
                 }
@@ -83,7 +86,7 @@ class SelectionTool: CanvasTool {
             {
                 return false
             }
-            canvas.selection.replace([id])
+            selectionManager.replaceAll([id])
             GD.pushError("Name editor not reimplemented")
             // FIXME: prompt_manager.open_name_editor_for(node.object_id)
         case .secondaryLabel:
@@ -92,7 +95,7 @@ class SelectionTool: CanvasTool {
             {
                 return false
             }
-            canvas.selection.replace([id])
+            selectionManager.replaceAll([id])
             GD.pushError("formula editor not implemented")
             // FIXME: prompt_manager.open_formula_editor_for(node.object_id)
         case .errorIndicator:
@@ -101,7 +104,7 @@ class SelectionTool: CanvasTool {
             {
                 return false
             }
-            canvas.selection.replace([id])
+            selectionManager.replaceAll([id])
             GD.pushError("Issue inspector not implemented")
             // FIXME: prompt_manager.open_issues_for(node.object_id)
         }
@@ -143,24 +146,46 @@ class SelectionTool: CanvasTool {
     }
     func moveSelection(by moveDelta: Vector2) {
         guard let canvas else { return }
-        let blocks: [DiagramCanvasBlock] = canvas.selection.selection.compactMap {
-            canvas.block(id: $0)
+        guard let ctrl = designController else { return }
+        guard let diagramCtrl = diagramController else { return }
+        let selection = ctrl.selectionManager.selection
+        var dependentEdges: Set<PoieticCore.ObjectID> = Set()
+        
+        
+        let blocks: [DiagramCanvasBlock] = selection.compactMap {
+            canvas.representedBlock(id: $0)
         }
-        let connectors: [DiagramCanvasConnector] = canvas.selection.selection.compactMap {
-            canvas.connector(id: $0)
+        let connectors: [DiagramCanvasConnector] = selection.compactMap {
+            canvas.representedConnector(id: $0)
         }
         for block in blocks {
-            block.position += moveDelta
+            block.block?.position += canvas.toDesign(globalPoint: moveDelta)
+            block.setDirty()
+            if let objectID = block.objectID {
+                let deps = ctrl.currentFrame.dependentEdges(objectID)
+                dependentEdges.formUnion(deps)
+            }
         }
+
         for connector in connectors {
             guard let diagramConnector = connector.connector else { continue }
             guard !diagramConnector.midpoints.isEmpty else { continue }
-            let movedMidpoints = diagramConnector.midpoints.map { $0 + Vector2D(moveDelta) }
-            connector.connector!.midpoints = movedMidpoints
+            let movedMidpoints = diagramConnector.midpoints.map {
+                $0 + canvas.toDesign(globalPoint: moveDelta)
+            }
+            connector.connector?.midpoints = movedMidpoints
             // FIXME: This is convoluted, simplify and make it more clear
-            connector.contentChanged()
+            diagramCtrl.updateConnectorPreview(connector)
+            connector.setDirty()
         }
-
+        // TODO: Gather the mid-point changed connectors as well, not to have duplicate update
+        for id in dependentEdges {
+            guard let connector = canvas.representedConnector(id: id) else { continue }
+            diagramCtrl.updateConnectorPreview(connector)
+            connector.setDirty()
+        }
+        
+        
         canvas.queueRedraw()
     }
     //

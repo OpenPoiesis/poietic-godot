@@ -9,6 +9,7 @@ import SwiftGodot
         // Controllers
         PoieticApplication.self,
         DesignController.self,
+        SelectionManager.self,
         ResultPlayer.self,
 
         // Design content and other data
@@ -19,7 +20,6 @@ import SwiftGodot
 
         // Auxiliary objects
         PoieticTransaction.self, // TODO: Remove in favour of command objects
-        PoieticSelection.self,
 
         // Tool
         CanvasTool.self,

@@ -17,6 +17,7 @@ public class DiagramController: SwiftGodot.Node {
     @Export var designController: DesignController?
     
     var pictograms: PictogramCollection?
+    var composer: DiagramComposer?
     
     required init(_ context: InitContext) {
         super.init(context)
@@ -28,6 +29,12 @@ public class DiagramController: SwiftGodot.Node {
         self.canvas = canvas
         _loadPictograms()
         
+        let style = DiagramStyle(
+            pictograms: pictograms,
+            connectorStyles: StockFlowConnectorStyles,
+        )
+        self.composer = DiagramComposer(style: style)
+
         designController.designChanged.connect(self.on_design_changed)
     }
     
@@ -72,100 +79,208 @@ public class DiagramController: SwiftGodot.Node {
         // FIXME: Implement this
         GD.pushWarning("Syncing indicators not yet re-implemented")
     }
-    
+
+    @Callable(autoSnakeCase: true)
+    func clearCanvas() {
+        canvas?.clear()
+    }
     func updateCanvas(frame: StableFrame) {
-        let style = DiagramStyle(
-            pictograms: pictograms,
-            connectorStyles: StockFlowConnectorStyles,
-        )
-        let presenter = DiagramPresenter(style: style)
-        let diagram = presenter.createDiagram(from: frame)
-        
-        updateBlocks(diagram: diagram)
-        updateConnectors(diagram: diagram)
+        guard let composer else { return }
+
+        let nodes = frame.nodes(withTrait: .DiagramBlock)
+        syncDesignBlocks(nodes: nodes)
+
+        let edges = frame.edges(withTrait: .DiagramConnector)
+        syncDesignConnectors(edges: edges)
     }
     
-    func updateBlocks(diagram: Diagram) {
-        guard let canvas else {
-            GD.pushError("Diagram controller has no canvas")
-            return
-        }
-        
-        var existing: [PoieticCore.ObjectID:DiagramCanvasBlock] = [:]
+    func syncDesignBlocks(nodes: [ObjectSnapshot]) {
+        guard let canvas else { return }
+        guard let composer else { return }
+
+        var existing: Set<PoieticCore.ObjectID> = Set(canvas.representedBlocks.compactMap {
+            $0.objectID
+        })
         var updated: [DiagramCanvasBlock] = []
         
-        for node in canvas.blocks {
-            guard let id = node.objectID else { continue }
-            existing[id] = node
+        for node in nodes {
+            syncDesignBlock(node)
+            existing.remove(node.objectID)
         }
         
-        for diagramObject in diagram.blocks {
-            guard let objectID = diagramObject.objectID else { continue }
-            let canvasNode: DiagramCanvasBlock
-            if let node = existing[objectID] {
-                canvasNode = node
-                existing[objectID] = nil
-            }
-            else {
-                canvasNode = DiagramCanvasBlock()
-                canvas.addChild(node: canvasNode)
-            }
-            canvasNode.updateContent(from: diagramObject)
-            updated.append(canvasNode)
+        for id in existing {
+            canvas.removeRepresentedBlock(id)
         }
-        canvas.blocks = updated
-        
-//        GD.print("--- Canvas blocks updated: \(updated.count), removed: \(existing.count)")
-        for node in existing.values {
-            node.queueFree()
-        }
-        
     }
     
-    func updateConnectors(diagram: Diagram) {
-        guard let canvas else {
-            GD.pushError("Diagram controller has no canvas")
-            return
+    func syncDesignBlock(_ node: ObjectSnapshot) {
+        guard let canvas else { return }
+        guard let composer else { return }
+
+        if let object = canvas.representedBlock(id: node.objectID) {
+            guard let block = object.block else { return } // Broken block
+            composer.updateBlock(block: block, node: node)
+            object.updateContent(from: block)
         }
-        
-        var existing: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
-        var updated: [DiagramCanvasConnector] = []
-        
-        for node in canvas.connectors {
-            guard let id = node.objectID else { continue }
-            existing[id] = node
+        else {
+            let object = DiagramCanvasBlock()
+            object.objectID = node.objectID
+            let block = composer.createBlock(node)
+            canvas.insertRepresentedBlock(object)
+            object.updateContent(from: block)
         }
-        
-        for diagramObject in diagram.connectors {
-            guard let objectID = diagramObject.objectID else { continue }
-            let canvasNode: DiagramCanvasConnector
-            if let node = existing[objectID] {
-                canvasNode = node
-                existing[objectID] = nil
-            }
-            else {
-                canvasNode = DiagramCanvasConnector()
-                canvas.addChild(node: canvasNode)
-            }
-            canvasNode.updateContent(from: diagramObject)
-            updated.append(canvasNode)
-        }
-        canvas.connectors = updated
-//        GD.print("--- Canvas connectors updated: \(updated.count), removed: \(existing.count)")
-        for node in existing.values {
-            node.queueFree()
-        }
-        
     }
     
+    func syncDesignConnectors(edges: [EdgeObject]) {
+        guard let canvas else { return }
+        guard let composer else { return }
+
+        var existing: Set<PoieticCore.ObjectID> = Set(canvas.representedConnectors.compactMap {
+            $0.objectID
+        })
+        var updated: [DiagramCanvasBlock] = []
+        
+        for edge in edges {
+            syncDesignConnector(edge)
+            existing.remove(edge.key)
+        }
+        
+        for id in existing {
+            canvas.removeRepresentedConnector(id)
+        }
+    }
+
+    /// Synchronises a connector with an edge that it represents.
+    ///
+    /// Represented blocks the edge connects must exist in the canvas.
+    func syncDesignConnector(_ edge: EdgeObject) {
+        guard let canvas else { return }
+        guard let composer else { return }
+        guard let origin = canvas.representedBlock(id: edge.origin),
+              let originBlock = origin.block,
+              let target = canvas.representedBlock(id: edge.target),
+              let targetBlock = target.block else
+        {
+            GD.pushError("Connector \(edge.key) is missing blocks")
+            return // Broken connector
+        }
+
+        if let object = canvas.representedConnector(id: edge.key) {
+            guard let connector = object.connector else { return }
+            composer.updateConnector(connector: connector,
+                                      edge: edge,
+                                      origin: originBlock,
+                                      target: targetBlock)
+            object.updateContent(from: connector)
+        }
+        else {
+            let object = DiagramCanvasConnector()
+            object.objectID = edge.key
+            object.originID = edge.origin
+            object.targetID = edge.target
+            let connector = composer.createConnector(edge,
+                                                      origin: originBlock,
+                                                      target: targetBlock)
+            canvas.insertRepresentedConnector(object)
+            object.updateContent(from: connector)
+        }
+    }
+    /// Update connector during selection move session.
+    ///
+    func updateConnectorPreview(_ connector: DiagramCanvasConnector) {
+        guard let canvas else { return }
+        guard let composer else { return }
+        guard let originID = connector.originID,
+              let origin = canvas.representedBlock(id: originID),
+              let originBlock = origin.block,
+              let targetID = connector.targetID,
+              let target = canvas.representedBlock(id: targetID),
+              let targetBlock = target.block else
+        {
+            GD.pushError("Connector has broken blocks")
+            return // Broken connector
+        }
+        guard let wrappedConnector = connector.connector else { return }
+        composer.updateConnector(connector: wrappedConnector,
+                                 origin: originBlock,
+                                 target: targetBlock)
+        connector.setDirty()
+    }
+
+    /// Create a connector originating in a block and ending at a given point, typically
+    /// a mouse position.
+    ///
+    /// Use this to make a connector that is being created using a mouse pointer or by a touch.
+    ///
+    /// - SeeAlso: ``updateDragConnector(connector:origin:targetPoint:)``
+    ///
+    public func createDragConnector(type: String,
+                             origin: DiagramCanvasBlock,
+                             targetPoint: Vector2D) -> DiagramCanvasConnector? {
+        guard let canvas else { return nil }
+        guard let composer else { return nil }
+        
+        let result = DiagramCanvasConnector()
+
+        let originPoint: Vector2D
+        
+        if let block = origin.block {
+            originPoint = Connector.touchPoint(touching: block.collisionShape,
+                                               from: targetPoint,
+                                               towards: block.position)
+        }
+        else {
+            originPoint = Vector2D(origin.position)
+        }
+        
+        let style = composer.connectorStyle(forType: type)
+        let connector = Connector(originPoint: originPoint,
+                                  targetPoint: targetPoint,
+                                  midpoints: [],
+                                  style: style)
+        result.connector = connector
+        canvas.addChild(node: result)
+        return result
+    }
     
+    /// Update a connector originating in a block and ending at a given point, typically
+    /// a mouse position.
+    ///
+    /// Use this to update a connector that is being created using a mouse pointer or by a touch.
+    ///
+    /// - SeeAlso: ``createDragConnector(type:origin:targetPoint:)``
+    ///
+    public func updateDragConnector(_ dragConnector: DiagramCanvasConnector,
+                                    origin: DiagramCanvasBlock,
+                                    targetPoint: Vector2D)
+    {
+        guard let canvas else { return }
+        guard let composer else { return }
+        guard dragConnector.connector != nil else { return }
+        
+        let originPoint: Vector2D
+        
+        if let block = origin.block {
+            originPoint = Connector.touchPoint(touching: block.collisionShape,
+                                               from: targetPoint,
+                                               towards: block.position)
+        }
+        else {
+            originPoint = Vector2D(origin.position)
+        }
+        
+        dragConnector.connector!.originPoint = originPoint
+        dragConnector.connector!.targetPoint = targetPoint
+        dragConnector.setDirty()
+    }
+
     // MARK: Prompt Editors
     // Label Editor
     @Callable
     func _on_label_edit_submitted(object_id: Int64, new_text: String) {
         guard let id = PoieticCore.ObjectID(object_id) else { return }
         guard let canvas else { return }
-        guard let object = canvas.block(id: id) else { return }
+        guard let object = canvas.representedBlock(id: id) else { return }
         guard let block = object.block else { return }
         guard let ctrl = designController else { return }
         
@@ -184,7 +299,7 @@ public class DiagramController: SwiftGodot.Node {
     func _on_label_edit_cancelled(object_id: Int64) {
         guard let id = PoieticCore.ObjectID(object_id) else { return }
         guard let canvas else { return }
-        guard let object = canvas.block(id: id) else { return }
+        guard let object = canvas.representedBlock(id: id) else { return }
         object.finishLabelEdit()
     }
 

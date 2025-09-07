@@ -78,7 +78,7 @@ class PlaceTool: CanvasTool {
         var node = trans.createNode(type)
         node.position = Point(position)
         ctrl.accept(trans)
-        self.canvas?.selection.replace([node.objectID])
+        ctrl.selectionManager.replaceAll([node.objectID])
     }
     
     override func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
