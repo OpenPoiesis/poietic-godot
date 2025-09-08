@@ -33,27 +33,21 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     ///
     public var targetID: PoieticCore.ObjectID?
 
-    var wire: PackedVector2Array
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]
-    var fillColor: SwiftGodot.Color
-    var lineColor: SwiftGodot.Color
-    var lineWidth: Double = 1.0
+    @Export var fillColor: SwiftGodot.Color
+    @Export var lineColor: SwiftGodot.Color
+    @Export var lineWidth: Double = 1.0
     
-    /**
-     Need:
-     - connector style (arrow style)
-     - line/shape style (colour, width, fill)
-     - curves - for redrawing in different style
-     */
+    /// Connector's centre curve tessellated to a poly-line. Used for connector touch detection.
+    ///
+    @Export var wire: PackedVector2Array
 
-    // FIXME: Implement this
     @Callable
     override func getHandles() -> [CanvasHandle] {
         return midpointHandles
     }
-
     
     required init(_ context: InitContext) {
         self.openCurves = []

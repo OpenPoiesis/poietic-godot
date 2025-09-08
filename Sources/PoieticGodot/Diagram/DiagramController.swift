@@ -243,6 +243,7 @@ public class DiagramController: SwiftGodot.Node {
         return result
     }
     
+    
     /// Update a connector originating in a block and ending at a given point, typically
     /// a mouse position.
     ///
@@ -273,7 +274,41 @@ public class DiagramController: SwiftGodot.Node {
         dragConnector.connector!.targetPoint = targetPoint
         dragConnector.setDirty()
     }
+    
+    public func moveSelection(_ selection: Selection, by designDelta: Vector2D) {
+        guard let ctrl = designController else { return }
+        let trans = ctrl.newTransaction()
 
+        for id in selection {
+            guard trans.contains(id) else {
+                GD.pushWarning("Selection has unknown ID: \(id)")
+                continue
+            }
+            let object = trans.mutate(id)
+            _moveObject(object, by: designDelta)
+        }
+        
+    }
+    
+    public func _moveObject(_ object: TransientObject, by designDelta: Vector2D) {
+        if object.type.hasTrait(.DiagramBlock) {
+            object.position = (object.position ?? .zero) + designDelta
+        }
+        else if object.type.hasTrait(.DiagramConnector) {
+            guard let midpoints = (try? object["midpoints"]?.pointArray()) else { return }
+            guard !midpoints.isEmpty else { return }
+            
+            let movedMidpoints = midpoints.map {
+                $0 + designDelta
+            }
+            object["midpoints"] = PoieticCore.Variant(movedMidpoints)
+        }
+    }
+
+//    public func setMidpoints(_ objectID: ObjectID, midpoints: [Vector2D]) {
+//        
+//    }
+    
     // MARK: Prompt Editors
     // Label Editor
     @Callable

@@ -34,6 +34,7 @@ class SelectionTool: CanvasTool {
     @Export var draggingHandle: CanvasHandle?
     
     var previousCanvasPosition: Vector2 = .zero
+    var initialCanvasPosition: Vector2 = .zero
 
     override func toolName() -> String {
         "select"
@@ -52,7 +53,9 @@ class SelectionTool: CanvasTool {
             state = .objectSelect
             return true
         }
-        previousCanvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        initialCanvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        previousCanvasPosition = initialCanvasPosition
+        
         switch target.type {
         case .object:
             guard let object = target.object as? DiagramCanvasObject, let objectID = object.objectID else {
@@ -126,29 +129,22 @@ class SelectionTool: CanvasTool {
         case .objectHit:
             Input.setDefaultCursorShape(.drag)
             state = .objectMove
-            GD.print("--> Begin drag selection")
         case .objectMove:
             let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
             let delta = canvasPosition - previousCanvasPosition
             previousCanvasPosition = canvasPosition
-            GD.print("--- Moving drag selection by \(delta)")
             Input.setDefaultCursorShape(.drag)
             moveSelection(byCanvasDelta: delta)
         case .handleHit:
             Input.setDefaultCursorShape(.drag)
 //            self.canvas.begin_drag_handle(dragging_handle, mouse_position)
             state = .handleMove
-            GD.print("--> Begin drag handle")
+            GD.pushError("Handle hit not implemented")
         case .handleMove:
             Input.setDefaultCursorShape(.drag)
 //            self.canvas.drag_handle(dragging_handle, move_delta)
-            GD.print("--- Moving drag handle")
+            GD.pushError("Handle move not implemented")
         }
-        return true
-    }
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
-        // FIXME: Implement commit
-        GD.printErr("Input ended for selection tool not yet implemented")
         return true
     }
     func moveSelection(byCanvasDelta canvasDelta: Vector2) {
@@ -183,7 +179,6 @@ class SelectionTool: CanvasTool {
                 $0 + designDelta
             }
             connector.connector?.midpoints = movedMidpoints
-            // FIXME: This is convoluted, simplify and make it more clear
             diagramCtrl.updateConnectorPreview(connector)
             connector.setDirty()
         }
@@ -197,22 +192,25 @@ class SelectionTool: CanvasTool {
         
         canvas.queueRedraw()
     }
-    //
-//    func input_ended(_event: InputEvent, mouse_position: Vector2) -> bool:
-//        match state:
-//            SelectToolState.OBJECT_SELECT:
-//                pass
-//            SelectToolState.OBJECT_HIT:
-//                pass
-//            SelectToolState.OBJECT_MOVE:
-//                Input.set_default_cursor_shape(Input.CURSOR_ARROW)
-//                self.canvas.finish_drag_selection(mouse_position)
-//            SelectToolState.HANDLE_MOVE:
-//                Input.set_default_cursor_shape(Input.CURSOR_ARROW)
-//                self.canvas.finish_drag_handle(dragging_handle, mouse_position)
-//                dragging_handle = null
-//
-//        state = SelectToolState.EMPTY
-//        return true
+    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let canvas else { return false }
+        guard let selection = designController?.selectionManager.selection else { return false }
+        Input.setDefaultCursorShape(.arrow)
 
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        let canvasMoveDelta = canvasPosition - initialCanvasPosition
+        let designMoveDelta = Vector2D(canvasMoveDelta)
+        
+        switch state {
+        case .objectMove:
+            diagramController?.moveSelection(selection, by: designMoveDelta)
+        case .handleMove:
+            GD.pushError("Handle move commit not implemented")
+        case .empty: break
+        case .handleHit: break
+        case .objectHit: break
+        case .objectSelect: break
+        }
+        return true
+    }
 }
