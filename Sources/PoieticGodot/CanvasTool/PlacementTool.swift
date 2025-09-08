@@ -49,7 +49,7 @@ class PlaceTool: CanvasTool {
         if intentShadow == nil {
             removeIntentShadow()
         }
-        createIntentShadow(typeName: identifier, pointerPosition: Vector2.zero)
+        createIntentShadow(typeName: identifier, canvasPosition: Vector2.zero)
     }
     
         
@@ -81,7 +81,8 @@ class PlaceTool: CanvasTool {
         ctrl.selectionManager.replaceAll([node.objectID])
     }
     
-    override func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let canvas else { return false }
         // TODO: Add shadow (also on input moved)
         // open_panel(pointer_position)
         // Global.set_modal(palette)
@@ -89,38 +90,45 @@ class PlaceTool: CanvasTool {
             GD.pushError("No selected item identifier for placement tool")
             return true
         }
-        createIntentShadow(typeName: identifier, pointerPosition: pointerPosition)
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        createIntentShadow(typeName: identifier, canvasPosition: canvasPosition)
         return true
     }
     
-    override func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let canvas else { return false }
         guard let selectedItemIdentifier else {
             removeIntentShadow()
             return true
         }
-        placeObject(at: pointerPosition, typeName: selectedItemIdentifier)
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        placeObject(at: canvasPosition, typeName: selectedItemIdentifier)
         removeIntentShadow()
         return true
     }
     
-    override func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
-        guard let intentShadow else { return true }
-        guard let canvas else { return false }
-        intentShadow.position += canvas.toLocal(globalPoint: moveDelta)
+    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let canvas,
+              let intentShadow else { return true }
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        intentShadow.position = canvasPosition
         return true
     }
     
-    override func inputHover(event: InputEvent, pointerPosition: Vector2) -> Bool {
-        guard let intentShadow else { return true }
-        guard let canvas else { return false }
-        intentShadow.position = canvas.toLocal(globalPoint: pointerPosition)
+    override func inputHover(event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let canvas,
+              let intentShadow else { return false }
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        intentShadow.position = canvasPosition
         return true
     }
     
-    func createIntentShadow(typeName: String, pointerPosition: Vector2) {
-        // TODO: Handle error
-        guard let canvas else { preconditionFailure("No canvas") }
-        guard intentShadow == nil else { fatalError("Intent shadow is already set") }
+    func createIntentShadow(typeName: String, canvasPosition: Vector2) {
+        guard let canvas else { return }
+        if let intentShadow {
+            intentShadow.queueFree()
+            self.intentShadow = nil
+        }
         
         let shadow = CanvasShadow()
         
@@ -130,7 +138,7 @@ class PlaceTool: CanvasTool {
             preconditionFailure("No pictogram for type '\(typeName)'")
         }
         shadow.pictogramCurves = pictogram.path.asGodotCurves()
-        shadow.position = canvas.toLocal(globalPoint: pointerPosition)
+        shadow.position = canvasPosition
 
         canvas.addChild(node: shadow)
         intentShadow = shadow

@@ -159,11 +159,15 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.primaryLabel?.visible = savedPrimaryLabelEditVisible
     }
 
-    public override func contains_point(point: SwiftGodot.Vector2) -> Bool {
-        guard let block else { return false }
-        let localPoint = self.toLocal(globalPoint: point)
-        let diagramPoint = Vector2D(localPoint) + block.position
-        let flag = block.containsTouch(at: Vector2D(diagramPoint), radius: TouchShapeRadius) ?? false
-        return flag
+    override public func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {
+        guard let collisionShape else { return false }
+        let localTouch = toLocal(globalPoint: globalPoint)
+        let touchShape = CircleShape2D()
+        touchShape.radius = TouchShapeRadius
+        let touchTransform = self.transform.translated(offset: localTouch)
+        let localTransform = self.transform.translated(offset: collisionShape.position)
+        return collisionShape.shape!.collide(localXform: localTransform,
+                                             withShape: touchShape,
+                                             shapeXform: touchTransform)
     }
 }

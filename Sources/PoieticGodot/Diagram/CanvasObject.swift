@@ -25,9 +25,9 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     }
     
     // FIXME: make explicit that this uses global point
-    @Callable
-    open func contains_point(point: SwiftGodot.Vector2) -> Bool {
-        GD.printErr("Subclasses of canvas object must override contains_point")
+    @Callable(autoSnakeCase: true)
+    open func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {
+        GD.printErr("Subclasses of canvas object must override containsTouch")
         return false
     }
     
@@ -80,8 +80,11 @@ public class CanvasHandle: SwiftGodot.Node2D {
         self.drawCircle(position: position, radius: size/2, color: color, filled: false, width: lineWidth)
     }
     
-    func containsPoint(point: SwiftGodot.Vector2) -> Bool {
-        return false
+    func containsPoint(globalPoint: SwiftGodot.Vector2) -> Bool {
+        let localPoint = toLocal(globalPoint: globalPoint)
+        return Geometry2D.isPointInCircle(point: localPoint,
+                                          circlePosition: .zero,
+                                          circleRadius: self.size / 2.0)
     }
 }
 
@@ -105,9 +108,11 @@ public class CanvasIssueIndicator: SwiftGodot.Node2D {
         self.icon = icon
     }
     
-    @Callable
-    func contains_point(_ point: SwiftGodot.Vector2) -> Bool {
-        return self.position.distanceTo(point) <= Double(IssueIndicatorIconSize)
+    func containsPoint(globalPoint: SwiftGodot.Vector2) -> Bool {
+        let localPoint = toLocal(globalPoint: globalPoint)
+        return Geometry2D.isPointInCircle(point: localPoint,
+                                          circlePosition: .zero,
+                                          circleRadius: Double(IssueIndicatorIconSize) / 2.0)
     }
 }
 

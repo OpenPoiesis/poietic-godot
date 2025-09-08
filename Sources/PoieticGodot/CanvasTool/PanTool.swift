@@ -29,35 +29,37 @@ class PanTool: CanvasTool {
         Input.setDefaultCursorShape(.arrow)
     }
 
-    override func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let canvas else { return false }
         guard let event = event as? InputEventMouseButton else { return false }
         guard event.buttonIndex == .left else { return false }
         
         startCanvasOffset = canvas.canvasOffset
-        previousPosition = pointerPosition
+        previousPosition = canvas.toLocal(globalPoint: globalPosition)
         state = .panning
         Input.setDefaultCursorShape(.drag)
         return true
     }
     
-    override func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
+    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard state == .panning else { return false }
         guard let canvas else { return false }
         
-        previousPosition += moveDelta
-        canvas.canvasOffset += moveDelta * Double(canvas.zoomLevel)
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+//        canvas.canvasOffset += moveDelta * Double(canvas.zoomLevel)
+        canvas.canvasOffset += canvasPosition - previousPosition
+        previousPosition = canvasPosition
         canvas.updateCanvasView()
         
         return true
     }
     
 
-    override func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard state == .panning else { return false }
         guard let canvas else { return false }
-        
-        canvas.canvasOffset += (pointerPosition - previousPosition) * Double(canvas.zoomLevel)
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        canvas.canvasOffset += canvasPosition - previousPosition
         canvas.updateCanvasView()
         state = .idle
         Input.setDefaultCursorShape(.pointingHand)
@@ -65,6 +67,7 @@ class PanTool: CanvasTool {
     }
     
     override func inputCancelled(event: InputEvent) -> Bool  {
+        Input.setDefaultCursorShape(.arrow)
         state = .idle
         return true
     }

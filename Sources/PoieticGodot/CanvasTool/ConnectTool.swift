@@ -48,13 +48,14 @@ class ConnectTool: CanvasTool {
         typeName = identifier
     }
     
-    override func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let ctrl = diagramController else { return false }
         guard let canvas else { return false }
-        guard let origin = canvas.hitObject(at: pointerPosition) as? DiagramCanvasBlock
+        guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock
         else { return true }
 
-        let targetPoint = Vector2D(canvas.toDesign(globalPoint: pointerPosition))
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        let targetPoint = Vector2D(canvasPosition)
         draggingConnector = ctrl.createDragConnector(type: typeName,
                                                      origin: origin,
                                                      targetPoint: targetPoint)
@@ -64,7 +65,7 @@ class ConnectTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
+    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let ctrl = diagramController else { return false }
         guard let canvas else { return false }
         guard state == .connect else { return true }
@@ -73,15 +74,14 @@ class ConnectTool: CanvasTool {
         guard let draggingConnector,
               let connector = draggingConnector.connector else { GD.pushError("No dragging connector") ; return false }
 
-        // TODO: To local?
-        let designMoveDelta = Vector2D(canvas.toDesign(globalPoint: moveDelta))
-        let targetPoint = connector.targetPoint + designMoveDelta
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        let targetPoint = Vector2D(canvasPosition)
         ctrl.updateDragConnector(draggingConnector,
                                  origin: origin,
                                  targetPoint: targetPoint)
 
         let canvasPoint = canvas.fromDesign(targetPoint)
-        guard let target = canvas.hitObject(at: canvasPoint),
+        guard let target = canvas.hitObject(globalPosition: globalPosition),
               let targetID = target.objectID else
         {
             Input.setDefaultCursorShape(.drag)
@@ -112,7 +112,7 @@ class ConnectTool: CanvasTool {
                                        in: ctrl.currentFrame)
     }
     
-    override func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         defer {
             Input.setDefaultCursorShape(.arrow)
             cancelConnectSession()
@@ -121,7 +121,7 @@ class ConnectTool: CanvasTool {
         guard state == .connect else { return false }
         guard let originID = self.origin?.objectID else { GD.pushError("No origin ID for dragging connector"); return false }
         guard let draggingConnector else { GD.pushError("No dragging connector") ; return false }
-        guard let target = canvas?.hitObject(at: pointerPosition) as? DiagramCanvasBlock,
+        guard let target = canvas?.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let targetID = target.objectID else
         {
             // TODO: Do some puff animation here

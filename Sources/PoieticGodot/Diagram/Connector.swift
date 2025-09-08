@@ -33,6 +33,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     ///
     public var targetID: PoieticCore.ObjectID?
 
+    var wire: PackedVector2Array
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]
@@ -60,6 +61,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.lineColor = SwiftGodot.Color(code: "green")
         self.fillColor = SwiftGodot.Color(code: "lime")
         self.fillColor.alpha = 0.5
+        self.wire = PackedVector2Array()
         super.init(context)
     }
     
@@ -95,6 +97,8 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     func updateContent(from connector: Connector) {
         self.objectID = connector.objectID
         self.connector = connector
+        let tessellatedPath = connector.wirePath().tessellate()
+        self.wire = PackedVector2Array(tessellatedPath.map { $0.asGodotVector2() })
         self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
         self.updateVisuals()
     }
@@ -187,13 +191,23 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         return handle
     }
     
-    public override func contains_point(point: SwiftGodot.Vector2) -> Bool {
-        guard let connector else { return false }
-        let localPoint = self.toLocal(globalPoint: point)
-        let flag = connector.containsTouch(at: Vector2D(localPoint), radius: TouchShapeRadius) ?? false
-        GD.print("Hit connector at \(localPoint) (\(point)): \(flag)")
-        return flag
+    override public func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {
+        guard wire.count >= 2 else { return false }
+        let touchPoint = toLocal(globalPoint: globalPoint)
+        
+        for i in 0..<(wire.count-1) {
+            let a = wire[i]
+            let b = wire[i + 1]
+            let pos = Geometry2D.segmentIntersectsCircle(segmentFrom: a,
+                                                         segmentTo: b,
+                                                         circlePosition: touchPoint,
+                                                         circleRadius: TouchShapeRadius)
+            // [Godot doc] If the segment does not intersect the circle, -1 is returned
+            if pos != -1 {
+                return true
+            }
+        }
+        return false
     }
-
 }
 

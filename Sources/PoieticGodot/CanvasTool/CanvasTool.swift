@@ -32,23 +32,23 @@ class CanvasTool: SwiftGodot.Node {
     
     @Callable
     open func handleInput(event: InputEvent) -> Bool {
+        guard let canvas else { return false }
+        
         var isConsumed: Bool = false
         switch event {
         case let event as InputEventMouseButton:
-            let mousePosition = event.globalPosition
             if event.isPressed() {
-                isConsumed = inputBegan(event: event, pointerPosition: mousePosition)
+                isConsumed = inputBegan(event: event, globalPosition: event.globalPosition)
             }
             else if event.isReleased() {
-                isConsumed = inputEnded(event: event, pointerPosition: mousePosition)
+                isConsumed = inputEnded(event: event, globalPosition: event.globalPosition)
             }
         case let event as InputEventMouseMotion:
-            let mousePosition = event.globalPosition
             if event.buttonMask == .left {
-                isConsumed = inputMoved(event: event, moveDelta: event.relative / Double(canvas?.zoomLevel ?? 1.0))
+                isConsumed = inputMoved(event: event, globalPosition: event.globalPosition)
             }
             else {
-                isConsumed = inputHover(event: event, pointerPosition: mousePosition)
+                isConsumed = inputHover(event: event, globalPosition: event.globalPosition)
             }
         default:
             if event.isCanceled() {
@@ -64,19 +64,19 @@ class CanvasTool: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    open func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    open func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         let callable = Callable(object: self, method: "_input_began")
         
         return false
     }
     
     @Callable
-    open func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    open func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     
     @Callable
-    open func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
+    open func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     
@@ -86,7 +86,7 @@ class CanvasTool: SwiftGodot.Node {
     }
     
     @Callable
-    open func inputHover(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    open func inputHover(event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     

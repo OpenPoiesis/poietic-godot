@@ -154,7 +154,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// ``hitObject(at:)``.
     ///
     @Callable(autoSnakeCase: true)
-    public func hitTarget(at hitPosition: SwiftGodot.Vector2) -> CanvasHitTarget? {
+    public func hitTarget(globalPosition: SwiftGodot.Vector2) -> CanvasHitTarget? {
         var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
@@ -166,7 +166,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
             
             for handle in child.getHandles() where handle.visible {
-                if handle.containsPoint(point: hitPosition) {
+                if handle.containsPoint(globalPoint: globalPosition) {
                     targets.append(CanvasHitTarget(object: child, type: .handle, tag: handle.tag))
                 }
             }
@@ -174,26 +174,26 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             if let child = child as? DiagramCanvasBlock {
                 if let indicator = child.issue_indicator as? CanvasIssueIndicator,
                    indicator.visible,
-                   indicator.contains_point(child.toLocal(globalPoint: hitPosition))
+                   indicator.containsPoint(globalPoint: globalPosition)
                 {
                     targets.append(CanvasHitTarget(object: child, type: .errorIndicator))
                 }
                 if let label = child.primaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: hitPosition))
+                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
                 {
                     targets.append(CanvasHitTarget(object: child, type: .primaryLabel))
                 }
 
                 if let label = child.secondaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: hitPosition))
+                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
                 {
                     targets.append(CanvasHitTarget(object: child, type: .secondaryLabel))
                 }
             }
 
-            if child.contains_point(point: hitPosition) {
+            if child.containsTouch(globalPoint: globalPosition) {
                 targets.append(CanvasHitTarget(object: child, type: .object))
             }
         }
@@ -215,7 +215,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// - SeeAlso: ``hitTarget(at:)``
     ///
     @Callable(autoSnakeCase: true)
-    public func hitObject(at hitPosition: SwiftGodot.Vector2) -> DiagramCanvasObject? {
+    public func hitObject(globalPosition: SwiftGodot.Vector2) -> DiagramCanvasObject? {
         var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
@@ -226,7 +226,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
                 continue
             }
             
-            if child.contains_point(point: hitPosition) {
+            if child.containsTouch(globalPoint: globalPosition) {
                 return child
             }
         }
@@ -237,9 +237,9 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     // TODO: Observe how we are using it and adjust types accordingly
     // TODO: Add screen scaling (retina)
     /// Converts a point from canvas coordinates to design coordinates.
-    func toDesign(globalPoint: SwiftGodot.Vector2) -> Vector2D {
-        let local = self.toLocal(globalPoint: globalPoint)
-        return Vector2D(local)
+    func toDesign(canvasPoint: SwiftGodot.Vector2) -> Vector2D {
+        let inDesign = canvasPoint / Double(zoomLevel)
+        return Vector2D(inDesign)
     }
     /// Converts a point from design coordinates to canvas coordinates.
     func fromDesign(_ position: Vector2D) -> SwiftGodot.Vector2 {

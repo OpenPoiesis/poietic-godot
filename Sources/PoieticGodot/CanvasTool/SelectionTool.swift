@@ -29,9 +29,11 @@ class SelectionTool: CanvasTool {
     // selected > not selected
     // handle > object > prompt
 
-    @Export var lastPointerPosition = Vector2()
+//    @Export var lastPointerPosition = Vector2()
     @Export var state: SelectToolState = .empty
     @Export var draggingHandle: CanvasHandle?
+    
+    var previousCanvasPosition: Vector2 = .zero
 
     override func toolName() -> String {
         "select"
@@ -40,17 +42,17 @@ class SelectionTool: CanvasTool {
     override func toolReleased() {
         // TODO: Close prompt
     }
-    override func inputBegan(event: InputEvent, pointerPosition: Vector2) -> Bool {
+    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         // TODO: Move this to tool
         guard let event = event as? InputEventWithModifiers else { return false }
         guard let canvas else { return false }
         guard let selectionManager = designController?.selectionManager else { return false }
-        guard let target = canvas.hitTarget(at: pointerPosition) else {
+        guard let target = canvas.hitTarget(globalPosition: globalPosition) else {
             selectionManager.clear()
             state = .objectSelect
             return true
         }
-        
+        previousCanvasPosition = canvas.toLocal(globalPoint: globalPosition)
         switch target.type {
         case .object:
             guard let object = target.object as? DiagramCanvasObject, let objectID = object.objectID else {
@@ -65,13 +67,13 @@ class SelectionTool: CanvasTool {
                     selectionManager.replaceAll([objectID])
                 }
                 else {
-                    let position = canvas.toLocal(globalPoint: pointerPosition)
+//                    let position = canvas.toLocal(globalPoint: canvasPosition)
                     GD.pushWarning("Context menu not implemented yet")
                     // TODO: Make this some clever canvas.get_context_menu_position(click_position)
                     // FIXME: prompt_manager.open_context_menu(canvas.selection, canvas.to_global(position))
                 }
             }
-            lastPointerPosition = pointerPosition
+//            lastPointerPosition = pointerPosition
             state = .objectHit
         case .handle:
             guard let handle = target.object as? CanvasHandle else {
@@ -112,9 +114,9 @@ class SelectionTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, moveDelta: Vector2) -> Bool {
+    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let event = event as? InputEventMouse else { return false }
-        let mousePosition = event.globalPosition
+        guard let canvas else { return false }
         // FIXME: add this
         // prompt_manager.close()
         
@@ -126,9 +128,12 @@ class SelectionTool: CanvasTool {
             state = .objectMove
             GD.print("--> Begin drag selection")
         case .objectMove:
-            GD.print("--- Moving drag selection")
+            let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+            let delta = canvasPosition - previousCanvasPosition
+            previousCanvasPosition = canvasPosition
+            GD.print("--- Moving drag selection by \(delta)")
             Input.setDefaultCursorShape(.drag)
-            moveSelection(by: moveDelta)
+            moveSelection(byCanvasDelta: delta)
         case .handleHit:
             Input.setDefaultCursorShape(.drag)
 //            self.canvas.begin_drag_handle(dragging_handle, mouse_position)
@@ -141,16 +146,20 @@ class SelectionTool: CanvasTool {
         }
         return true
     }
-    override func inputEnded(event: InputEvent, pointerPosition: Vector2) -> Bool {
-        return false
+    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+        // FIXME: Implement commit
+        GD.printErr("Input ended for selection tool not yet implemented")
+        return true
     }
-    func moveSelection(by moveDelta: Vector2) {
+    func moveSelection(byCanvasDelta canvasDelta: Vector2) {
         guard let canvas else { return }
         guard let ctrl = designController else { return }
         guard let diagramCtrl = diagramController else { return }
         let selection = ctrl.selectionManager.selection
         var dependentEdges: Set<PoieticCore.ObjectID> = Set()
+        var designDelta = Vector2D(canvasDelta)
         
+        GD.print("--- Move selection by: \(canvasDelta)")
         
         let blocks: [DiagramCanvasBlock] = selection.compactMap {
             canvas.representedBlock(id: $0)
@@ -159,7 +168,7 @@ class SelectionTool: CanvasTool {
             canvas.representedConnector(id: $0)
         }
         for block in blocks {
-            block.block?.position += canvas.toDesign(globalPoint: moveDelta)
+            block.block?.position += designDelta
             block.setDirty()
             if let objectID = block.objectID {
                 let deps = ctrl.currentFrame.dependentEdges(objectID)
@@ -171,7 +180,7 @@ class SelectionTool: CanvasTool {
             guard let diagramConnector = connector.connector else { continue }
             guard !diagramConnector.midpoints.isEmpty else { continue }
             let movedMidpoints = diagramConnector.midpoints.map {
-                $0 + canvas.toDesign(globalPoint: moveDelta)
+                $0 + designDelta
             }
             connector.connector?.midpoints = movedMidpoints
             // FIXME: This is convoluted, simplify and make it more clear
