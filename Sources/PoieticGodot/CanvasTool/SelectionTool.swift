@@ -155,8 +155,6 @@ class SelectionTool: CanvasTool {
         var dependentEdges: Set<PoieticCore.ObjectID> = Set()
         var designDelta = Vector2D(canvasDelta)
         
-        GD.print("--- Move selection by: \(canvasDelta)")
-        
         let blocks: [DiagramCanvasBlock] = selection.compactMap {
             canvas.representedBlock(id: $0)
         }

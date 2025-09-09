@@ -80,9 +80,9 @@ public class CanvasHandle: SwiftGodot.Node2D {
     
     public override func _draw() {
         if isFilled {
-            self.drawCircle(position: position, radius: size/2, color: fillColor, filled: true)
+            self.drawCircle(position: .zero, radius: size/2, color: fillColor, filled: true)
         }
-        self.drawCircle(position: position, radius: size/2, color: color, filled: false, width: lineWidth)
+        self.drawCircle(position: .zero, radius: size/2, color: color, filled: false, width: lineWidth)
     }
     
     func containsPoint(globalPoint: SwiftGodot.Vector2) -> Bool {

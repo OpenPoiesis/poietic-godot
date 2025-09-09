@@ -9,12 +9,14 @@ import SwiftGodot
 import Diagramming
 import PoieticCore
 
-// FIXME: Selection shape
 // FIXME: Label positions
-let TouchShapeRadius: Double = 2.0
 
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
+    var debugHandle: CanvasHandle?
+    
+    
+    // TODO: Remove inner Block, use something like DiagramBlock protocol with the composer
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]
 
@@ -51,6 +53,18 @@ public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
         if isDirty {
             updateVisuals()
         }
+    }
+    public override func _ready() {
+        if let debugHandle {
+            debugHandle.queueFree()
+        }
+        debugHandle = CanvasHandle()
+        debugHandle?.color = Color.red
+        debugHandle?.fillColor = Color.salmon
+        debugHandle?.isFilled = true
+        debugHandle?.size = 6
+        self.addChild(node: debugHandle)
+        
     }
     
     /// Sets the object as needing to update visuals.
@@ -134,17 +148,19 @@ public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
             let translatedPath = pictogram.path.transform(translation)
             self.pictogramCurves = translatedPath.asGodotCurves()
 
+            let pictoCollision = pictogram.collisionShape
+
             if let selectionOutline {
-                let outlinePath = pictogram.collisionShape.toPath().transform(translation)
+                let outlinePath = pictoCollision.toPath().transform(translation)
                 selectionOutline.points = PackedVector2Array(outlinePath.tessellate())
                 selectionOutline.updateVisuals()
                 selectionOutline.visible = self._isSelected
             }
             
             if let collisionShape = self.collisionShape {
-                let shape = pictogram.collisionShape.shape.asGodotShape2D()
-                collisionShape.shape = shape
-                collisionShape.position = (-pictogram.origin).asGodotVector2()
+                collisionShape.shape = pictoCollision.shape.asGodotShape2D()
+                collisionShape.position = Vector2(pictoCollision.position - pictogram.origin)
+                GD.print("--- B COL: \(pictoCollision.shape.typeName) P: \(pictogram.origin.prettyDescription) CS: \(pictoCollision.position.prettyDescription)")
             }
             
         }

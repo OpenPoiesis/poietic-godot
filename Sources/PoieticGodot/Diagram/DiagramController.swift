@@ -237,7 +237,8 @@ public class DiagramController: SwiftGodot.Node {
         let originPoint: Vector2D
         
         if let block = origin.block {
-            originPoint = Connector.touchPoint(touching: block.collisionShape,
+            originPoint = Connector.touchPoint(shape: block.collisionShape.shape,
+                                               position: block.position + block.collisionShape.position,
                                                from: targetPoint,
                                                towards: block.position)
         }
@@ -274,7 +275,8 @@ public class DiagramController: SwiftGodot.Node {
         let originPoint: Vector2D
         
         if let block = origin.block {
-            originPoint = Connector.touchPoint(touching: block.collisionShape,
+            originPoint = Connector.touchPoint(shape: block.collisionShape.shape,
+                                               position: block.position + block.collisionShape.position,
                                                from: targetPoint,
                                                towards: block.position)
         }

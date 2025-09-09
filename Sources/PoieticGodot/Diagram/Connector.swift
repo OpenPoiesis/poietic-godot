@@ -139,6 +139,10 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
                 removeCount = existingCount - 1
             }
             handle.tag = InitiatingMidpointHandleTag
+            
+            // Connector node position is always (0.0, 0.0). Midpoints are absolute, within diagram
+            // canvas. Diagram canvas coordinates are the same as connector node-relative
+            // coordinates.
             handle.position = Vector2(segment.midpoint)
         }
         else { // requiredCount > 0
@@ -156,7 +160,10 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
             removeCount = existingCount - requiredCount
         }
 
-        for _ in 0..<(existingCount - removeCount) {
+        if removeCount > 0 {
+            GD.print("--- Removing \(removeCount) handles")
+        }
+        for _ in 0..<removeCount {
             let handle = midpointHandles.removeLast()
             handle.queueFree()
         }

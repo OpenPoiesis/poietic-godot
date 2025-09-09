@@ -10,6 +10,10 @@
 import Diagramming
 import SwiftGodot
 
+// Resources and constants
+
+let TouchShapeRadius: Double = 2.0
+
 let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms.json"
 let IssueIndicatorIcon: String = "res://resources/icons/error.png"
 let IssueIndicatorIconSize: Float = 10.0
