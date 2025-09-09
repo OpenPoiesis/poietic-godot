@@ -31,7 +31,7 @@ class SelectionTool: CanvasTool {
 
 //    @Export var lastPointerPosition = Vector2()
     @Export var state: SelectToolState = .empty
-    @Export var draggingHandle: CanvasHandle?
+    @Export var handleTarget: CanvasHitTarget?
     
     var previousCanvasPosition: Vector2 = .zero
     var initialCanvasPosition: Vector2 = .zero
@@ -79,11 +79,9 @@ class SelectionTool: CanvasTool {
 //            lastPointerPosition = pointerPosition
             state = .objectHit
         case .handle:
-            guard let handle = target.object as? CanvasHandle else {
-                return false
-            }
+            handleTarget = target
             state = .handleHit
-            draggingHandle = handle
+            selectionManager.clear()
         case .primaryLabel:
             // TODO: Move this to Canvas
             guard let block = target.object as? DiagramCanvasBlock,
@@ -120,30 +118,25 @@ class SelectionTool: CanvasTool {
     override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let event = event as? InputEventMouse else { return false }
         guard let canvas else { return false }
+        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+        let delta = canvasPosition - previousCanvasPosition
+        previousCanvasPosition = canvasPosition
+
         // FIXME: add this
         // prompt_manager.close()
         
         switch state {
         case .empty: break
         case .objectSelect: break
-        case .objectHit:
-            Input.setDefaultCursorShape(.drag)
-            state = .objectMove
-        case .objectMove:
-            let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-            let delta = canvasPosition - previousCanvasPosition
-            previousCanvasPosition = canvasPosition
+        case .objectHit, .objectMove:
             Input.setDefaultCursorShape(.drag)
             moveSelection(byCanvasDelta: delta)
-        case .handleHit:
+            state = .objectMove
+
+        case .handleHit, .handleMove:
             Input.setDefaultCursorShape(.drag)
-//            self.canvas.begin_drag_handle(dragging_handle, mouse_position)
+            dragHandle(byCanvasDelta: delta)
             state = .handleMove
-            GD.pushError("Handle hit not implemented")
-        case .handleMove:
-            Input.setDefaultCursorShape(.drag)
-//            self.canvas.drag_handle(dragging_handle, move_delta)
-            GD.pushError("Handle move not implemented")
         }
         return true
     }
@@ -187,10 +180,31 @@ class SelectionTool: CanvasTool {
             connector.setDirty()
         }
         
-        
         canvas.queueRedraw()
     }
+    func dragHandle(byCanvasDelta canvasDelta: Vector2) {
+        guard let handleTarget else { return }
+        guard let canvas else { return }
+        guard let diagramCtrl = diagramController else { return }
+
+        if let object = handleTarget.object as? DiagramCanvasConnector {
+            GD.print("Dragging handle \(handleTarget.tag) by \(canvasDelta)")
+            guard let tag = handleTarget.tag else { return }
+            object.moveMidpoint(tag: tag, canvasDelta: canvasDelta)
+            diagramCtrl.updateConnectorPreview(object)
+        }
+        else {
+            GD.print("No proper parent")
+        }
+
+        canvas.queueRedraw()
+    }
+
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+        defer {
+            state = .empty
+            handleTarget = nil
+        }
         guard let canvas else { return false }
         guard let selection = designController?.selectionManager.selection else { return false }
         Input.setDefaultCursorShape(.arrow)
@@ -203,7 +217,17 @@ class SelectionTool: CanvasTool {
         case .objectMove:
             diagramController?.moveSelection(selection, by: designMoveDelta)
         case .handleMove:
-            GD.pushError("Handle move commit not implemented")
+            // FIXME: Last position
+            guard let handleTarget,
+                  let object = handleTarget.object as? DiagramCanvasConnector,
+                  let objectID = object.objectID,
+                  let connector = object.connector else
+            {
+                return false
+            }
+
+            diagramController?.setMidpoints(object: objectID,
+                                            midpoints: connector.midpoints)
         case .empty: break
         case .handleHit: break
         case .objectHit: break

@@ -138,12 +138,12 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
                 handle = midpointHandles[0]
                 removeCount = existingCount - 1
             }
-            handle.tag = InitiatingMidpointHandleTag
             
             // Connector node position is always (0.0, 0.0). Midpoints are absolute, within diagram
             // canvas. Diagram canvas coordinates are the same as connector node-relative
             // coordinates.
             handle.position = Vector2(segment.midpoint)
+            handle.tag = 0
         }
         else { // requiredCount > 0
             for (index, midpoint) in connector.midpoints.enumerated() {
@@ -170,25 +170,50 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
     }
     
     @Callable(autoSnakeCase: true)
-    func setMidpoint(tag: Int, midpointPosition: Vector2) {
+    func moveMidpoint(tag: Int, canvasDelta: Vector2) {
         guard let connector else {
             GD.pushError("Canvas connector has no diagram connector")
             return
         }
-
-        if tag == InitiatingMidpointHandleTag {
-            connector.midpoints = [Vector2D(midpointPosition)]
+        guard tag >= 0 && tag < midpointHandles.count else {
+            GD.pushError("Invalid midpoint handle tag \(tag)")
+            return
+        }
+        let handle = midpointHandles[tag]
+        let newPosition = handle.position + canvasDelta
+        
+        if tag == 0 {
+            let midpoint = Vector2D(handle.position + canvasDelta)
+            connector.midpoints = [Vector2D(newPosition)]
+        }
+        else if tag > 0 && tag < connector.midpoints.count {
+            connector.midpoints[tag] = Vector2D(newPosition)
         }
         else {
-            guard tag >= 0 && tag < connector.midpoints.count else {
-                GD.pushError("Trying to set out-of-bounds midpoint")
-                return
-            }
-            connector.midpoints[tag] = Vector2D(midpointPosition)
+            GD.pushError("Trying to set out-of-bounds midpoint")
         }
         isDirty = true
     }
-    
+
+    @Callable(autoSnakeCase: true)
+    func setMidpoint(tag: Int, canvasPosition: Vector2) {
+        guard let connector else { return }
+        guard tag >= 0 && tag < midpointHandles.count else { return }
+        let handle = midpointHandles[tag]
+        
+        if tag == 0 {
+            connector.midpoints = [Vector2D(canvasPosition)]
+        }
+        else if tag > 0 && tag < connector.midpoints.count {
+            connector.midpoints[tag] = Vector2D(canvasPosition)
+        }
+        isDirty = true
+    }
+
+    func handle(withTag tag: Int) -> CanvasHandle? {
+        return midpointHandles.first { $0.tag == tag }
+    }
+
     func createMidpointHandle() -> CanvasHandle {
         let theme = ThemeDB.getProjectTheme()
         let handle = CanvasHandle()

@@ -198,12 +198,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
         }
         
-        let debugStr: String = targets.map { $0.debugDescription}.joined(separator: ",")
-        GD.print("Targets: \(debugStr)")
         if targets.isEmpty {
             return nil
         }
         else {
+            GD.print("--- Hit target (count: \(targets.count)): \(targets[0].type) \(targets[0].object)")
             return targets[0]
         }
     }

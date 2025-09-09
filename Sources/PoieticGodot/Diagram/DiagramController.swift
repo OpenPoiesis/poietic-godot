@@ -302,6 +302,7 @@ public class DiagramController: SwiftGodot.Node {
             _moveObject(object, by: designDelta)
         }
         
+        ctrl.accept(trans)
     }
     
     public func _moveObject(_ object: TransientObject, by designDelta: Vector2D) {
@@ -317,6 +318,21 @@ public class DiagramController: SwiftGodot.Node {
             }
             object["midpoints"] = PoieticCore.Variant(movedMidpoints)
         }
+    }
+
+    public func setMidpoints(object id: PoieticCore.ObjectID, midpoints: [Vector2D]) {
+        guard let ctrl = designController else { return }
+        let trans = ctrl.newTransaction()
+
+        guard trans.contains(id) else {
+            GD.pushWarning("Unknown ID: \(id)")
+            ctrl.discard(trans)
+            return
+        }
+        let object = trans.mutate(id)
+        object["midpoints"] = PoieticCore.Variant(midpoints)
+        
+        ctrl.accept(trans)
     }
 
 //    public func setMidpoints(_ objectID: ObjectID, midpoints: [Vector2D]) {
