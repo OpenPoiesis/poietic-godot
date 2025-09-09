@@ -22,7 +22,11 @@ let DefaultHandleSize: Double = 10.0
 let CanvasThemeType = "DiagramCanvas"
 let MidpointHandleFillColorKey = "midpoint_handle_fill"
 let MidpointHandleOutlineColorKey = "midpoint_handle_outline"
-let ShadowColorKey = "shadow_color"
+// TODO: Rename to placement_shadow_color
+let ShadowColorKey = "placement_shadow_color"
+
+public let SelectionOutlineColorKey = "selection_outline"
+public let SelectionFillColorKey = "selection_fill"
 
 
 
@@ -42,8 +46,8 @@ public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
     "Parameter": .thin(ThinConnectorStyle(
         headType: .stick,
         tailType: .ball,
-        headSize: 10.0,
-        tailSize: 5.0,
+        headSize: 12.0,
+        tailSize: 10.0,
         lineType: .curved
     )),
 
@@ -52,7 +56,7 @@ public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
         tailType: .none,
         headSize: 20.0,
         tailSize: 0.0,
-        width: 10.0,
+        width: 12.0,
         joinType: .round
     ))
 ]

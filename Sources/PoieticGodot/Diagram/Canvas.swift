@@ -207,6 +207,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             return targets[0]
         }
     }
+    
     /// Get a canvas object at given position.
     ///
     /// This method returns the first canvas object, ignoring handles and indicators, at the

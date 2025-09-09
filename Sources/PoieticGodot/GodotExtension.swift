@@ -34,6 +34,7 @@ import SwiftGodot
         DiagramCanvasObject.self,
         DiagramCanvasConnector.self,
         DiagramCanvasBlock.self,
+        SelectionOutline.self,
         
         CanvasHitTarget.self,
         CanvasHandle.self,

@@ -184,18 +184,6 @@ public class DesignController: SwiftGodot.Node {
         return PackedInt64Array(objects.map { Int64($0.object.objectID.intValue) })
     }
     
-    @Callable
-    func get_diagram_nodes() -> PackedInt64Array {
-        let nodes = currentFrame.nodes(withTrait: .DiagramBlock)
-        return PackedInt64Array(nodes.map { Int64($0.objectID.intValue) })
-    }
-    
-    @Callable
-    func get_diagram_edges() -> PackedInt64Array {
-        let edges = currentFrame.edges(withTrait: .DiagramConnector)
-        return PackedInt64Array(edges.map { Int64($0.object.objectID.intValue) })
-    }
-        
     // MARK: - Special Objects
     @Callable
     func get_diagram_settings() -> GDictionary? {
@@ -230,15 +218,6 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Structural integrity error")
             return
         }
-    }
-    
-    @Callable func get_design_info_object() -> PoieticObject? {
-        guard let first = currentFrame.filter(type: ObjectType.DesignInfo).first else {
-            return nil
-        }
-        var object = PoieticObject()
-        object.object = first
-        return object
     }
     
     @Callable func get_simulation_parameters_object() -> PoieticObject? {
@@ -654,13 +633,13 @@ public class DesignController: SwiftGodot.Node {
                 dict["current_frame"] = SwiftGodot.Variant(frame.id.stringValue)
                 dict["nodes"] = SwiftGodot.Variant(frame.nodes.count)
                 dict["edges"] = SwiftGodot.Variant(frame.edges.count)
-                dict["diagram_nodes"] = SwiftGodot.Variant(self.get_diagram_nodes().count)
+                dict["diagram_blocks"] = SwiftGodot.Variant(frame.filter(trait: .DiagramBlock).count)
                 dict["edges"] = SwiftGodot.Variant(frame.edges.count)
             }
             else {
                 dict["current_frame"] = SwiftGodot.Variant("none")
                 dict["nodes"] = SwiftGodot.Variant(0)
-                dict["diagram_nodes"] = SwiftGodot.Variant(0)
+                dict["diagram_blocks"] = SwiftGodot.Variant(0)
                 dict["edges"] = SwiftGodot.Variant(0)
             }
             dict["frames"] = SwiftGodot.Variant(design.frames.count)

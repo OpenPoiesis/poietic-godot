@@ -14,9 +14,18 @@ import PoieticCore
 let TouchShapeRadius: Double = 2.0
 
 @Godot
-public class DiagramCanvasBlock: DiagramCanvasObject {
+public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]
+
+    var _isSelected: Bool = false
+    @Export var isSelected: Bool {
+        get { _isSelected }
+        set(flag) {
+            _isSelected = flag
+            selectionOutline?.visible = flag
+        }
+    }
 
     @Export var pictogramColor: SwiftGodot.Color
     @Export var pictogramLineWidth: Double = 1.0
@@ -30,9 +39,11 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     @Export var hasValueIndicator: Bool = false
     @Export var valueIndicator: SwiftGodot.Node2D?
 
+    @Export var selectionOutline: SelectionOutline?
+    
     required init(_ context: InitContext) {
         self.pictogramCurves = []
-        self.pictogramColor = SwiftGodot.Color(code: "green")
+        self.pictogramColor = SwiftGodot.Color(code: "white")
         super.init(context)
     }
     
@@ -53,18 +64,28 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
     func _prepareChildren(for block: Block) {
         if self.primaryLabel == nil {
-            self.primaryLabel = SwiftGodot.Label()
-            self.primaryLabel!.horizontalAlignment = .center
-            self.addChild(node: self.primaryLabel!)
+            let label = SwiftGodot.Label()
+            label.horizontalAlignment = .center
+            label.verticalAlignment = .top
+            self.addChild(node: label)
+            self.primaryLabel = label
         }
         if self.secondaryLabel == nil {
-            self.secondaryLabel = SwiftGodot.Label()
-            self.secondaryLabel!.horizontalAlignment = .center
-            self.addChild(node: self.secondaryLabel!)
+            let label = SwiftGodot.Label()
+            label.horizontalAlignment = .center
+            label.verticalAlignment = .top
+            self.addChild(node: label)
+            self.secondaryLabel = label
         }
         if self.collisionShape == nil {
             self.collisionShape = SwiftGodot.CollisionShape2D()
             self.addChild(node: self.collisionShape)
+        }
+        if self.selectionOutline == nil {
+            let outline = SelectionOutline()
+            outline.visible = self._isSelected
+            self.selectionOutline = outline
+            self.addChild(node: outline)
         }
     }
     
@@ -106,42 +127,71 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.objectID = block.objectID
         self.block = block
         self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
-        self.updateVisuals()
 
-        // 2. Pictogram
+        // 2. Pictogram and shape
         if let pictogram = block.pictogram {
-            let shape = pictogram.collisionShape.shape.asGodotShape2D()
+            let translation = AffineTransform(translation: -pictogram.origin)
+            let translatedPath = pictogram.path.transform(translation)
+            self.pictogramCurves = translatedPath.asGodotCurves()
+
+            if let selectionOutline {
+                let outlinePath = pictogram.collisionShape.toPath().transform(translation)
+                selectionOutline.points = PackedVector2Array(outlinePath.tessellate())
+                selectionOutline.updateVisuals()
+                selectionOutline.visible = self._isSelected
+            }
             
-            // TODO: We are not using it
             if let collisionShape = self.collisionShape {
+                let shape = pictogram.collisionShape.shape.asGodotShape2D()
                 collisionShape.shape = shape
                 collisionShape.position = (-pictogram.origin).asGodotVector2()
             }
             
-            let translatedPath = pictogram.path.transform(AffineTransform(translation: -pictogram.origin))
-            self.pictogramCurves = translatedPath.asGodotCurves()
         }
         else {
-            self.collisionShape = nil
             self.pictogramCurves = []
         }
         // 3. Labels
+        let box = Rect2D(origin: block.pictogramBoundingBox.origin - block.position,
+                         size: block.pictogramBoundingBox.size)
+        // FIXME: Flipped y coords
+        let bottom = LineSegment(from: box.topLeft, to: box.topRight)
+        let mid = bottom.midpoint
+        
+        let primaryLabelOffset: Float = 0.0 // FIXME: Compute this
+        let secondaryLabelOffset: Float = 16.0 // FIXME: Compute this
+        
         
         if let label = self.primaryLabel {
             setLabel(label, text: block.label, emptyText: "(empty)", themeType: "PrimaryLabel")
+            let size = label.getMinimumSize()
+            GD.print("Label size: \(size)")
+            let center = Vector2(
+                x: Float(mid.x) - size.x / 2.0,
+                y: Float(mid.y) + primaryLabelOffset
+            )
+            label.setPosition(center)
         }
 
         if let label = self.secondaryLabel {
             setLabel(label, text: block.secondaryLabel, emptyText: nil, themeType: "SecondaryLabel")
+            let size = label.getMinimumSize()
+            let center = Vector2(
+                x: Float(mid.x) - size.x / 2.0,
+                y: Float(mid.y) + secondaryLabelOffset
+            )
+            label.setPosition(center)
         }
 
 //        if object.type.hasTrait(.NumericIndicator) {
 //            // TODO: Implement value indicators
 //        }
 
+        self.updateVisuals()
         self.queueRedraw()
     }
     
+    @Callable(autoSnakeCase: true)
     func updateVisuals() {
         guard let block else { return }
         guard let canvas = self.getParent() as? DiagramCanvas else { return }

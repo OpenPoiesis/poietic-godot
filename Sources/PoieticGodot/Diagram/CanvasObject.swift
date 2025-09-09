@@ -8,6 +8,10 @@ import SwiftGodot
 import PoieticCore
 import Diagramming
 
+protocol SelectableCanvasObject {
+    var objectID: PoieticCore.ObjectID? { get }
+    var isSelected: Bool { get set }
+}
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
     var objectID: PoieticCore.ObjectID?
@@ -16,7 +20,7 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     /// See also: ``updateVisuals()``
     ///
     @Export var isDirty: Bool = true
-
+    
     @Export var hasIssues: Bool = false
     var issue_indicator: SwiftGodot.CanvasItem?
     
@@ -61,8 +65,9 @@ public class CanvasHandle: SwiftGodot.Node2D {
         }
     }
     
-    @Export var color: Color = Color.gray
-    @Export var fillColor: Color = Color.gray
+    // TODO: Use theme
+    @Export var color: Color = Color.indigo
+    @Export var fillColor: Color = Color.blue
     @Export var lineWidth: Double = 2
     @Export var isFilled: Bool = false
 

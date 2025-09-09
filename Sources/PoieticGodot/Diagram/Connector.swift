@@ -9,12 +9,11 @@ import SwiftGodot
 import Diagramming
 import PoieticCore
 
-class Handle {
-    
-}
+/// Tag of a handle representing the first midpoint if the connector has no midpoints.
+let InitiatingMidpointHandleTag: Int = -1
 
 @Godot
-public class DiagramCanvasConnector: DiagramCanvasObject {
+public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject {
     var connector: Diagramming.Connector?
    
     var midpointHandles: [CanvasHandle] = []
@@ -33,6 +32,15 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     ///
     public var targetID: PoieticCore.ObjectID?
 
+    var _isSelected: Bool = false
+    @Export var isSelected: Bool {
+        get { _isSelected }
+        set(flag) {
+            _isSelected = flag
+//            selectionOutline?.visible = flag
+        }
+    }
+
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]
@@ -43,7 +51,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     /// Connector's centre curve tessellated to a poly-line. Used for connector touch detection.
     ///
     @Export var wire: PackedVector2Array
-
+    
     @Callable
     override func getHandles() -> [CanvasHandle] {
         return midpointHandles
@@ -115,55 +123,66 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     func updateHandles() {
         guard let connector else { return }
         
-        guard !connector.midpoints.isEmpty else {
-            let segment = LineSegment(from: connector.originPoint, to: connector.targetPoint)
-            // TODO: Store the -1 as constant
-            createMidpointHandle(tag: -1, position: segment.midpoint.asGodotVector2())
-            return
-        }
-        var existingCount = midpointHandles.count
+        let existingCount = midpointHandles.count
+        let requiredCount = connector.midpoints.count
+        let removeCount: Int
         
-        for (index, midpoint) in connector.midpoints.enumerated() {
-            if index < existingCount {
-                let handle = midpointHandles[index]
-                handle.tag = index
-                handle.position = midpoint.asGodotVector2()
+        if requiredCount == 0 {
+            let segment = LineSegment(from: connector.originPoint, to: connector.targetPoint)
+            let handle: CanvasHandle
+            if existingCount == 0 {
+                handle = createMidpointHandle()
+                removeCount = 0
             }
             else {
-                createMidpointHandle(tag: index, position: midpoint.asGodotVector2())
+                handle = midpointHandles[0]
+                removeCount = existingCount - 1
             }
+            handle.tag = InitiatingMidpointHandleTag
+            handle.position = Vector2(segment.midpoint)
         }
-        let remaining = existingCount - connector.midpoints.count
-        if remaining > 0 {
-            for _ in 0..<remaining {
-                guard let handle = midpointHandles.popLast() else { break }
-                handle.queueFree()
+        else { // requiredCount > 0
+            for (index, midpoint) in connector.midpoints.enumerated() {
+                let handle: CanvasHandle
+                if index < existingCount {
+                    handle = midpointHandles[index]
+                }
+                else {
+                    handle = createMidpointHandle()
+                }
+                handle.tag = index
+                handle.position = Vector2(midpoint)
             }
+            removeCount = existingCount - requiredCount
+        }
+
+        for _ in 0..<(existingCount - removeCount) {
+            let handle = midpointHandles.removeLast()
+            handle.queueFree()
         }
     }
     
     @Callable(autoSnakeCase: true)
-    func setMidpoint(index: Int, midpointPosition: Vector2) {
+    func setMidpoint(tag: Int, midpointPosition: Vector2) {
         guard let connector else {
             GD.pushError("Canvas connector has no diagram connector")
             return
         }
 
-        if index == -1 {
+        if tag == InitiatingMidpointHandleTag {
             connector.midpoints = [Vector2D(midpointPosition)]
         }
         else {
-            guard index < connector.midpoints.count else {
+            guard tag >= 0 && tag < connector.midpoints.count else {
                 GD.pushError("Trying to set out-of-bounds midpoint")
                 return
             }
-            connector.midpoints[index] = Vector2D(midpointPosition)
+            connector.midpoints[tag] = Vector2D(midpointPosition)
         }
         isDirty = true
     }
     
-    @discardableResult
-    func createMidpointHandle(tag: Int, position: Vector2) -> CanvasHandle {
+    func createMidpointHandle() -> CanvasHandle {
         let theme = ThemeDB.getProjectTheme()
         let handle = CanvasHandle()
         if let color = theme?.getColor(name: SwiftGodot.StringName(MidpointHandleFillColorKey), themeType: StringName(CanvasThemeType)) {
@@ -178,9 +197,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         else {
             handle.color = Color.dodgerBlue
         }
-        handle.tag = tag
         self.addChild(node: handle)
-        handle.position = position
         midpointHandles.append(handle)
         return handle
     }

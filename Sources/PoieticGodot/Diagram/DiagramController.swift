@@ -36,6 +36,7 @@ public class DiagramController: SwiftGodot.Node {
         self.composer = DiagramComposer(style: style)
 
         designController.designChanged.connect(self.on_design_changed)
+        designController.selectionManager.selectionChanged.connect(self.on_selection_changed)
     }
     
     func _loadPictograms() {
@@ -72,6 +73,17 @@ public class DiagramController: SwiftGodot.Node {
             return
         }
         updateCanvas(frame: frame)
+    }
+    
+    @Callable
+    func on_selection_changed(_ manager: SelectionManager) {
+        guard let canvas else { return }
+        let selected: Set<PoieticCore.ObjectID> = Set(manager.selection)
+        for child in canvas.getChildren() {
+            guard var child = child as? SelectableCanvasObject,
+                  let objectID = child.objectID else { continue }
+            child.isSelected = selected.contains(objectID)
+        }
     }
     
     @Callable

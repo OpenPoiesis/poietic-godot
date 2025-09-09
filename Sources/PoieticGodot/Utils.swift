@@ -36,3 +36,9 @@ extension PackedVector2Array {
         self.init(gdPoints)
     }
 }
+
+extension Vector2 {
+    public init(_ vector2D: Vector2D) {
+        self.init(x: Float(vector2D.x), y: Float(vector2D.y))
+    }
+}
