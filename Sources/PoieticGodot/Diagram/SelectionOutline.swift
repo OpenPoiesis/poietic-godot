@@ -9,25 +9,30 @@ import SwiftGodot
 
 @Godot
 public class SelectionOutline: SwiftGodot.Node2D {
-    @Export var outline: Line2D
-    @Export var polygon: Polygon2D
-
-    required init(_ context: InitContext) {
-        self.polygon = Polygon2D()
-        self.outline = Line2D()
-        super.init(context)
-        self.addChild(node: self.polygon)
-        self.addChild(node: self.outline)
-        updateVisuals()
+    var curves: TypedArray<Curve2D?> {
+        didSet {
+            self.queueRedraw()
+        }
     }
     
-    @Export var points: PackedVector2Array {
-        set(value) {
-            outline.points = value
-            polygon.polygon = value
-        }
-        get {
-            outline.points ?? PackedVector2Array()
+    @Export var outlineColor: Color
+    @Export var fillColor: Color
+    @Export var lineWidth: Double = 1.0
+    
+    required init(_ context: InitContext) {
+        self.curves = []
+        self.outlineColor = Color.blue
+        self.fillColor = Color.azure
+        super.init(context)
+        updateVisuals()
+    }
+
+    public override func _draw() {
+        for curve in self.curves {
+            guard let curve else { continue }
+            let points = curve.tessellate()
+            self.drawPolygon(points: points, colors: [fillColor])
+            self.drawPolyline(points: points, color: outlineColor, width: lineWidth)
         }
     }
     
@@ -37,29 +42,26 @@ public class SelectionOutline: SwiftGodot.Node2D {
     
     @Callable(autoSnakeCase: true)
     func updateVisuals() {
-        self.outline.width = -1
-        self.outline.jointMode = .round
-
         let theme = ThemeDB.getProjectTheme()
         if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionOutlineColorKey),
                                        themeType: SwiftGodot.StringName(CanvasThemeType)) {
-            self.outline.defaultColor = color
+            self.outlineColor = color
         }
         else {
-            var color = Color.blue
+            var color = Color.azure
             color.alpha = 0.7
-            self.outline.defaultColor = color
+            self.outlineColor = color
         }
 
         if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionFillColorKey),
                                        themeType: SwiftGodot.StringName(CanvasThemeType)) {
-            self.polygon.color = color
+            self.fillColor = color
         }
         else {
             var color = Color.lightBlue
             color.alpha = 0.3
-            self.polygon.color = color
+            self.fillColor = color
         }
-
+        self.queueRedraw()
     }
 }

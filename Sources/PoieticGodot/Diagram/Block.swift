@@ -12,22 +12,13 @@ import PoieticCore
 // FIXME: Label positions
 
 @Godot
-public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
+public class DiagramCanvasBlock: DiagramCanvasObject {
     var debugHandle: CanvasHandle?
     
     
     // TODO: Remove inner Block, use something like DiagramBlock protocol with the composer
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]
-
-    var _isSelected: Bool = false
-    @Export var isSelected: Bool {
-        get { _isSelected }
-        set(flag) {
-            _isSelected = flag
-            selectionOutline?.visible = flag
-        }
-    }
 
     @Export var pictogramColor: SwiftGodot.Color
     @Export var pictogramLineWidth: Double = 1.0
@@ -41,8 +32,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
     @Export var hasValueIndicator: Bool = false
     @Export var valueIndicator: SwiftGodot.Node2D?
 
-    @Export var selectionOutline: SelectionOutline?
-    
     required init(_ context: InitContext) {
         self.pictogramCurves = []
         self.pictogramColor = SwiftGodot.Color(code: "white")
@@ -151,8 +140,10 @@ public class DiagramCanvasBlock: DiagramCanvasObject, SelectableCanvasObject {
             let pictoCollision = pictogram.collisionShape
 
             if let selectionOutline {
+                // FIXME: Use mask
                 let outlinePath = pictoCollision.toPath().transform(translation)
-                selectionOutline.points = PackedVector2Array(outlinePath.tessellate())
+                let curves = outlinePath.asGodotCurves()
+                selectionOutline.curves = TypedArray(curves)
                 selectionOutline.updateVisuals()
                 selectionOutline.visible = self._isSelected
             }

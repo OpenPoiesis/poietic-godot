@@ -13,7 +13,7 @@ import PoieticCore
 let InitiatingMidpointHandleTag: Int = -1
 
 @Godot
-public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject {
+public class DiagramCanvasConnector: DiagramCanvasObject {
     var connector: Diagramming.Connector?
    
     var midpointHandles: [CanvasHandle] = []
@@ -31,15 +31,6 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
     /// user interfaces.
     ///
     public var targetID: PoieticCore.ObjectID?
-
-    var _isSelected: Bool = false
-    @Export var isSelected: Bool {
-        get { _isSelected }
-        set(flag) {
-            _isSelected = flag
-//            selectionOutline?.visible = flag
-        }
-    }
 
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
@@ -96,7 +87,18 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
         }
     }
     
+    func _prepareChildren() {
+        if self.selectionOutline == nil {
+            let outline = SelectionOutline()
+            outline.visible = self._isSelected
+            self.selectionOutline = outline
+            self.addChild(node: outline)
+        }
+    }
+    
     func updateContent(from connector: Connector) {
+        _prepareChildren()
+        
         self.objectID = connector.objectID
         self.connector = connector
         let tessellatedPath = connector.wirePath().tessellate()
@@ -115,9 +117,19 @@ public class DiagramCanvasConnector: DiagramCanvasObject, SelectableCanvasObject
         let curves = connector.paths().flatMap { $0.asGodotCurves() }
         self.openCurves = curves
         self.filledCurves = []
+        updateSelectionOutline()
         updateHandles()
         self.isDirty = false
         self.queueRedraw()
+    }
+    
+    public func updateSelectionOutline() {
+        guard let connector,
+              let selectionOutline else { return }
+        let curves = connector.paths().flatMap {
+            $0.inflated(by: SelectionMargin).asGodotCurves()
+        }
+        selectionOutline.curves = TypedArray(curves)
     }
     
     func updateHandles() {

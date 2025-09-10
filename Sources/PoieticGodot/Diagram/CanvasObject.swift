@@ -8,10 +8,6 @@ import SwiftGodot
 import PoieticCore
 import Diagramming
 
-protocol SelectableCanvasObject {
-    var objectID: PoieticCore.ObjectID? { get }
-    var isSelected: Bool { get set }
-}
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
     var objectID: PoieticCore.ObjectID?
@@ -23,7 +19,18 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     
     @Export var hasIssues: Bool = false
     var issue_indicator: SwiftGodot.CanvasItem?
-    
+   
+    // Selection
+    @Export var selectionOutline: SelectionOutline?
+    var _isSelected: Bool = false
+    @Export var isSelected: Bool {
+        get { _isSelected }
+        set(flag) {
+            _isSelected = flag
+            selectionOutline?.visible = flag
+        }
+    }
+
     func update(from: ObjectSnapshot) {
         fatalError("Subclasses should override \(#function)")
     }

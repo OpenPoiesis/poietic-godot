@@ -80,7 +80,7 @@ public class DiagramController: SwiftGodot.Node {
         guard let canvas else { return }
         let selected: Set<PoieticCore.ObjectID> = Set(manager.selection)
         for child in canvas.getChildren() {
-            guard var child = child as? SelectableCanvasObject,
+            guard var child = child as? DiagramCanvasObject,
                   let objectID = child.objectID else { continue }
             child.isSelected = selected.contains(objectID)
         }

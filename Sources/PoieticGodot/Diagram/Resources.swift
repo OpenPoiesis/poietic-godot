@@ -31,6 +31,7 @@ let ShadowColorKey = "placement_shadow_color"
 
 public let SelectionOutlineColorKey = "selection_outline"
 public let SelectionFillColorKey = "selection_fill"
+public let SelectionMargin: Double = 4.0
 
 
 
