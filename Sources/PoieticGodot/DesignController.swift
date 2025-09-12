@@ -595,7 +595,7 @@ public class DesignController: SwiftGodot.Node {
         // 2. Load
         let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
-            // FIXME: [WIP] add which frame to load
+            // FIXME: add which frame to load
             try loader.load(rawDesign.snapshots, into: trans)
         }
         catch {
@@ -609,11 +609,20 @@ public class DesignController: SwiftGodot.Node {
         return true
     }
     
-    @Callable func copy_selection(ids godotIDs: PackedInt64Array) -> String {
-        // Safely sanitizse IDs
-        let ids = godotIDs.compactMap { ObjectID(String($0)) }
+    /// Extract textual serialised representation of selected objects.
+    ///
+    /// The extracted representation is encoded as JSON.
+    ///
+    /// Use this method to implement copy/cut functionality.
+    ///
+    /// - SeeAlso: ``deleteSelection()``, ``pasteFromText(text:)``
+    ///
+    @Callable(autoSnakeCase: true)
+    public func copySelectionAsText() -> String {
+        let ids = selectionManager.selection.ids
         let extractor = DesignExtractor()
-        let extract = extractor.extractPruning(objects: ids, frame: self.currentFrame)
+        let extract = extractor.extractPruning(objects: ids,
+                                               frame: self.currentFrame)
         var rawDesign = RawDesign(metamodelName: design.metamodel.name,
                                   metamodelVersion: design.metamodel.version,
                                   snapshots: extract)
@@ -626,6 +635,60 @@ public class DesignController: SwiftGodot.Node {
         return text
     }
     
+    /// Paste JSON-encoded objects into the design.
+    ///
+    /// - Returns: `true` when paste was successful, `false` when paste failed.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func pasteFromText(text: String) -> Bool {
+        guard let data = text.data(using: .utf8) else {
+            GD.pushError("Can not get data from text")
+            return false
+        }
+        let reader = JSONDesignReader()
+        let rawDesign: RawDesign
+        do {
+            rawDesign = try reader.read(data: data)
+        }
+        catch {
+            GD.pushError("Unable to paste: \(error)")
+            return false
+        }
+        let loader = DesignLoader(metamodel: self._metamodel)
+        let ids: [PoieticCore.ObjectID]
+
+        let trans = self.newTransaction()
+        do {
+            ids = try loader.load(rawDesign.snapshots,
+                                  into: trans,
+                                  identityStrategy: .preserveOrCreate)
+        }
+        catch {
+            GD.pushError("Unable to paste: \(error)")
+            self.discard(trans)
+            return false
+        }
+
+        self.accept(trans)
+        selectionManager.replaceAll(ids)
+        return true
+    }
+    
+    /// Delete selected objects and its dependents.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func deleteSelection() {
+        let trans = self.newTransaction()
+        let ids = selectionManager.selection.ids
+
+        for id in ids {
+            guard trans.contains(id) else { continue }
+            trans.removeCascading(id)
+        }
+        self.accept(trans)
+        selectionManager.clear()
+    }
+        
     @Export var debug_stats: GDictionary {
         get {
             var dict = GDictionary()

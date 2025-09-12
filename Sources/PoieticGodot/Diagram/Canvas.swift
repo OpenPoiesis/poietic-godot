@@ -45,6 +45,14 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         super.init(context)
     }
     
+    /// Get IDs of design objects represented within the canvas.
+    ///
+    /// Example use case of this method is to provide IDs for the _"Select all"`_ command.
+    ///
+    func representedObjectIDs() -> [PoieticCore.ObjectID] {
+        return Array(_representedBlocks.keys) + Array(_representedConnectors.keys)
+    }
+    
     func currentTool() -> CanvasTool? {
         guard let app = getNode(path: NodePath(AppNodePath)) as? PoieticApplication else {
             GD.pushWarning("Unable to get app")
@@ -80,9 +88,16 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         }
         object.queueFree()
     }
+    
+    /// Get a block that represents a design object with given ID (typically a node).
+    ///
+    /// If no such block exists or the canvas object is of different type, then `null` is returned.
+    ///
+    @Callable(autoSnakeCase: true)
     public func representedBlock(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
         return _representedBlocks[id]
     }
+
     public func insertRepresentedConnector(_ representedConnector: DiagramCanvasConnector) {
         guard let id = representedConnector.objectID else { return }
         
@@ -99,6 +114,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         object.queueFree()
     }
 
+    /// Get a connector that represents a design object with given ID (typically an edge).
+    ///
+    /// If no such connector exists or the canvas object is of different type, then `null` is returned.
+    ///
+    @Callable(autoSnakeCase: true)
     public func representedConnector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
         return _representedConnectors[id]
     }
@@ -233,6 +253,20 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         
         return nil
     }
+
+    @Callable(autoSnakeCase: true)
+    func promptPosition(for nodeID: PoieticCore.ObjectID) -> Vector2 {
+        guard let block = _representedBlocks[nodeID] else { return .zero }
+
+        let position: Vector2
+        if let primaryLabel = block.primaryLabel {
+            return primaryLabel.getGlobalPosition()
+        }
+        else {
+            return self.toGlobal(localPoint: block.position)
+        }
+    }
+
     
     // TODO: Observe how we are using it and adjust types accordingly
     // TODO: Add screen scaling (retina)

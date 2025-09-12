@@ -29,6 +29,19 @@ class SelectionManager: SwiftGodot.Node {
    
     @Signal var selectionChanged: SignalWithArguments<SelectionManager>
 
+
+    /// Get an ID of a selected object if only one object is selected. Otherwise
+    /// returns null.
+    ///
+    /// Use this method for actions that operate on single objects, such as name or formula
+    /// editing.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func selectionOfOne() -> PoieticCore.ObjectID? {
+        guard selection.count == 1 else { return nil }
+        return selection.first
+    }
+    
     @Callable
     func get_ids() -> PackedInt64Array {
         return PackedInt64Array(selection.map { $0.godotInt })

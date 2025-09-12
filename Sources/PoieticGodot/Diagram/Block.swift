@@ -24,11 +24,28 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     @Export var pictogramLineWidth: Double = 1.0
     
     @Export var collisionShape: SwiftGodot.CollisionShape2D?
-    @Export var hasPrimaryLabel: Bool = true
-    @Export var primaryLabel: SwiftGodot.Label?
-    @Export var hasSecondaryLabel: Bool = false
-    @Export var secondaryLabel: SwiftGodot.Label?
     
+    // TODO: Review necessity of has*Label
+    @Export var hasPrimaryLabel: Bool = true
+    /// Primary label of a block, typically a block name.
+    @Export var primaryLabel: SwiftGodot.Label?
+    /// Flag whether the primary label (usually a name) is shown regardless of its presence.
+    ///
+    /// Labels are typically hidden when a label editing prompt is present. Label visibility
+    /// is set to this flag after editing is finished.
+    @Export var showsPrimaryLabel: Bool = true
+
+    @Export var hasSecondaryLabel: Bool = false
+    /// Secondary label of a bloc, usually a formula or some relevant variable value.
+    ///
+    @Export var secondaryLabel: SwiftGodot.Label?
+    /// Flag whether the secondary label (formula or some other attribute) is shown regardless of
+    /// its presence.
+    ///
+    /// Labels are typically hidden when a label editing prompt is present. Label visibility
+    /// is set to this flag after editing is finished.
+    @Export var showsSecondaryLabel: Bool = true
+
     @Export var hasValueIndicator: Bool = false
     @Export var valueIndicator: SwiftGodot.Node2D?
 
@@ -89,6 +106,35 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             outline.visible = self._isSelected
             self.selectionOutline = outline
             self.addChild(node: outline)
+        }
+    }
+   
+    /// Set the label visibility according to the label visibility flags ``showsPrimaryLabel``
+    /// and ``showsSecondaryLabel``.
+    ///
+    /// - SeeAlso: ``hideLabels()``
+    ///
+    @Callable(autoSnakeCase: true)
+    public func resetLabelVisibility() {
+        if let primaryLabel {
+            primaryLabel.visible = self.showsPrimaryLabel
+        }
+        if let secondaryLabel {
+            secondaryLabel.visible = self.showsSecondaryLabel
+        }
+    }
+    
+    /// Make the labels hidden.
+    ///
+    /// - SeeAlso: ``resetLabelVisibility()``
+    ///
+    @Callable(autoSnakeCase: true)
+    public func hideLabels() {
+        if let primaryLabel {
+            primaryLabel.visible = false
+        }
+        if let secondaryLabel {
+            secondaryLabel.visible = false
         }
     }
     

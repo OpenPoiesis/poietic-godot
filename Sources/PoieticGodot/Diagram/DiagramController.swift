@@ -10,8 +10,11 @@ import PoieticCore
 import Diagramming
 import Foundation
 
+// TODO: Review methods and consider placing them to App
+
 @Godot
 public class DiagramController: SwiftGodot.Node {
+    // TODO: Move selection manager reference to the diagram controller
     // TODO: Rename to DiagramCanvasController
     @Export var canvas: DiagramCanvas?
     @Export var designController: DesignController?
@@ -85,7 +88,16 @@ public class DiagramController: SwiftGodot.Node {
             child.isSelected = selected.contains(objectID)
         }
     }
-    
+
+    /// Select all objects in the canvas
+    @Callable(autoSnakeCase: true)
+    public func selectAll() {
+        guard let canvas else { return }
+        guard let manager = designController?.selectionManager else { return }
+        let ids = canvas.representedObjectIDs()
+        manager.replaceAll(ids)
+    }
+
     @Callable
     func sync_indicators(result: PoieticResult) {
         // FIXME: Implement this
@@ -95,6 +107,7 @@ public class DiagramController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func clearCanvas() {
         canvas?.clear()
+        designController?.selectionManager.clear()
     }
     func updateCanvas(frame: StableFrame) {
         guard let composer else { return }
