@@ -29,7 +29,7 @@ import SwiftGodot
         PanTool.self,
 
         // Diagram Canvas
-        DiagramController.self,
+        CanvasController.self,
         DiagramCanvas.self,
         DiagramCanvasObject.self,
         DiagramCanvasConnector.self,

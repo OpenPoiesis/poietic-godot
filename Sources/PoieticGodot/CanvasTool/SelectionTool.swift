@@ -143,7 +143,7 @@ class SelectionTool: CanvasTool {
     func moveSelection(byCanvasDelta canvasDelta: Vector2) {
         guard let canvas else { return }
         guard let ctrl = designController else { return }
-        guard let diagramCtrl = diagramController else { return }
+        guard let diagramCtrl = canvasController else { return }
         let selection = ctrl.selectionManager.selection
         var dependentEdges: Set<PoieticCore.ObjectID> = Set()
         var designDelta = Vector2D(canvasDelta)
@@ -185,10 +185,9 @@ class SelectionTool: CanvasTool {
     func dragHandle(byCanvasDelta canvasDelta: Vector2) {
         guard let handleTarget else { return }
         guard let canvas else { return }
-        guard let diagramCtrl = diagramController else { return }
+        guard let diagramCtrl = canvasController else { return }
 
         if let object = handleTarget.object as? DiagramCanvasConnector {
-            GD.print("Dragging handle \(handleTarget.tag) by \(canvasDelta)")
             guard let tag = handleTarget.tag else { return }
             object.moveMidpoint(tag: tag, canvasDelta: canvasDelta)
             diagramCtrl.updateConnectorPreview(object)
@@ -215,7 +214,7 @@ class SelectionTool: CanvasTool {
         
         switch state {
         case .objectMove:
-            diagramController?.moveSelection(selection, by: designMoveDelta)
+            canvasController?.moveSelection(selection, by: designMoveDelta)
         case .handleMove:
             // FIXME: Last position
             guard let handleTarget,
@@ -226,7 +225,7 @@ class SelectionTool: CanvasTool {
                 return false
             }
 
-            diagramController?.setMidpoints(object: objectID,
+            canvasController?.setMidpoints(object: objectID,
                                             midpoints: connector.midpoints)
         case .empty: break
         case .handleHit: break

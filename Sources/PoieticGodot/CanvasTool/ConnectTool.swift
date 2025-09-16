@@ -49,7 +49,7 @@ class ConnectTool: CanvasTool {
     }
     
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = diagramController else { return false }
+        guard let ctrl = canvasController else { return false }
         guard let canvas else { return false }
         guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock
         else { return true }
@@ -66,7 +66,7 @@ class ConnectTool: CanvasTool {
     }
     
     override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = diagramController else { return false }
+        guard let ctrl = canvasController else { return false }
         guard let canvas else { return false }
         guard state == .connect else { return true }
         guard let origin = self.origin,

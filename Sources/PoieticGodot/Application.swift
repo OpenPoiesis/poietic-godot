@@ -27,7 +27,7 @@ class PoieticApplication: SwiftGodot.Node {
     // MARK: - Controllers
     // TODO: Not sure whether this should be here, but keeping it for now
     @Export var designController: DesignController?
-    @Export var diagramController: DiagramController?
+    @Export var canvasController: CanvasController?
     var currentDesign: Design? { designController?.design }
     
 
@@ -36,10 +36,13 @@ class PoieticApplication: SwiftGodot.Node {
 
     required init(_ context: InitContext) {
         designController = DesignController()
+        
+        GD.print("--- BEGIN Tool init")
         selectionTool = SelectionTool()
         placeTool = PlaceTool()
         connectTool = ConnectTool()
         panTool = PanTool()
+        GD.print("--- END Tool init")
 
         currentTool = selectionTool
         previousTool = selectionTool
@@ -49,13 +52,14 @@ class PoieticApplication: SwiftGodot.Node {
 
     @Callable(autoSnakeCase: true)
     func changeTool(_ tool: CanvasTool) {
+        // TODO: Rename to set tool, and make a tool name based version
         if let currentTool {
             currentTool.toolReleased()
         }
         previousTool = currentTool
         currentTool = tool
-        if let diagramController {
-            tool.bind(diagramController)
+        if let canvasController {
+            tool.bind(canvasController)
         }
         else {
             GD.pushWarning("Unable to bind canvas tool: No diagram controller")

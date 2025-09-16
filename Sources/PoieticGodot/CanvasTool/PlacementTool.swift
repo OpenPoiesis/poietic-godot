@@ -132,9 +132,9 @@ class PlaceTool: CanvasTool {
         
         let shadow = CanvasShadow()
         
-        guard let diagramController else { preconditionFailure("No diagram controller") }
+        guard let canvasController else { preconditionFailure("No diagram controller") }
         // FIXME: Use block library for pictograms
-        guard let pictogram = diagramController.pictograms?.pictogram(typeName) else {
+        guard let pictogram = canvasController.pictograms?.pictogram(typeName) else {
             preconditionFailure("No pictogram for type '\(typeName)'")
         }
         shadow.pictogramCurves = pictogram.path.asGodotCurves()

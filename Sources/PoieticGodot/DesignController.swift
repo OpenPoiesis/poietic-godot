@@ -11,45 +11,6 @@ import PoieticFlows
 import PoieticCore
 import Diagramming
 
-@Godot
-public class PoieticIssue: SwiftGodot.RefCounted {
-    var issue: DesignIssue! = nil
-
-    @Export var domain: String {
-        get { issue.domain.description}
-        set { readOnlyAttributeError() }
-    }
-    @Export var severity: String {
-        get { issue.severity.description }
-        set { readOnlyAttributeError() }
-    }
-    @Export var identifier: String {
-        get { issue.identifier }
-        set { readOnlyAttributeError() }
-    }
-    @Export var message: String {
-        get { issue.message }
-        set { readOnlyAttributeError() }
-    }
-    @Export var hint: String? {
-        get { issue.hint }
-        set { readOnlyAttributeError() }
-    }
-    @Export var attribute: String? {
-        get { try? issue.details["attribute"]?.stringValue() }
-        set { readOnlyAttributeError() }
-    }
-    @Export var details: GDictionary {
-        get {
-            var dict = GDictionary()
-            for (key, value) in issue.details {
-                dict[key] = value.asGodotVariant()
-            }
-            return dict
-        }
-        set { readOnlyAttributeError() }
-    }
-}
 
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
@@ -57,6 +18,7 @@ public class PoieticIssue: SwiftGodot.RefCounted {
 public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
     
+    // TODO: Review where is the ctrl metamodel used
     // TODO: Remove this or rename to `metamodel`
     var _metamodel: Metamodel { design.metamodel }
     var design: Design
@@ -122,14 +84,17 @@ public class DesignController: SwiftGodot.Node {
         return currentFrame[id]
     }
     
-    @Callable
-    func get_object_ids(type_name: String) -> PackedInt64Array {
-        guard let type = design.metamodel.objectType(name: type_name) else {
-            GD.pushError("Unknown object type '\(type_name)'")
+    /// Get a list of object IDs that are of given object type.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func objectsOfType(typeName: String) -> PackedInt64Array {
+        guard let type = design.metamodel.objectType(name: typeName) else {
+            GD.pushError("Unknown object type '\(typeName)'")
             return PackedInt64Array()
         }
-        var objects = currentFrame.filter { $0.type === type }
-        return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
+        let objects = currentFrame.filter { $0.type === type }
+        let ids = objects.map { Int64($0.objectID.intValue) }
+        return PackedInt64Array(ids)
     }
     
     /// Order given IDs by the given attribute in ascending order.
@@ -327,7 +292,7 @@ public class DesignController: SwiftGodot.Node {
             }
         }
         
-        designChanged.emit(self.has_issues())
+        designChanged.emit(self.hasIssues())
         
         // TODO: Simulate only when there are simulation-related changes.
         // Simulate
@@ -338,32 +303,26 @@ public class DesignController: SwiftGodot.Node {
     
     
     // MARK: - Issues
-    @Callable
-    func has_issues() -> Bool {
-        guard let issues else {
-            return false
-        }
+    @Callable(autoSnakeCase: true)
+    func hasIssues() -> Bool {
+        guard let issues else { return false }
         return !issues.isEmpty
     }
     
-    @Callable
-    func issues_for_object(id: Int64) -> [PoieticIssue] {
-        guard let poieticID = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid object ID")
+    @Callable(autoSnakeCase: true)
+    func issuesForObject(id: PoieticCore.ObjectID) -> [PoieticIssue] {
+        guard let issues,
+              let objectIssues = issues.objectIssues[id] else
+        {
             return []
         }
         
-        guard let issues else {
-            return []
-        }
-        guard let objectIssues = issues.objectIssues[poieticID] else {
-            return []
-        }
-        return objectIssues.map {
+        let result =  objectIssues.map {
             let issue = PoieticIssue()
             issue.issue = $0
             return issue
         }
+        return result
     }
     
     @Callable
@@ -401,42 +360,36 @@ public class DesignController: SwiftGodot.Node {
         }
     }
     
-    @Callable
-    func get_distinct_values(selection: SelectionManager, attribute: String) -> SwiftGodot.Variant {
+    @Callable(autoSnakeCase: true)
+    func getDistinctValues(ids: PackedInt64Array, attribute: String) -> SwiftGodot.VariantArray {
         // FIXME: Use array not selection
-        guard let frame = design.currentFrame else {
-            GD.pushError("Using design without a frame")
-            return SwiftGodot.Variant(GArray())
-        }
-        let array = GArray()
-        
-        let values = frame.distinctAttribute(attribute,
-                                             ids: frame.contained(selection.selection.ids))
+        guard let frame = design.currentFrame else { return VariantArray() }
+        let poieticIDs = ids.compactMap { ObjectID($0) }
+        let contained = frame.contained(poieticIDs)
+        let values = frame.distinctAttribute(attribute, ids: contained)
+        var result = SwiftGodot.VariantArray()
         
         for value in values {
-            array.append(value.asGodotVariant())
+            result.append(value.asGodotVariant())
         }
-        return SwiftGodot.Variant(array)
+        return result
     }
     
-    @Callable
-    func get_distinct_types(selection: SelectionManager) -> [String] {
-        // FIXME: Use array not selection
-        guard let frame = design.currentFrame else {
-            GD.pushError("Using design without a frame")
-            return []
-        }
-        let types = frame.distinctTypes(frame.contained(selection.selection.ids))
+    @Callable(autoSnakeCase: true)
+    func getDistinctTypes(ids: PackedInt64Array) -> [String] {
+        guard let frame = design.currentFrame else { return [] }
+        let poieticIDs = ids.compactMap { ObjectID($0) }
+        let contained = frame.contained(poieticIDs)
+        let types = frame.distinctTypes(contained)
         return types.map { $0.name }
     }
     
-    @Callable
-    func get_shared_traits(selection: SelectionManager) -> [String] {
-        guard let frame = design.currentFrame else {
-            GD.pushError("Using design without a frame")
-            return []
-        }
-        let traits = frame.sharedTraits(frame.contained(selection.selection.ids))
+    @Callable(autoSnakeCase: true)
+    func getSharedTraits(ids: PackedInt64Array) -> [String] {
+        guard let frame = design.currentFrame else { return [] }
+        let poieticIDs = ids.compactMap { ObjectID($0) }
+        let contained = frame.contained(poieticIDs)
+        let traits = frame.sharedTraits(contained)
         return traits.map { $0.name }
     }
     // MARK: - Design Graph Transformations

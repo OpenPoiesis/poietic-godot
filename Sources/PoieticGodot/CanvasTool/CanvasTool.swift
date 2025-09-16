@@ -12,17 +12,17 @@ import SwiftGodot
 @Godot
 class CanvasTool: SwiftGodot.Node {
     @Export var canvas: DiagramCanvas?
-    @Export var diagramController: DiagramController?
+    @Export var canvasController: CanvasController?
     @Export var designController: DesignController?
     
     var objectPalette: PanelContainer?
     
     /// Bind the tool to a diagram controller.
     @Callable
-    func bind(_ diagramController: DiagramController) {
-        self.diagramController = diagramController
-        self.canvas = diagramController.canvas
-        self.designController = diagramController.designController
+    func bind(_ canvasController: CanvasController) {
+        self.canvasController = canvasController
+        self.canvas = canvasController.canvas
+        self.designController = canvasController.designController
         
         // FIXME: Missing object palette
     }

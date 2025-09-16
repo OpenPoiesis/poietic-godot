@@ -8,23 +8,21 @@
 import SwiftGodot
 
 @Godot
-class CanvasPromptManager: SwiftGodot.Node {
-    required init(_ context: SwiftGodot.InitContext) {
-        super.init(context)
-    }
-}
-
-@Godot
-class CanvasPrompt: SwiftGodot.Control {
-    @Export var diagramController: DiagramController?
+class CanvasInlineEditor: SwiftGodot.Node {
+    @Export var canvasController: CanvasController?
+    
 //    @Export var isActive: Bool = false
     
     required init(_ context: SwiftGodot.InitContext) {
         super.init(context)
     }
     
+    func contentNode() -> Control? {
+        self.getChildren().first as? Control
+    }
+
     @Callable
-    func open(objectID: Int64) {
+    func open(objectID: Int64, attribute: String, globalPosition: Vector2) {
         // Subclasses should override this
     }
 

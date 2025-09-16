@@ -1,5 +1,5 @@
 //
-//  DiagramController.swift
+//  CanvasController.swift
 //  poietic-godot
 //
 //  Created by Stefan Urbanek on 26/08/2025.
@@ -13,7 +13,7 @@ import Foundation
 // TODO: Review methods and consider placing them to App
 
 @Godot
-public class DiagramController: SwiftGodot.Node {
+public class CanvasController: SwiftGodot.Node {
     // TODO: Move selection manager reference to the diagram controller
     // TODO: Rename to DiagramCanvasController
     @Export var canvas: DiagramCanvas?
