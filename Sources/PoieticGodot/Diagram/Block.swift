@@ -197,7 +197,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             if let collisionShape = self.collisionShape {
                 collisionShape.shape = pictoCollision.shape.asGodotShape2D()
                 collisionShape.position = Vector2(pictoCollision.position - pictogram.origin)
-                GD.print("--- B COL: \(pictoCollision.shape.typeName) P: \(pictogram.origin.prettyDescription) CS: \(pictoCollision.position.prettyDescription)")
             }
             
         }
@@ -218,7 +217,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         if let label = self.primaryLabel {
             setLabel(label, text: block.label, emptyText: "(empty)", themeType: "PrimaryLabel")
             let size = label.getMinimumSize()
-            GD.print("Label size: \(size)")
             let center = Vector2(
                 x: Float(mid.x) - size.x / 2.0,
                 y: Float(mid.y) + primaryLabelOffset
@@ -253,11 +251,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     
     var savedPrimaryLabelEditVisible: Bool = false
     
+    @Callable(autoSnakeCase: true)
     func beginLabelEdit() {
         savedPrimaryLabelEditVisible = self.primaryLabel?.visible ?? false
         self.primaryLabel?.visible = false
     }
     
+    @Callable(autoSnakeCase: true)
     func finishLabelEdit() {
         self.primaryLabel?.visible = savedPrimaryLabelEditVisible
     }

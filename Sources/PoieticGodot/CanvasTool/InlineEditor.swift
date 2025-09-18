@@ -8,7 +8,7 @@
 import SwiftGodot
 
 @Godot
-class CanvasInlineEditor: SwiftGodot.Node {
+class _CanvasInlineEditor: SwiftGodot.Node {
     @Export var canvasController: CanvasController?
     
 //    @Export var isActive: Bool = false

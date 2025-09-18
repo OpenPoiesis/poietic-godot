@@ -11,6 +11,13 @@ import PoieticCore
 public let AppNodePath = "/root/Main/PoieticApplication"
 
 /// Main node for graphical Poietic applications and design editors.
+///
+/// Responsibilities:
+///
+/// - Design: create, open, close, get current.
+/// - Tools: current tool, tool change
+/// - Focus: current design, current canvas, current selection.
+///
 @Godot
 class PoieticApplication: SwiftGodot.Node {
     // MARK: - Tools
@@ -30,23 +37,38 @@ class PoieticApplication: SwiftGodot.Node {
     @Export var canvasController: CanvasController?
     var currentDesign: Design? { designController?.design }
     
-
+    @Export var currentSelection: PackedInt64Array? {
+        get {
+            guard let ctrl = designController else { return nil }
+            return ctrl.selectionManager.get_ids()
+        }
+        set(values) {
+            guard let ctrl = designController else { return }
+            if let values {
+                ctrl.selectionManager.replace(ids: values)
+            }
+            else {
+                ctrl.selectionManager.clear()
+            }
+        }
+    }
+    
+    
     // var panTool: PanTool
     // MARK: - Methods
 
     required init(_ context: InitContext) {
         designController = DesignController()
         
-        GD.print("--- BEGIN Tool init")
         selectionTool = SelectionTool()
         placeTool = PlaceTool()
         connectTool = ConnectTool()
         panTool = PanTool()
-        GD.print("--- END Tool init")
 
         currentTool = selectionTool
         previousTool = selectionTool
         
+        GD.print("Poietic Application initialised.")
         super.init(context)
     }
 

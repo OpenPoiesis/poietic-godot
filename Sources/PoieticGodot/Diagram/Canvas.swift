@@ -280,6 +280,28 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         return position.asGodotVector2()
     }
 
+    /// Default position where a pop-up is expected to be displayed around a given object.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func defaultPopupPosition(objectID: PoieticCore.ObjectID) -> Vector2 {
+        if let block = _representedBlocks[objectID] {
+            let y: Float
+            if let label = block.primaryLabel {
+                y = label.getGlobalPosition().y
+            }
+            else {
+                y = block.globalPosition.y
+            }
+            return Vector2(x: block.globalPosition.x,y: y)
+        }
+        else if let connector = _representedConnectors[objectID] {
+            // TODO: Compute some sensible position
+            return .zero
+        }
+        else {
+            return .zero
+        }
+    }
 
 }
 

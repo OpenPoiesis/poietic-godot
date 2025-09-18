@@ -10,22 +10,40 @@ import PoieticCore
 import Diagramming
 import Foundation
 
-// TODO: Review methods and consider placing them to App
-
+/// Canvas Controller synchronises design with canvas.
+///
+/// Responsibilities:
+///
+/// - Synchronisation of design with canvas: create and update canvas objects, their visuals based
+///   on state of the design.
+/// - Creates and manages temporary visuals, such as new connectors.
+/// - Facilitates inline editing.
+/// - (TODO) Manages selection
+///
 @Godot
 public class CanvasController: SwiftGodot.Node {
-    // TODO: Move selection manager reference to the diagram controller
-    // TODO: Rename to DiagramCanvasController
-    @Export var canvas: DiagramCanvas?
-    @Export var designController: DesignController?
+    // TODO: Move selection management here
+    /// Canvas scene node that the controller manages and synchronises diagrammatic representation
+    /// of a design.
+    @Export public var canvas: DiagramCanvas?
+    /// Controller of a design that is composed as a diagram on canvas.
+    @Export public var designController: DesignController?
+    var composer: DiagramComposer?
+
+    var inlineEditors: [String:SwiftGodot.Control] = [:]
+
+    /// A control that is shown alongside a node, such as inline editor or issue list.
+    @Export var inlinePopup: SwiftGodot.Control?
     
     var pictograms: PictogramCollection?
-    var composer: DiagramComposer?
     
+
+    // MARK: - Initialisation
+    //
     required init(_ context: InitContext) {
         super.init(context)
     }
-    
+
     @Callable
     func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
@@ -69,6 +87,7 @@ public class CanvasController: SwiftGodot.Node {
         self.pictograms = PictogramCollection(scaled)
     }
     
+    // MARK: - Signal Handling
     @Callable
     func on_design_changed(hasIssued: Bool) {
         guard let frame = designController?.currentFrame else {
@@ -78,6 +97,20 @@ public class CanvasController: SwiftGodot.Node {
         updateCanvas(frame: frame)
     }
     
+    // MARK: - Selection
+    @Callable(autoSnakeCase: true)
+    func getSingleSelectionObject() -> PoieticObject? {
+        guard let designController,
+              designController.selectionManager.selection.count == 1,
+              let id = designController.selectionManager.selection.first
+        else {
+            return nil
+        }
+        return designController.getObject(id)
+    }
+    
+    // MARK: - Actions (basic)
+    //
     @Callable
     func on_selection_changed(_ manager: SelectionManager) {
         guard let canvas else { return }
@@ -98,17 +131,21 @@ public class CanvasController: SwiftGodot.Node {
         manager.replaceAll(ids)
     }
 
+    @Callable(autoSnakeCase: true)
+    func clearCanvas() {
+        canvas?.clear()
+        designController?.selectionManager.clear()
+    }
+
+    // MARK: - Synchronisation
+    //
+    
     @Callable
     func sync_indicators(result: PoieticResult) {
         // FIXME: Implement this
         GD.pushWarning("Syncing indicators not yet re-implemented")
     }
 
-    @Callable(autoSnakeCase: true)
-    func clearCanvas() {
-        canvas?.clear()
-        designController?.selectionManager.clear()
-    }
     func updateCanvas(frame: StableFrame) {
         guard let composer else { return }
 
@@ -232,6 +269,8 @@ public class CanvasController: SwiftGodot.Node {
         connector.setDirty()
     }
 
+    // MARK: - Canvas Tool
+    //
     /// Create a connector originating in a block and ending at a given point, typically
     /// a mouse position.
     ///
@@ -348,87 +387,141 @@ public class CanvasController: SwiftGodot.Node {
         ctrl.accept(trans)
     }
 
-//    public func setMidpoints(_ objectID: ObjectID, midpoints: [Vector2D]) {
-//        
-//    }
-    
-    // MARK: Prompt Editors
-    // Label Editor
-    @Callable
-    func _on_label_edit_submitted(object_id: Int64, new_text: String) {
-        guard let id = PoieticCore.ObjectID(object_id) else { return }
-        guard let canvas else { return }
-        guard let object = canvas.representedBlock(id: id) else { return }
-        guard let block = object.block else { return }
-        guard let ctrl = designController else { return }
-        
-        object.finishLabelEdit()
-        
-        guard block.label != new_text else { return } // Nothing changed
-            
-        // TODO: Use primary label attribute
-        var trans = ctrl.newTransaction()
-        var obj = trans.mutate(id)
-        obj["name"] = PoieticCore.Variant(new_text)
-        ctrl.accept(trans)
-    }
-
-    @Callable
-    func _on_label_edit_cancelled(object_id: Int64) {
-        guard let id = PoieticCore.ObjectID(object_id) else { return }
-        guard let canvas else { return }
-        guard let object = canvas.representedBlock(id: id) else { return }
-        object.finishLabelEdit()
-    }
-
-    // Formula Editor
-    // ------------------------------------------------------------
-    @Callable
-    func _on_formula_edit_submitted(object_id: Int64, new_text: String) {
-        guard let id = PoieticCore.ObjectID(object_id) else { return }
-        guard let ctrl = designController else { return }
-        guard let object = ctrl.getObject(id) else { return }
-
-        if (try? object["formula"]?.stringValue()) == new_text {
-            print("Formula not changed in ", object_id)
+    // MARK: - Inline Editors and Pop-ups
+    //
+    @Callable(autoSnakeCase: true)
+    func registerInlineEditor(name: String, editor: SwiftGodot.Control) {
+        guard inlineEditors[name] == nil else {
+            GD.pushError("Inline editor '\(name)' already registered")
             return
         }
-        var trans = ctrl.newTransaction()
-        var obj = trans.mutate(id)
-        obj["formula"] = PoieticCore.Variant(new_text)  
-        ctrl.accept(trans)
-    }
-
-    @Callable
-    func _on_formula_edit_cancelled(object_id: Int64) {
-        // Do nothing
-    }
-
-    // Attribute Editor
-    // ------------------------------------------------------------
-    // TODO: Rename _on_numeric_attribute_...
-    @Callable
-    func _on_attribute_edit_submitted(object_id: Int64, attribute: String, new_text: String) {
-        guard let id = PoieticCore.ObjectID(object_id) else { return }
-        guard let ctrl = designController else { return }
-        guard let object = ctrl.getObject(id) else { return }
-        if let value = object[attribute], (try? value.stringValue()) == new_text
+        // Check for pseudo-protocol conformance.
+        //
+        // This code is here because (to my knowledge) it is not possible to subclass extension
+        // class in Godot script.
+        //
+        guard editor.hasMethod("open"),
+              editor.hasMethod("close") else
         {
-            GD.print("Attribute ", attribute, " not changed in ", object_id)
+            GD.pushError("Can not register editor '\(name)': missing required methods")
             return
         }
+
+        inlineEditors[name] = editor
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func inlineEditor(_ name: String) -> SwiftGodot.Control? {
+        guard let editor = inlineEditors[name] else {
+            GD.pushError("No inline editor '\(name)'")
+            return nil
+        }
+        return editor
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func openInlineEditor(_ editorName: String,
+                          objectID: PoieticCore.ObjectID,
+                          attribute: String) {
+        // TODO: Allow editing of not-yet-existing objects, such as freshly placed block
+        guard let canvas,
+              let designController,
+              let editor = inlineEditor(editorName)
+              else { return }
+        guard designController.currentFrame.contains(objectID) else
+        {
+            GD.pushError("No object '\(objectID)' for inline editor")
+            return
+        }
+        let object = designController.currentFrame[objectID]
+        let value = object[attribute]
+        var position = canvas.promptPosition(for: objectID)
+        openInlinePopup(control: editor, position: position)
+        editor.call(method: "open",
+                    objectID.asGodotVariant(),
+                    SwiftGodot.Variant(attribute),
+                    value?.asGodotVariant())
+        self.inlinePopup = editor
+    }
+
+    @Callable(autoSnakeCase: true)
+    func openInlinePopup(control: SwiftGodot.Control, position: Vector2) {
+        if let inlinePopup {
+            closeInlinePopup()
+        }
+        control.setGlobalPosition(position)
+        control.show()
+        self.inlinePopup = control
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func closeInlinePopup() {
+        guard let inlinePopup else { return }
+        if inlinePopup.hasMethod("close") {
+            inlinePopup.call(method: "close")
+        }
+        inlinePopup.hide()
+        self.inlinePopup = nil
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func commitNameEdit(objectID: PoieticCore.ObjectID, newValue: String) {
+        guard let ctrl = designController,
+              let canvas,
+              let object = canvas.representedBlock(id: objectID),
+              let block = object.block else { return }
+        
+        object.finishLabelEdit()
+        
+        guard block.label != newValue else { return } // Nothing changed
+            
         var trans = ctrl.newTransaction()
-        var obj = trans.mutate(id)
-        if obj.setNumericAttribute(attribute, fromString: new_text) {
+        var obj = trans.mutate(objectID)
+        obj["name"] = PoieticCore.Variant(newValue)
+        ctrl.accept(trans)
+    }
+
+    @Callable(autoSnakeCase: true)
+    func cancelNameEdit(objectID: PoieticCore.ObjectID) {
+        guard let canvas,
+              let object = canvas.representedBlock(id: objectID),
+              let block = object.block else { return }
+        object.finishLabelEdit()
+    }
+
+    @Callable(autoSnakeCase: true)
+    func commitFormulaEdit(objectID: PoieticCore.ObjectID, newFormulaText: String) {
+        guard let ctrl = designController,
+              let object = ctrl.object(objectID) else { return }
+
+        if (try? object["formula"]?.stringValue()) == newFormulaText {
+            return // Attribute not changed
+        }
+        
+        var trans = ctrl.newTransaction()
+        var obj = trans.mutate(objectID)
+        obj["formula"] = PoieticCore.Variant(newFormulaText)
+        ctrl.accept(trans)
+    }
+
+    @Callable(autoSnakeCase: true)
+    func commitNumericAttributeEdit(objectID: PoieticCore.ObjectID, attribute: String, newTextValue: String) {
+        guard let ctrl = designController,
+              let object = ctrl.object(objectID) else { return }
+        
+        if let value = object[attribute], (try? value.stringValue()) == newTextValue
+        {
+            return // Attribute not changed
+        }
+        
+        var trans = ctrl.newTransaction()
+        var obj = trans.mutate(objectID)
+        if obj.setNumericAttribute(attribute, fromString: newTextValue) {
             ctrl.accept(trans)
         }
         else {
-            GD.pushWarning("Numeric attribute '",attribute,"' was not set: '", new_text, "'")
+            GD.pushWarning("Numeric attribute '",attribute,"' was not set: '", newTextValue, "'")
             ctrl.discard(trans)
         }
-    }
-    @Callable
-    func _on_attribute_edit_cancelled(object_id: Int64) {
-        // Do nothing
     }
 }

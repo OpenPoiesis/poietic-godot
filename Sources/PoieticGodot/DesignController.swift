@@ -30,10 +30,10 @@ public class DesignController: SwiftGodot.Node {
     var result: SimulationResult? = nil
 
     @Export var selectionManager: SelectionManager
-    
-    // Called on: load from path
+
+    /// Called on: load from path
     @Signal var designReset: SimpleSignal
-    // Called on: accept, undo, redo
+    /// Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
 
     @Signal var simulationStarted: SimpleSignal
@@ -61,24 +61,16 @@ public class DesignController: SwiftGodot.Node {
     }
     
     // MARK: - Object Graph
-    @Callable
-    func get_object(id: Int64) -> PoieticObject? {
-        guard let id = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid object ID")
-            return nil
-        }
-        guard currentFrame.contains(id) else {
-            GD.pushError("Unknown object ID \(id)")
-            return nil
-        }
+    @Callable(autoSnakeCase: true)
+    func getObject(_ id: PoieticCore.ObjectID) -> PoieticObject? {
+        guard currentFrame.contains(id) else { return nil }
         var object = PoieticObject()
         object.object = currentFrame[id]
         return object
     }
    
-    func getObject(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
+    func object(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
         guard currentFrame.contains(id) else {
-            GD.pushError("Unknown object ID \(id)")
             return nil
         }
         return currentFrame[id]
@@ -642,6 +634,24 @@ public class DesignController: SwiftGodot.Node {
         selectionManager.clear()
     }
         
+    /// Delete selected objects and its dependents.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func removeConnectorMidpointsInSelection() {
+        // TODO: Make this a command
+        let trans = self.newTransaction()
+        let ids = selectionManager.selection.ids
+
+        for id in ids {
+            guard trans.contains(id) else { continue }
+            let obj = trans.mutate(id)
+            guard obj.type.hasTrait(.DiagramConnector) else { continue }
+            obj.removeAttribute(forKey: "midpoints")
+        }
+        self.accept(trans)
+        selectionManager.clear()
+    }
+
     @Export var debug_stats: GDictionary {
         get {
             var dict = GDictionary()
