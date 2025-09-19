@@ -96,7 +96,8 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         }
     }
     
-    func updateContent(from connector: Connector) {
+    // FIXME: [IMPORTANT] Move this to canvas controller.
+    func updateContent(connector: Connector) {
         _prepareChildren()
         
         self.objectID = connector.objectID
@@ -104,6 +105,12 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         let tessellatedPath = connector.wirePath().tessellate()
         self.wire = PackedVector2Array(tessellatedPath.map { $0.asGodotVector2() })
         self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
+
+        self.fillColor = Color(code: connector.shapeStyle.fillColor)
+        self.fillColor.alpha = DefaultFatConnectorFillAlpha
+        self.lineColor = Color(code: connector.shapeStyle.lineColor)
+        self.lineWidth = connector.shapeStyle.lineWidth
+        
         self.updateVisuals()
     }
     
@@ -115,8 +122,14 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     public func updateVisuals() {
         guard let connector else { return }
         let curves = connector.paths().flatMap { $0.asGodotCurves() }
-        self.openCurves = curves
-        self.filledCurves = []
+        switch connector.style {
+        case .fat(let style):
+            self.openCurves = []
+            self.filledCurves = curves
+        case .thin(let style):
+            self.openCurves = curves
+            self.filledCurves = []
+        }
         updateSelectionOutline()
         updateHandles()
         self.isDirty = false

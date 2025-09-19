@@ -30,6 +30,7 @@ public class CanvasController: SwiftGodot.Node {
     @Export public var designController: DesignController?
     var composer: DiagramComposer?
 
+    @Export public var contextMenu: SwiftGodot.Control?
     var inlineEditors: [String:SwiftGodot.Control] = [:]
 
     /// A control that is shown alongside a node, such as inline editor or issue list.
@@ -227,13 +228,18 @@ public class CanvasController: SwiftGodot.Node {
             return // Broken connector
         }
 
+        let shapeStyle = StockFlowShapeStyes[edge.object.type.name]
+                ?? StockFlowShapeStyes["default"]
+                ?? ShapeStyle(lineWidth: 1.0, lineColor: "white", fillColor: "none")
+        
         if let object = canvas.representedConnector(id: edge.key) {
             guard let connector = object.connector else { return }
+            connector.shapeStyle = shapeStyle
             composer.updateConnector(connector: connector,
                                       edge: edge,
                                       origin: originBlock,
                                       target: targetBlock)
-            object.updateContent(from: connector)
+            object.updateContent(connector: connector)
         }
         else {
             let object = DiagramCanvasConnector()
@@ -243,8 +249,9 @@ public class CanvasController: SwiftGodot.Node {
             let connector = composer.createConnector(edge,
                                                       origin: originBlock,
                                                       target: targetBlock)
+            connector.shapeStyle = shapeStyle
             canvas.insertRepresentedConnector(object)
-            object.updateContent(from: connector)
+            object.updateContent(connector: connector)
         }
     }
     /// Update connector during selection move session.
@@ -418,7 +425,18 @@ public class CanvasController: SwiftGodot.Node {
         }
         return editor
     }
-    
+    @Callable(autoSnakeCase: true)
+    func openContextMenu(_ selection: PackedInt64Array, desiredGlobalPosition: Vector2) {
+        guard let contextMenu else { return }
+        let halfWidth = contextMenu.getRect().size.x / 2
+        let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
+                               y: desiredGlobalPosition.y)
+        // TODO: Context menu needs attention. We are bridging makeshift context meno here.
+        GD.print("--- Open context menu")
+        contextMenu.call(method: "update", Variant(selection))
+        openInlinePopup(control: contextMenu, position: position)
+    }
+
     @Callable(autoSnakeCase: true)
     func openInlineEditor(_ editorName: String,
                           objectID: PoieticCore.ObjectID,
@@ -450,6 +468,7 @@ public class CanvasController: SwiftGodot.Node {
             closeInlinePopup()
         }
         control.setGlobalPosition(position)
+        control.setProcess(enable: true)
         control.show()
         self.inlinePopup = control
     }
@@ -461,6 +480,7 @@ public class CanvasController: SwiftGodot.Node {
             inlinePopup.call(method: "close")
         }
         inlinePopup.hide()
+        inlinePopup.setProcess(enable: false)
         self.inlinePopup = nil
     }
     

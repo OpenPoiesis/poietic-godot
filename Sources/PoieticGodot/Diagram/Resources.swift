@@ -34,6 +34,7 @@ public let SelectionFillColorKey = "selection_fill"
 public let SelectionMargin: Double = 4.0
 
 
+public let DefaultFatConnectorFillAlpha: Float = 0.6
 
 // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
 /// Scale used for pictograms during development/prototyping.
@@ -64,4 +65,10 @@ public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
         width: 12.0,
         joinType: .round
     ))
+]
+// TODO: Merge with StockFlowConnectorStyles
+public let StockFlowShapeStyes: [String:ShapeStyle] = [
+    "default":   ShapeStyle(lineWidth: 1.0, lineColor: "white", fillColor: "none"),
+    "Parameter": ShapeStyle(lineWidth: 1.0, lineColor: "orange", fillColor: "none"),
+    "Flow":      ShapeStyle(lineWidth: 1.0, lineColor: "white", fillColor: "gray"),
 ]

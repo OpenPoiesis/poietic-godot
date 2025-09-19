@@ -13,9 +13,6 @@ import PoieticCore
 
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject {
-    var debugHandle: CanvasHandle?
-    
-    
     // TODO: Remove inner Block, use something like DiagramBlock protocol with the composer
     var block: Block?
     var pictogramCurves: [SwiftGodot.Curve2D]
@@ -59,18 +56,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         if isDirty {
             updateVisuals()
         }
-    }
-    public override func _ready() {
-        if let debugHandle {
-            debugHandle.queueFree()
-        }
-        debugHandle = CanvasHandle()
-        debugHandle?.color = Color.red
-        debugHandle?.fillColor = Color.salmon
-        debugHandle?.isFilled = true
-        debugHandle?.size = 6
-        self.addChild(node: debugHandle)
-        
     }
     
     /// Sets the object as needing to update visuals.

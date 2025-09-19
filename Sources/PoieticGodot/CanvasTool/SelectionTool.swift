@@ -36,9 +36,7 @@ class SelectionTool: CanvasTool {
     var previousCanvasPosition: Vector2 = .zero
     var initialCanvasPosition: Vector2 = .zero
 
-    override func toolName() -> String {
-        "select"
-    }
+    override func toolName() -> String { "select" }
 
     override func toolReleased() {
         // TODO: Close prompt
@@ -48,11 +46,16 @@ class SelectionTool: CanvasTool {
         guard let event = event as? InputEventWithModifiers else { return false }
         guard let canvas else { return false }
         guard let selectionManager = designController?.selectionManager else { return false }
+
+        canvasController?.closeInlinePopup()
+
         guard let target = canvas.hitTarget(globalPosition: globalPosition) else {
             selectionManager.clear()
             state = .objectSelect
             return true
         }
+
+        
         initialCanvasPosition = canvas.toLocal(globalPoint: globalPosition)
         previousCanvasPosition = initialCanvasPosition
         
@@ -66,24 +69,20 @@ class SelectionTool: CanvasTool {
                 selectionManager.toggle(objectID)
             }
             else {
-                if !selectionManager.contains(objectID) {
-                    selectionManager.replaceAll([objectID])
+                if selectionManager.contains(objectID) {
+                    let ids = selectionManager.get_ids()
+                    canvasController?.openContextMenu(ids, desiredGlobalPosition: globalPosition)
                 }
                 else {
-//                    let position = canvas.toLocal(globalPoint: canvasPosition)
-                    GD.pushWarning("Context menu not implemented yet")
-                    // TODO: Make this some clever canvas.get_context_menu_position(click_position)
-                    // FIXME: prompt_manager.open_context_menu(canvas.selection, canvas.to_global(position))
+                    selectionManager.replaceAll([objectID])
                 }
             }
-//            lastPointerPosition = pointerPosition
             state = .objectHit
         case .handle:
             handleTarget = target
             state = .handleHit
             selectionManager.clear()
         case .primaryLabel:
-            // TODO: Move this to Canvas
             guard let block = target.object as? DiagramCanvasBlock,
                   let id = block.objectID else
             {
@@ -111,13 +110,14 @@ class SelectionTool: CanvasTool {
             GD.pushError("Issue inspector not implemented")
             // FIXME: prompt_manager.open_issues_for(node.object_id)
         }
-        GD.print("--- selection began: \(state)")
         return true
     }
     
     override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let event = event as? InputEventMouse else { return false }
         guard let canvas else { return false }
+        canvasController?.closeInlinePopup()
+
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let delta = canvasPosition - previousCanvasPosition
         previousCanvasPosition = canvasPosition
