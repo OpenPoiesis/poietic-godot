@@ -119,7 +119,11 @@ public class CanvasController: SwiftGodot.Node {
         for child in canvas.getChildren() {
             guard var child = child as? DiagramCanvasObject,
                   let objectID = child.objectID else { continue }
-            child.isSelected = selected.contains(objectID)
+            let isSelected = selected.contains(objectID)
+            child.isSelected = isSelected
+            if let child = child as? DiagramCanvasConnector {
+                child.handlesVisible = isSelected
+            }
         }
     }
 

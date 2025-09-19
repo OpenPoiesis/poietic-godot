@@ -18,6 +18,14 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
    
     var midpointHandles: [CanvasHandle] = []
    
+    @Export var handlesVisible: Bool = false {
+        didSet {
+            for handle in midpointHandles {
+                handle.visible = self.handlesVisible
+            }
+        }
+    }
+
     /// ID of the origin object if the origin represents a design object.
     ///
     /// It is recommended to set the ID for connectors that are used in interactive
@@ -96,6 +104,9 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         }
     }
     
+    func _coalescedColor(_ name: String, default defaultColor: Color = .white) -> Color {
+        Color.fromString(str: name, default: defaultColor)
+    }
     // FIXME: [IMPORTANT] Move this to canvas controller.
     func updateContent(connector: Connector) {
         _prepareChildren()
@@ -106,9 +117,9 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.wire = PackedVector2Array(tessellatedPath.map { $0.asGodotVector2() })
         self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
 
-        self.fillColor = Color(code: connector.shapeStyle.fillColor)
+        self.fillColor = _coalescedColor(connector.shapeStyle.fillColor)
         self.fillColor.alpha = DefaultFatConnectorFillAlpha
-        self.lineColor = Color(code: connector.shapeStyle.lineColor)
+        self.lineColor = _coalescedColor(connector.shapeStyle.lineColor)
         self.lineWidth = connector.shapeStyle.lineWidth
         
         self.updateVisuals()
@@ -186,11 +197,10 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         }
 
         if removeCount > 0 {
-            GD.print("--- Removing \(removeCount) handles")
-        }
-        for _ in 0..<removeCount {
-            let handle = midpointHandles.removeLast()
-            handle.queueFree()
+            for _ in 0..<removeCount {
+                let handle = midpointHandles.removeLast()
+                handle.queueFree()
+            }
         }
     }
     

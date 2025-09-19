@@ -76,7 +76,7 @@ public class CanvasHandle: SwiftGodot.Node2D {
     @Export var color: Color = Color.indigo
     @Export var fillColor: Color = Color.blue
     @Export var lineWidth: Double = 2
-    @Export var isFilled: Bool = false
+    @Export var isFilled: Bool = true
 
     required init(_ context: SwiftGodot.InitContext) {
         shape = CircleShape2D()
