@@ -9,20 +9,6 @@ import SwiftGodot
 import PoieticCore
 import Diagramming
 
-typealias ObjectPalette = Int
-typealias ObjectPanel = Int
-
-
-/*
- TODO: NEW API
- 
- - paletteName -> String?
-    - if nil then no palette is displayed
- - lastSelectedPaletteItem: String?
- - paletteItemSelected(_ identifier: String)
- 
- */
-
 @Godot
 class PlaceTool: CanvasTool {
     
@@ -36,7 +22,7 @@ class PlaceTool: CanvasTool {
 
     
     var lastPointerPosition = Vector2()
-    var intentShadow: CanvasShadow?
+    var intentShadow: Pictogram2D?
 
     required init(_ context: SwiftGodot.InitContext) {
         super.init(context)
@@ -152,11 +138,19 @@ class PlaceTool: CanvasTool {
             return
         }
 
-        let shadow = CanvasShadow()
-        // FIXME: Do not translate. Currently we must. See also: DiagramCanvasBlock
-        let translation = AffineTransform(translation: -pictogram.origin)
-        let translatedPath = pictogram.path.transform(translation)
-        shadow.pictogramCurves = translatedPath.asGodotCurves()
+        let shadow = Pictogram2D()
+
+        let theme = ThemeDB.getProjectTheme()
+        if let color = theme?.getColor(name: SwiftGodot.StringName(ShadowColorKey),
+                                       themeType: SwiftGodot.StringName(CanvasThemeType))
+        {
+            shadow.color = color
+        }
+        else {
+            shadow.color = SwiftGodot.Color(r: 0.5, g: 0.5, b: 0.1, a: 0.8)
+        }
+
+        shadow.setCurves(from: pictogram)
         shadow.position = canvasPosition
         shadow.name = "placement-intent-shadow"
         canvas.addChild(node: shadow)
@@ -170,33 +164,3 @@ class PlaceTool: CanvasTool {
     }
 }
 
-// TODO: Make this PictogramNode
-@Godot
-class CanvasShadow: SwiftGodot.Node2D {
-    // FIXME: Make this settable through godot
-    var pictogramCurves:  [SwiftGodot.Curve2D]
-    @Export var pictogramColor: SwiftGodot.Color
-    @Export var pictogramLineWidth: Double = 1.0
-
-    required init(_ context: InitContext) {
-        let theme = ThemeDB.getProjectTheme()
-        if let color = theme?.getColor(name: SwiftGodot.StringName(ShadowColorKey),
-                                       themeType: SwiftGodot.StringName(CanvasThemeType))
-        {
-            pictogramColor = color
-        }
-        else {
-            pictogramColor = SwiftGodot.Color(r: 0.5, g: 0.5, b: 0.1, a: 0.8)
-        }
-
-        self.pictogramCurves = []
-        super.init(context)
-    }
-
-    public override func _draw() {
-        for curve in self.pictogramCurves {
-            let points = curve.tessellate()
-            self.drawPolyline(points: points, color: pictogramColor, width: pictogramLineWidth)
-        }
-    }
-}

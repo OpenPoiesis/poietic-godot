@@ -15,11 +15,8 @@ import PoieticCore
 public class DiagramCanvasBlock: DiagramCanvasObject {
     // TODO: Remove inner Block, use something like DiagramBlock protocol with the composer
     var block: Block?
-    var pictogramCurves: [SwiftGodot.Curve2D]
 
-    @Export var pictogramColor: SwiftGodot.Color
-    @Export var pictogramLineWidth: Double = 1.0
-    
+    @Export var pictogram: Pictogram2D?
     @Export var collisionShape: SwiftGodot.CollisionShape2D?
     
     // TODO: Review necessity of has*Label
@@ -46,12 +43,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     @Export var hasValueIndicator: Bool = false
     @Export var valueIndicator: SwiftGodot.Node2D?
 
-    required init(_ context: InitContext) {
-        self.pictogramCurves = []
-        self.pictogramColor = SwiftGodot.Color(code: "white")
-        super.init(context)
-    }
-    
     public override func _process(delta: Double) {
         if isDirty {
             updateVisuals()
@@ -68,6 +59,11 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     }
 
     func _prepareChildren(for block: Block) {
+        if self.pictogram == nil {
+            let pictogram = Pictogram2D()
+            self.addChild(node: pictogram)
+            self.pictogram = pictogram
+        }
         if self.primaryLabel == nil {
             let label = SwiftGodot.Label()
             label.horizontalAlignment = .center
@@ -147,13 +143,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
     }
 
-    public override func _draw() {
-        for curve in self.pictogramCurves {
-            let points = curve.tessellate()
-            self.drawPolyline(points: points, color: pictogramColor, width: pictogramLineWidth)
-        }
-    }
-    
     func updateContent(from block: Block) {
         _prepareChildren(for: block)
         
@@ -164,15 +153,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
         // 2. Pictogram and shape
         if let pictogram = block.pictogram {
+            self.pictogram?.setCurves(from: pictogram)
             // FIXME: Do not translate. Currently we must. See also: Shaodw
-            let translation = AffineTransform(translation: -pictogram.origin)
-            let translatedPath = pictogram.path.transform(translation)
-            self.pictogramCurves = translatedPath.asGodotCurves()
-
             let pictoCollision = pictogram.collisionShape
 
             if let selectionOutline {
                 // FIXME: Use mask
+                let translation = AffineTransform(translation: -pictogram.origin)
                 let outlinePath = pictoCollision.toPath().transform(translation)
                 let curves = outlinePath.asGodotCurves()
                 selectionOutline.curves = TypedArray(curves)
@@ -187,7 +174,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             
         }
         else {
-            self.pictogramCurves = []
+            self.pictogram?.curves = TypedArray()
         }
         // 3. Labels
         let box = Rect2D(origin: block.pictogramBoundingBox.origin - block.position,
