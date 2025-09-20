@@ -8,7 +8,6 @@ import SwiftGodot
 import PoieticCore
 import Diagramming
 
-let DefaultConnectTypeName = "Parameter"
 
 enum ConnectToolState: Int, CaseIterable {
     case empty
@@ -18,19 +17,19 @@ enum ConnectToolState: Int, CaseIterable {
 @Godot
 class ConnectTool: CanvasTool {
     @Export var state: ConnectToolState = .empty
-    @Export var typeName: String = DefaultConnectTypeName
     // FIXME: Use real type, not just name
     
     @Export var lastPointerPosition = Vector2()
     @Export var origin: DiagramCanvasBlock?
     @Export var draggingConnector: DiagramCanvasConnector?
     
-    override func toolName() -> String {
-        return "connect"
-    }
-    
+    override func toolName() -> String { "connect" }
+    override func paletteName() -> String? { ConnectToolPaletteName }
+
     override func toolSelected() {
-        objectPalette?.show()
+        if paletteItemIdentifier == nil {
+            paletteItemIdentifier = DefaultConnectorEdgeType
+        }
         // object_panel.load_connector_pictograms()
         // object_panel.selection_changed.connect(_on_object_selection_changed)
         //        if last_selected_object_identifier {
@@ -44,16 +43,27 @@ class ConnectTool: CanvasTool {
         // last_selected_object_identifier = object_panel.selected_item
         // object_panel.selection_changed.disconnect(_on_object_selection_changed)
     }
-    func _on_object_selection_changed(identifier: String) {
-        typeName = identifier
+    override func paletteItemChanged(_ identifier: String?) {
+        GD.print("--- Connect tool palette item changed: ", identifier ?? "(nil)")
+
+        guard let identifier else {
+            return
+        }
+        if !ConnectorEdgeTypes.contains(identifier) {
+            GD.pushError("Invalid connector (edge) type:", identifier)
+            return
+        }
     }
-    
+
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let ctrl = canvasController else { return false }
         guard let canvas else { return false }
         guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock
         else { return true }
 
+        let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
+        // TODO: Validate type name
+        
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let targetPoint = Vector2D(canvasPosition)
         draggingConnector = ctrl.createDragConnector(type: typeName,
@@ -91,6 +101,7 @@ class ConnectTool: CanvasTool {
             Input.setDefaultCursorShape(.forbidden)
             return true
         }
+        let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
         if self.canConnect(typeName: typeName, from: originID, to: targetID) {
             Input.setDefaultCursorShape(.canDrop)
         }
@@ -106,10 +117,19 @@ class ConnectTool: CanvasTool {
             GD.pushError("Invalid connector type: \(typeName)")
             return false
         }
-        return ctrl.checker.canConnect(type: type,
+        let flag = ctrl.checker.canConnect(type: type,
                                        from: originID,
                                        to: targetID,
                                        in: ctrl.currentFrame)
+        if let origin = ctrl.getObject(originID),
+           let target = ctrl.getObject(targetID)
+        {
+            GD.print("--? can connect: \(typeName) from: \(origin.object!.type.name) to: \(target.object!.type.name) -> \(flag)")
+        }
+        else {
+            GD.print("--? can connect: \(typeName) from: \(originID) to: \(targetID) -> \(flag)")
+        }
+        return flag
     }
     
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
@@ -127,7 +147,13 @@ class ConnectTool: CanvasTool {
             // TODO: Do some puff animation here
             return true
         }
-        createEdge(typeName: typeName, from: originID, to: targetID)
+        let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
+        if self.canConnect(typeName: typeName, from: originID, to: targetID) {
+            createEdge(typeName: typeName, from: originID, to: targetID)
+        }
+        else {
+            // TODO: Puff!
+        }
         return true
     }
     

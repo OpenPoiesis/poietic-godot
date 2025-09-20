@@ -11,9 +11,29 @@ import PoieticCore
 typealias ObjectPalette = Int
 typealias ObjectPanel = Int
 
+
+/*
+ TODO: NEW API
+ 
+ - paletteName -> String?
+    - if nil then no palette is displayed
+ - lastSelectedPaletteItem: String?
+ - paletteItemSelected(_ identifier: String)
+ 
+ */
+
 @Godot
 class PlaceTool: CanvasTool {
-    var selectedItemIdentifier: String?
+    
+    // FIXME: This is a legacy binding to makeshift Godot implementation
+    /// Auxiliary node that contains a collection of objects to be placed.
+    ///
+    /// The palette is to be provided by Godot caller.
+    ///
+    @Export var objectPanel: SwiftGodot.PanelContainer?
+    
+
+    
     var lastPointerPosition = Vector2()
     var intentShadow: CanvasShadow?
 
@@ -21,22 +41,18 @@ class PlaceTool: CanvasTool {
         super.init(context)
     }
     
-    override func toolName() -> String {
-        return "place"
-    }
-    
+    override func toolName() -> String { "place" }
+    override func paletteName() -> String? { PlaceToolPaletteName }
+
     override func toolSelected() {
-        objectPalette?.show()
+        if paletteItemIdentifier == nil {
+            paletteItemIdentifier = DefaultBlockNodeType
+        }
+
+        // objectPalette?.show()
         // FIXME: Add palette loading
 //        object_panel.load_node_pictograms()
 //        object_panel.selection_changed.connect(_on_object_selection_changed)
-        
-        if let _ = selectedItemIdentifier {
-//            object_panel.selected_item = lastSelectedObjectIdentifier
-        }
-        else {
-//            object_panel.selected_item = "Stock"
-        }
     }
     
     override func toolReleased() {
@@ -45,24 +61,23 @@ class PlaceTool: CanvasTool {
         removeIntentShadow()
     }
     
-    func _on_object_selection_changed(identifier: String) {
-        if intentShadow == nil {
+    override func paletteItemChanged(_ identifier: String?) {
+        GD.print("--- Place tool palette item changed: ", identifier ?? "(nil)")
+        if intentShadow != nil {
             removeIntentShadow()
         }
+        guard let identifier else { return }
+
         createIntentShadow(typeName: identifier, canvasPosition: Vector2.zero)
     }
     
         
-    func _on_place_object(position: Vector2, typeName: String) {
-        placeObject(at: position, typeName: typeName)
-        objectPalette?.hide()
-    }
-    
-    func placeObject(at position: Vector2, typeName: String) {
+    func placeObject(typeName: String, globalPosition: Vector2) {
         // TODO: Make this a Command
         // FIXME: Bind type directly to the template block
-        guard let ctrl = designController else {
-            GD.pushError("Design controller is not set up properly")
+        guard let ctrl = designController,
+              let canvas else {
+            GD.pushError("PlaceTool is not set up properly")
             return
         }
         guard let type = ctrl._metamodel.objectType(name: typeName) else {
@@ -74,11 +89,13 @@ class PlaceTool: CanvasTool {
         var trans = ctrl.newTransaction()
         var count = frame.filter(type: type).count
         var name = typeName.toSnakeCase() + String(count)
-        var localPosition = canvas?.toLocal(globalPoint: position)
+        var localPosition = canvas.toLocal(globalPoint: globalPosition)
         var node = trans.createNode(type)
-        node.position = Point(position)
+        node.position = Point(localPosition)
+        node["name"] = Variant(name)
         ctrl.accept(trans)
         ctrl.selectionManager.replaceAll([node.objectID])
+        // TODO: Select currently created node
     }
     
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
@@ -86,7 +103,7 @@ class PlaceTool: CanvasTool {
         // TODO: Add shadow (also on input moved)
         // open_panel(pointer_position)
         // Global.set_modal(palette)
-        guard let identifier = selectedItemIdentifier else {
+        guard let identifier = paletteItemIdentifier else {
             GD.pushError("No selected item identifier for placement tool")
             return true
         }
@@ -97,12 +114,11 @@ class PlaceTool: CanvasTool {
     
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let canvas else { return false }
-        guard let selectedItemIdentifier else {
+        guard let paletteItemIdentifier else {
             removeIntentShadow()
             return true
         }
-        let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-        placeObject(at: canvasPosition, typeName: selectedItemIdentifier)
+        placeObject(typeName: paletteItemIdentifier, globalPosition: globalPosition)
         removeIntentShadow()
         return true
     }

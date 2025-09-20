@@ -14,9 +14,15 @@ class CanvasTool: SwiftGodot.Node {
     @Export var canvas: DiagramCanvas?
     @Export var canvasController: CanvasController?
     @Export var designController: DesignController?
+    /// Auxiliary palette that provides selection of tool items
+    /// such as placeable objects or possible connectors.
+//    @Export var palette: GridContainer?
     
-    var objectPalette: PanelContainer?
-    
+    /// Identifier of an item, selected in palette, to be placed.
+    @Export var paletteItemIdentifier: String? {
+        didSet { paletteItemChanged(paletteItemIdentifier) }
+    }
+
     /// Bind the tool to a diagram controller.
     @Callable
     func bind(_ canvasController: CanvasController) {
@@ -29,6 +35,21 @@ class CanvasTool: SwiftGodot.Node {
     
     @Callable
     func toolName() -> String { "default" }
+    
+    /// Name of an object palette to be used with the tool.
+    ///
+    /// If the tool has multiple options, such as different kinds of connections or
+    /// objects to be placed, then the palette provides a way to select the option.
+    ///
+    @Callable(autoSnakeCase: true)
+    func paletteName() -> String? { nil }
+    
+    /// Called when a palette object is selected.
+    ///
+    @Callable
+    func paletteItemChanged(_ identifier: String?) {
+        // Let the tools handle this.
+    }
     
     @Callable
     open func handleInput(event: InputEvent) -> Bool {

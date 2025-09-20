@@ -73,13 +73,28 @@ class PoieticApplication: SwiftGodot.Node {
     }
 
     @Callable(autoSnakeCase: true)
+    func setTool(_ toolName: String) {
+        switch toolName {
+        case "selection": self.changeTool(self.selectionTool)
+        case "place": self.changeTool(self.placeTool)
+        case "connect": self.changeTool(self.connectTool)
+        case "pan": self.changeTool(self.panTool)
+        default:
+            GD.pushWarning("Unknown tool: ", toolName)
+            self.changeTool(self.selectionTool)
+        }
+    }
+
+    @Callable(autoSnakeCase: true)
     func changeTool(_ tool: CanvasTool) {
-        // TODO: Rename to set tool, and make a tool name based version
+        // TODO: Rename to setTool(...)
         if let currentTool {
             currentTool.toolReleased()
         }
+        
         previousTool = currentTool
         currentTool = tool
+                
         if let canvasController {
             tool.bind(canvasController)
         }
