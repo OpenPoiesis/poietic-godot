@@ -27,6 +27,7 @@ import SwiftGodot
         PlaceTool.self,
         ConnectTool.self,
         PanTool.self,
+        CanvasShadow.self,
 
         // Diagram Canvas
         CanvasController.self,

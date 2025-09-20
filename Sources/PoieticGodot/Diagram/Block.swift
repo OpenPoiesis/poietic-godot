@@ -164,6 +164,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
         // 2. Pictogram and shape
         if let pictogram = block.pictogram {
+            // FIXME: Do not translate. Currently we must. See also: Shaodw
             let translation = AffineTransform(translation: -pictogram.origin)
             let translatedPath = pictogram.path.transform(translation)
             self.pictogramCurves = translatedPath.asGodotCurves()

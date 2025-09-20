@@ -7,6 +7,7 @@
 
 import SwiftGodot
 import PoieticCore
+import Diagramming
 
 typealias ObjectPalette = Int
 typealias ObjectPanel = Int
@@ -115,11 +116,9 @@ class PlaceTool: CanvasTool {
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let canvas else { return false }
         guard let paletteItemIdentifier else {
-            removeIntentShadow()
             return true
         }
         placeObject(typeName: paletteItemIdentifier, globalPosition: globalPosition)
-        removeIntentShadow()
         return true
     }
     
@@ -140,33 +139,39 @@ class PlaceTool: CanvasTool {
     }
     
     func createIntentShadow(typeName: String, canvasPosition: Vector2) {
-        guard let canvas else { return }
+        guard let canvas,
+              let canvasController else { return }
+
         if let intentShadow {
             intentShadow.queueFree()
             self.intentShadow = nil
         }
-        
-        let shadow = CanvasShadow()
-        
-        guard let canvasController else { preconditionFailure("No diagram controller") }
         // FIXME: Use block library for pictograms
         guard let pictogram = canvasController.pictograms?.pictogram(typeName) else {
-            preconditionFailure("No pictogram for type '\(typeName)'")
+            GD.pushError("No pictogram for type '\(typeName)'")
+            return
         }
-        shadow.pictogramCurves = pictogram.path.asGodotCurves()
-        shadow.position = canvasPosition
 
+        let shadow = CanvasShadow()
+        // FIXME: Do not translate. Currently we must. See also: DiagramCanvasBlock
+        let translation = AffineTransform(translation: -pictogram.origin)
+        let translatedPath = pictogram.path.transform(translation)
+        shadow.pictogramCurves = translatedPath.asGodotCurves()
+        shadow.position = canvasPosition
+        shadow.name = "placement-intent-shadow"
         canvas.addChild(node: shadow)
-        intentShadow = shadow
+        self.intentShadow = shadow
     }
     
     func removeIntentShadow() {
         guard let intentShadow else { return }
-        intentShadow.free()
+        intentShadow.queueFree()
+        self.intentShadow = nil
     }
 }
 
 // TODO: Make this PictogramNode
+@Godot
 class CanvasShadow: SwiftGodot.Node2D {
     // FIXME: Make this settable through godot
     var pictogramCurves:  [SwiftGodot.Curve2D]
