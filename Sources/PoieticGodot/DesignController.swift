@@ -455,6 +455,24 @@ public class DesignController: SwiftGodot.Node {
         }
     }
     
+    @Callable(autoSnakeCase: true)
+    func exportSVGDiagram(path: String, canvasController: CanvasController) {
+        // TODO: Make composer configurable
+        guard let composer = canvasController.composer else {
+            GD.pushError("No composer")
+            return
+        }
+        let diagram = composer.createDiagram(from: currentFrame)
+        // TODO: Configure SVG export style
+        let exporter = SVGDiagramExporter()
+        do {
+            try exporter.export(diagram: diagram, to: path)
+        }
+        catch {
+            GD.pushError("Export to SVG failed:", error.localizedDescription)
+        }
+    }
+    
     func makeFileURL(fromPath path: String) -> URL? {
         // TODO: See same method in poietic-tool
         let url: URL

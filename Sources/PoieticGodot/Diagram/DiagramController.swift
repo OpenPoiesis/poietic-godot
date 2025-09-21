@@ -49,14 +49,9 @@ public class CanvasController: SwiftGodot.Node {
     func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
+
         loadPictograms(path: StockFlowPictogramsPath)
         
-        let style = DiagramStyle(
-            pictograms: pictograms,
-            connectorStyles: StockFlowConnectorStyles,
-        )
-        self.composer = DiagramComposer(style: style)
-
         designController.designChanged.connect(self.on_design_changed)
         designController.selectionManager.selectionChanged.connect(self.on_selection_changed)
     }
@@ -87,6 +82,19 @@ public class CanvasController: SwiftGodot.Node {
         let scaled = collection.pictograms.map { $0.scaled(PrototypingPictogramAdjustmentScale) }
         
         self.pictograms = PictogramCollection(scaled)
+        
+        let style = DiagramStyle(
+            pictograms: pictograms,
+            connectorStyles: StockFlowConnectorStyles,
+        )
+        setDiagramStyle(style)
+    }
+    
+    func setDiagramStyle(_ style: DiagramStyle) {
+        self.composer = DiagramComposer(style: style)
+
+        guard let frame = designController?.currentFrame else { return }
+        updateCanvas(frame: frame)
     }
     
     // MARK: - Signal Handling
