@@ -54,7 +54,6 @@ class SelectionTool: CanvasTool {
             state = .objectSelect
             return true
         }
-
         
         initialCanvasPosition = canvas.toLocal(globalPoint: globalPosition)
         previousCanvasPosition = initialCanvasPosition

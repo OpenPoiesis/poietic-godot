@@ -150,7 +150,8 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         self.objectID = block.objectID
         self.block = block
         self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
-
+        let pictogramBox: Rect2D
+        
         // 2. Pictogram and shape
         if let pictogram = block.pictogram {
             self.pictogram?.setCurves(from: pictogram)
@@ -159,8 +160,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
             if let selectionOutline {
                 // FIXME: Use mask
-                let translation = AffineTransform(translation: -pictogram.origin)
-                let outlinePath = pictogram.mask.transform(translation)
+                let outlinePath = pictogram.mask
                 let curves = outlinePath.asGodotCurves()
                 selectionOutline.curves = TypedArray(curves)
                 selectionOutline.updateVisuals()
@@ -169,18 +169,18 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             
             if let collisionShape = self.collisionShape {
                 collisionShape.shape = pictoCollision.shape.asGodotShape2D()
-                collisionShape.position = Vector2(pictoCollision.position - pictogram.origin)
+                collisionShape.position = Vector2(pictoCollision.position)
             }
+            pictogramBox = pictogram.pathBoundingBox
             
         }
         else {
             self.pictogram?.curves = TypedArray()
+            pictogramBox = Rect2D()
         }
         // 3. Labels
-        let box = Rect2D(origin: block.pictogramBoundingBox.origin - block.position,
-                         size: block.pictogramBoundingBox.size)
         // FIXME: Flipped y coords
-        let bottom = LineSegment(from: box.topLeft, to: box.topRight)
+        let bottom = LineSegment(from: pictogramBox.topLeft, to: pictogramBox.topRight)
         let mid = bottom.midpoint
         
         let primaryLabelOffset: Float = 0.0 // FIXME: Compute this

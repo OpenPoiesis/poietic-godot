@@ -24,9 +24,7 @@ class Pictogram2D: SwiftGodot.Node2D {
     
     func setCurves(from pictogram: Pictogram) {
         // FIXME: Do not translate. Currently we must. See also: DiagramCanvasBlock
-        let translation = AffineTransform(translation: -pictogram.origin)
-        let translatedPath = pictogram.path.transform(translation)
-        self.curves = TypedArray(translatedPath.asGodotCurves())
+        self.curves = TypedArray(pictogram.path.asGodotCurves())
     }
     
     public override func _draw() {

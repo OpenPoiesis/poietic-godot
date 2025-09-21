@@ -11,6 +11,11 @@ import Foundation
 
 
 extension Diagramming.ShapeType {
+    /// Convert collision shape into a Godot 2D shape.
+    ///
+    /// - Note: Convex shapes are not supported. For concave shapes a convex hull is computed and
+    ///         used as a shape.
+    ///
     func asGodotShape2D() -> SwiftGodot.Shape2D {
         switch self {
         case .circle(let r):
@@ -22,13 +27,16 @@ extension Diagramming.ShapeType {
             shape.points = PackedVector2Array(points)
             return shape
         case .concavePolygon(let points):
-            let shape = SwiftGodot.ConcavePolygonShape2D()
-            var result: [Vector2D] = []
-            for segment in Geometry.toSegments(polygon: points) {
-                result.append(segment.start)
-                result.append(segment.end)
-            }
-            shape.segments = PackedVector2Array(result)
+//            let shape = SwiftGodot.ConcavePolygonShape2D()
+//            var result: [Vector2D] = []
+//            for segment in Geometry.toSegments(polygon: points) {
+//                result.append(segment.start)
+//                result.append(segment.end)
+//            }
+//            shape.segments = PackedVector2Array(result)
+            let shape = SwiftGodot.ConvexPolygonShape2D()
+            let gPoints = PackedVector2Array(points.map { SwiftGodot.Vector2($0) })
+            shape.points = Geometry2D.convexHull(points: gPoints)
             return shape
         case .rectangle(let size):
             let shape: RectangleShape2D = SwiftGodot.RectangleShape2D()
@@ -37,33 +45,6 @@ extension Diagramming.ShapeType {
         }
     }
 }
-
-//extension Diagramming.CollisionShape {
-//    func asGodotCollisionShape2D() -> SwiftGodot.CollisionShape2D {
-//        let result = SwiftGodot.CollisionShape2D()
-//        switch self.shape {
-//        case .circle(let r):
-//            let shape:CircleShape2D = SwiftGodot.CircleShape2D()
-//            shape.radius = r
-//            result.position = self.position
-//        case .convexPolygon(let points):
-//            let shape = SwiftGodot.ConvexPolygonShape2D()
-//            shape.points = PackedVector2Array(points)
-//        case .concavePolygon(let points):
-//            let shape = SwiftGodot.ConcavePolygonShape2D()
-//            var result: [Vector2D] = []
-//            for segment in Geometry.toSegments(polygon: points) {
-//                result.append(segment.start)
-//                result.append(segment.end)
-//            }
-//            shape.segments = PackedVector2Array(result)
-//        case .rectangle(let size):
-//            let shape: RectangleShape2D = SwiftGodot.RectangleShape2D()
-//            shape.size = size.asGodotVector2()
-//        }
-//        return result
-//    }
-//}
 
 extension BezierPath {
     func asGodotCurves() -> [SwiftGodot.Curve2D] {

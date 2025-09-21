@@ -49,7 +49,7 @@ public class CanvasController: SwiftGodot.Node {
     func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
-        _loadPictograms()
+        loadPictograms(path: StockFlowPictogramsPath)
         
         let style = DiagramStyle(
             pictograms: pictograms,
@@ -61,9 +61,10 @@ public class CanvasController: SwiftGodot.Node {
         designController.selectionManager.selectionChanged.connect(self.on_selection_changed)
     }
     
-    func _loadPictograms() {
+    @Callable(autoSnakeCase: true)
+    func loadPictograms(path: String) {
         // TODO: Use Godot resource loading mechanism here
-        let gData: PackedByteArray = FileAccess.getFileAsBytes(path: StockFlowPictogramsPath)
+        let gData: PackedByteArray = FileAccess.getFileAsBytes(path: path)
         let data: Data = Data(gData)
         let decoder = JSONDecoder()
         let collection: PictogramCollection

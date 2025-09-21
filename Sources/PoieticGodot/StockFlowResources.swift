@@ -7,7 +7,7 @@
 
 import Diagramming
 
-let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms.json"
+let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms-jolly.json"
 
 public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
     "default": .thin(ThinConnectorStyle(
