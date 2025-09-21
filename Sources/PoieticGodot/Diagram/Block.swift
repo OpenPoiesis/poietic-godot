@@ -160,7 +160,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             if let selectionOutline {
                 // FIXME: Use mask
                 let translation = AffineTransform(translation: -pictogram.origin)
-                let outlinePath = pictoCollision.toPath().transform(translation)
+                let outlinePath = pictogram.mask.transform(translation)
                 let curves = outlinePath.asGodotCurves()
                 selectionOutline.curves = TypedArray(curves)
                 selectionOutline.updateVisuals()
