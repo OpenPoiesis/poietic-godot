@@ -119,6 +119,41 @@ public class CanvasController: SwiftGodot.Node {
         return designController.getObject(id)
     }
     
+    @Callable(autoSnakeCase: true)
+    func deleteSelection() {
+        guard let ctrl = designController else { return }
+        let trans = ctrl.newTransaction()
+        
+        for id in ctrl.selectionManager.selection {
+            guard trans.contains(id) else {
+                GD.pushWarning("Selection has unknown ID:", id)
+                continue
+            }
+            trans.removeCascading(id)
+        }
+        ctrl.accept(trans)
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func removeMidpointsInSelection() {
+        guard let ctrl = designController else { return }
+        let trans = ctrl.newTransaction()
+        
+        for id in ctrl.selectionManager.selection {
+            guard trans.contains(id) else {
+                GD.pushWarning("Selection has unknown ID:", id)
+                continue
+            }
+            let obj = trans[id]
+            guard obj.type.hasTrait(.DiagramConnector) else {
+                continue
+            }
+            let transObject = trans.mutate(id)
+            transObject.removeAttribute(forKey: "midpoints")
+        }
+        ctrl.accept(trans)
+    }
+
     // MARK: - Actions (basic)
     //
     @Callable
@@ -190,13 +225,16 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     func syncDesignBlock(_ node: ObjectSnapshot) {
-        guard let canvas else { return }
-        guard let composer else { return }
-
+        guard let canvas,
+              let composer,
+              let designController else { return }
+        let hasIssues = designController.objectHasIssues(node.objectID)
+        
         if let object = canvas.representedBlock(id: node.objectID) {
             guard let block = object.block else { return } // Broken block
             composer.updateBlock(block: block, node: node)
             object.updateContent(from: block)
+            object.hasIssues = hasIssues
         }
         else {
             let object = DiagramCanvasBlock()
@@ -204,6 +242,7 @@ public class CanvasController: SwiftGodot.Node {
             let block = composer.createBlock(node)
             canvas.insertRepresentedBlock(object)
             object.updateContent(from: block)
+            object.hasIssues = hasIssues
         }
     }
     
@@ -367,7 +406,7 @@ public class CanvasController: SwiftGodot.Node {
 
         for id in selection {
             guard trans.contains(id) else {
-                GD.pushWarning("Selection has unknown ID: \(id)")
+                GD.pushWarning("Selection has unknown ID:", id)
                 continue
             }
             let object = trans.mutate(id)

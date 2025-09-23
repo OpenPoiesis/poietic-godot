@@ -147,7 +147,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.queueRedraw()
     }
     
-    public func updateSelectionOutline() {
+    public func updateSelectionOutline2() {
         guard let connector,
               let selectionOutline else { return }
         let curves = connector.paths().flatMap {
@@ -155,6 +155,16 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         }
         selectionOutline.curves = TypedArray(curves)
     }
+    
+    public func updateSelectionOutline() {
+        guard let connector,
+              let selectionOutline else { return }
+        let wire = connector.wirePath()
+        let inflated = wire.inflated(by: 10)
+        let curves = inflated.asGodotCurves()
+        selectionOutline.curves = TypedArray(curves)
+    }
+
     
     func updateHandles() {
         guard let connector else { return }
@@ -201,6 +211,10 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
                 let handle = midpointHandles.removeLast()
                 handle.queueFree()
             }
+        }
+        
+        for handle in midpointHandles {
+            handle.visible = self.handlesVisible
         }
     }
     

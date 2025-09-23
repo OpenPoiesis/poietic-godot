@@ -192,7 +192,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
             
             if let child = child as? DiagramCanvasBlock {
-                if let indicator = child.issue_indicator as? CanvasIssueIndicator,
+                if let indicator = child.issueIndicator as? CanvasIssueIndicator,
                    indicator.visible,
                    indicator.containsPoint(globalPoint: globalPosition)
                 {

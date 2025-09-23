@@ -59,6 +59,12 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     }
 
     func _prepareChildren(for block: Block) {
+        if self.issueIndicator == nil {
+            let issueIndicator = CanvasIssueIndicator()
+            issueIndicator.visible = hasIssues
+            self.addChild(node: issueIndicator)
+            self.issueIndicator = issueIndicator
+        }
         if self.pictogram == nil {
             let pictogram = Pictogram2D()
             self.addChild(node: pictogram)
@@ -220,6 +226,12 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         guard let block else { return }
         guard let canvas = self.getParent() as? DiagramCanvas else { return }
         self.position = canvas.fromDesign(block.position)
+        if let box = block.pictogram?.pathBoundingBox,
+           let issueIndicator
+        {
+            issueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
+        }
+
     }
     
     var savedPrimaryLabelEditVisible: Bool = false

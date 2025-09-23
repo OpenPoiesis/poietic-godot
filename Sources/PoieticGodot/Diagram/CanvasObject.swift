@@ -17,8 +17,15 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     ///
     @Export var isDirty: Bool = true
     
-    @Export var hasIssues: Bool = false
-    var issue_indicator: SwiftGodot.CanvasItem?
+    @Export var hasIssues: Bool = false {
+        didSet {
+            if let issueIndicator {
+                issueIndicator.visible = hasIssues
+            }
+        }
+    }
+    
+    @Export var issueIndicator: SwiftGodot.Node2D?
    
     // Selection
     @Export var selectionOutline: SelectionOutline?

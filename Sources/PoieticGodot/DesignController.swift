@@ -303,11 +303,9 @@ public class DesignController: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func issuesForObject(id: PoieticCore.ObjectID) -> [PoieticIssue] {
+        // FIXME: Replace with runtime component
         guard let issues,
-              let objectIssues = issues.objectIssues[id] else
-        {
-            return []
-        }
+              let objectIssues = issues.objectIssues[id] else { return [] }
         
         let result =  objectIssues.map {
             let issue = PoieticIssue()
@@ -315,6 +313,13 @@ public class DesignController: SwiftGodot.Node {
             return issue
         }
         return result
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func objectHasIssues(_ id: PoieticCore.ObjectID) -> Bool {
+        guard let issues,
+              let objectIssues = issues[id] else { return false }
+        return !objectIssues.isEmpty
     }
     
     @Callable

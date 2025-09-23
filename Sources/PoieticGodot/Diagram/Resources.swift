@@ -12,10 +12,10 @@ import SwiftGodot
 
 // Resources and constants
 
-let TouchShapeRadius: Double = 2.0
+let TouchShapeRadius: Double = 4.0
 
 let IssueIndicatorIcon: String = "res://resources/icons/error.png"
-let IssueIndicatorIconSize: Float = 10.0
+let IssueIndicatorIconSize: Float = 36.0
 let IssueIndicatorIconOffset = Diagramming.Vector2D(x: 0.0, y: -3.0)
 let IssueIndicatorZIndex: Int32 = 1000
 let DefaultHandleZIndex: Int32 = 900
