@@ -11,7 +11,6 @@ import PoieticFlows
 import PoieticCore
 import Diagramming
 
-
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
 @Godot
@@ -23,7 +22,7 @@ public class DesignController: SwiftGodot.Node {
     var _metamodel: Metamodel { design.metamodel }
     var design: Design
     var checker: ConstraintChecker
-    var currentFrame: StableFrame { self.design.currentFrame! }
+    var currentFrame: DesignFrame { self.design.currentFrame! }
     var issues: DesignIssueCollection? = nil
     var validatedFrame: ValidatedFrame? = nil
     var simulationPlan: SimulationPlan? = nil
@@ -51,8 +50,8 @@ public class DesignController: SwiftGodot.Node {
         try! self.design.accept(frame, appendHistory: true)
     }
     
-    @Callable
-    func new_design() {
+    @Callable(autoSnakeCase: true)
+    func newDesign() {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
@@ -62,20 +61,18 @@ public class DesignController: SwiftGodot.Node {
     
     // MARK: - Object Graph
     @Callable(autoSnakeCase: true)
-    func getObject(_ id: PoieticCore.ObjectID) -> PoieticObject? {
-        guard currentFrame.contains(id) else { return nil }
-        var object = PoieticObject()
-        object.object = currentFrame[id]
-        return object
-    }
-   
-    func object(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
-        guard currentFrame.contains(id) else {
-            return nil
-        }
-        return currentFrame[id]
+    func getObject(_ rawID: EntityIDValue) -> PoieticObject? {
+        let id = ObjectID(rawValue: rawID)
+        guard let object = currentFrame[id] else { return nil }
+        var wrapper = PoieticObject()
+        wrapper.object = object
+        return wrapper
     }
     
+    func object(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
+        return self.currentFrame[id]
+    }
+   
     /// Get a list of object IDs that are of given object type.
     ///
     @Callable(autoSnakeCase: true)
@@ -96,8 +93,8 @@ public class DesignController: SwiftGodot.Node {
     /// - Attribute-less objects are ordered by a value derived from their ID,
     ///   which is arbitrary but consistent within design.
     ///
-    @Callable
-    func vaguely_ordered(ids: PackedInt64Array, order_attribute: String) -> PackedInt64Array {
+    @Callable(autoSnakeCase: true)
+    func vaguelyOrdered(ids: PackedInt64Array, orderAttribute: String) -> PackedInt64Array {
         // TODO: Make this method Frame.vaguelyOrdered(ids, orderAttribute:)
         var objects:[ObjectSnapshot] = ids.compactMap {
             guard let id = ObjectID($0) else { return nil }
@@ -107,7 +104,7 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Some IDs were not found in the frame")
         }
         objects.sort { (left, right) in
-            switch (left[order_attribute], right[order_attribute]) {
+            switch (left[orderAttribute], right[orderAttribute]) {
             case let (.some(lvalue), .some(rvalue)):
                 if let flag = lvalue.vaguelyInAscendingOrder(after: rvalue) {
                     return flag
@@ -125,6 +122,7 @@ public class DesignController: SwiftGodot.Node {
         return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
     }
     
+    // FIXME: Used only for charts, remove this
     @Callable
     func get_outgoing_ids(origin_id: Int64, type_name: String) -> PackedInt64Array {
         guard let origin_id = PoieticCore.ObjectID(origin_id) else {
@@ -144,12 +142,9 @@ public class DesignController: SwiftGodot.Node {
     // MARK: - Special Objects
     @Callable
     func get_diagram_settings() -> GDictionary? {
-        guard let frame = design.frame(name: DesignController.DesignSettingsFrameName) else {
-            return nil
-        }
-        guard let obj = frame.first(type: .DiagramSettings) else {
-            return nil
-        }
+        guard let frame = design.frame(name: DesignController.DesignSettingsFrameName),
+              let obj = frame.first(type: .DiagramSettings)
+        else { return nil }
         
         return GDictionary(obj.attributes)
     }
@@ -302,7 +297,8 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func issuesForObject(id: PoieticCore.ObjectID) -> [PoieticIssue] {
+    func issuesForObject(rawID: EntityIDValue) -> [PoieticIssue] {
+        let id = PoieticCore.ObjectID(rawValue: rawID)
         // FIXME: Replace with runtime component
         guard let issues,
               let objectIssues = issues.objectIssues[id] else { return [] }
@@ -316,28 +312,21 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func objectHasIssues(_ id: PoieticCore.ObjectID) -> Bool {
+    func objectHasIssues(rawID: EntityIDValue) -> Bool {
+        let id = PoieticCore.ObjectID(rawValue: rawID)
         guard let issues,
               let objectIssues = issues[id] else { return false }
         return !objectIssues.isEmpty
     }
     
-    @Callable
-    func can_connect(type_name: String, origin: Int64, target: Int64) -> Bool {
-        guard let originID = PoieticCore.ObjectID(origin) else {
-            GD.pushError("Invalid origin ID")
-            return false
-        }
-        guard let targetID = PoieticCore.ObjectID(target) else {
-            GD.pushError("Invalid target ID")
-            return false
-        }
+    @Callable(autoSnakeCase: true)
+    func canConnect(typeName: String, origin: EntityIDValue, target: EntityIDValue) -> Bool {
+        let originID = PoieticCore.ObjectID(rawValue: origin)
+        let targetID = PoieticCore.ObjectID(rawValue: target)
         guard currentFrame.contains(originID) && currentFrame.contains(targetID) else {
-            GD.pushError("Unknown connection endpoints")
             return false
         }
-        guard let type = _metamodel.objectType(name: type_name) else {
-            GD.pushError("Unknown edge type '\(name)'")
+        guard let type = _metamodel.objectType(name: typeName) else {
             return false
         }
         return checker.canConnect(type: type, from: originID, to: targetID, in: currentFrame)
@@ -362,7 +351,7 @@ public class DesignController: SwiftGodot.Node {
         // FIXME: Use array not selection
         guard let frame = design.currentFrame else { return VariantArray() }
         let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.contained(poieticIDs)
+        let contained = frame.existing(from: poieticIDs)
         let values = frame.distinctAttribute(attribute, ids: contained)
         var result = SwiftGodot.VariantArray()
         
@@ -376,7 +365,7 @@ public class DesignController: SwiftGodot.Node {
     func getDistinctTypes(ids: PackedInt64Array) -> [String] {
         guard let frame = design.currentFrame else { return [] }
         let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.contained(poieticIDs)
+        let contained = frame.existing(from: poieticIDs)
         let types = frame.distinctTypes(contained)
         return types.map { $0.name }
     }
@@ -385,7 +374,7 @@ public class DesignController: SwiftGodot.Node {
     func getSharedTraits(ids: PackedInt64Array) -> [String] {
         guard let frame = design.currentFrame else { return [] }
         let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.contained(poieticIDs)
+        let contained = frame.existing(from: poieticIDs)
         let traits = frame.sharedTraits(contained)
         return traits.map { $0.name }
     }
@@ -405,7 +394,7 @@ public class DesignController: SwiftGodot.Node {
             nodes = view.simulationNodes
         }
         else {
-            nodes = ids.map { validated[$0] }
+            nodes = ids.compactMap { validated[$0] }
         }
         let resolvedParams = resolveParameters(objects: nodes, view: view)
         // TODO: Know whether there is anything to do at this point
@@ -692,8 +681,8 @@ public class DesignController: SwiftGodot.Node {
                 dict["edges"] = SwiftGodot.Variant(0)
             }
             dict["frames"] = SwiftGodot.Variant(design.frames.count)
-            dict["undo_frames"] = SwiftGodot.Variant(design.undoableFrames.count)
-            dict["redo_frames"] = SwiftGodot.Variant(design.redoableFrames.count)
+            dict["undo_frames"] = SwiftGodot.Variant(design.undoList.count)
+            dict["redo_frames"] = SwiftGodot.Variant(design.redoList.count)
             if let issues {
                 dict["design_issues"] = SwiftGodot.Variant(issues.designIssues.count)
                 dict["object_issues"] = SwiftGodot.Variant(issues.objectIssues.count)

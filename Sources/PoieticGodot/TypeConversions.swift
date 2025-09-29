@@ -16,7 +16,7 @@ extension PoieticCore.ObjectID {
         guard let value: UInt64 = UInt64(exactly: value) else {
             return nil
         }
-        self.init(value)
+        self.init(rawValue: value)
     }
 
     // For regular ints
@@ -25,24 +25,25 @@ extension PoieticCore.ObjectID {
         SwiftGodot.Variant(Int64(self.intValue))
     }
 }
-
-extension PoieticCore.ObjectID: SwiftGodot.VariantConvertible {
-    public static func fromFastVariantOrThrow(_ variant: borrowing SwiftGodot.FastVariant) throws(SwiftGodot.VariantConversionError) -> PoieticCore.ObjectID {
-        if let value = UInt64(variant) {
-            return ObjectID(integerLiteral: value)
-        }
-        else if let string = String(variant), let id = ObjectID(string) {
-            return id
-        }
-        else {
-            throw .unexpectedContent(parsing: PoieticCore.ObjectID.self, from: variant)
-        }
-    }
-    
-    public func toFastVariant() -> SwiftGodot.FastVariant? {
-        return SwiftGodot.FastVariant(self.intValue)
-    }
-}
+//extension PoieticCore.ObjectID: SwiftGodot.VariantConvertible {
+//    public static func fromFastVariantOrThrow(_ variant: borrowing SwiftGodot.FastVariant)
+//        throws(SwiftGodot.VariantConversionError) -> PoieticCore.ObjectID
+//    {
+//        if let value = UInt64(variant) {
+//            return PoieticCore.ObjectID(integerLiteral: value)
+//        }
+//        else if let string = String(variant), let id = PoieticCore.ObjectID(string) {
+//            return id
+//        }
+//        else {
+//            throw .unexpectedContent(parsing: PoieticCore.ObjectID.self, from: variant)
+//        }
+//    }
+//
+//    public func toFastVariant() -> SwiftGodot.FastVariant? {
+//        return SwiftGodot.FastVariant(self.rawValue)
+//    }
+//}
 
 extension Point {
     init(_ vector: SwiftGodot.Vector2) {

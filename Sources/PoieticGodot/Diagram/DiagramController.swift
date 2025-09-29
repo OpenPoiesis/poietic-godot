@@ -116,7 +116,7 @@ public class CanvasController: SwiftGodot.Node {
         else {
             return nil
         }
-        return designController.getObject(id)
+        return designController.getObject(id.rawValue)
     }
     
     @Callable(autoSnakeCase: true)
@@ -140,11 +140,10 @@ public class CanvasController: SwiftGodot.Node {
         let trans = ctrl.newTransaction()
         
         for id in ctrl.selectionManager.selection {
-            guard trans.contains(id) else {
+            guard let obj = trans[id] else {
                 GD.pushWarning("Selection has unknown ID:", id)
                 continue
             }
-            let obj = trans[id]
             guard obj.type.hasTrait(.DiagramConnector) else {
                 continue
             }
@@ -195,7 +194,7 @@ public class CanvasController: SwiftGodot.Node {
         GD.pushWarning("Syncing indicators not yet re-implemented")
     }
 
-    func updateCanvas(frame: StableFrame) {
+    func updateCanvas(frame: DesignFrame) {
         guard let composer else { return }
 
         let nodes = frame.nodes(withTrait: .DiagramBlock)
@@ -228,7 +227,7 @@ public class CanvasController: SwiftGodot.Node {
         guard let canvas,
               let composer,
               let designController else { return }
-        let hasIssues = designController.objectHasIssues(node.objectID)
+        let hasIssues = designController.objectHasIssues(rawID: node.objectID.rawValue)
         
         if let object = canvas.representedBlock(id: node.objectID) {
             guard let block = object.block else { return } // Broken block
@@ -491,21 +490,21 @@ public class CanvasController: SwiftGodot.Node {
 
     @Callable(autoSnakeCase: true)
     func openInlineEditor(_ editorName: String,
-                          objectID: PoieticCore.ObjectID,
+                          rawObjectID: EntityIDValue,
                           attribute: String) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         // TODO: Allow editing of not-yet-existing objects, such as freshly placed block
         guard let canvas,
               let designController,
               let editor = inlineEditor(editorName)
               else { return }
-        guard designController.currentFrame.contains(objectID) else
+        guard let object = designController.currentFrame[objectID] else
         {
             GD.pushError("No object '\(objectID)' for inline editor")
             return
         }
-        let object = designController.currentFrame[objectID]
         let value = object[attribute]
-        var position = canvas.promptPosition(for: objectID)
+        var position = canvas.promptPosition(for: rawObjectID)
         openInlinePopup(control: editor, position: position)
         editor.call(method: "open",
                     objectID.asGodotVariant(),
@@ -562,7 +561,8 @@ public class CanvasController: SwiftGodot.Node {
     }
 
     @Callable(autoSnakeCase: true)
-    func commitFormulaEdit(objectID: PoieticCore.ObjectID, newFormulaText: String) {
+    func commitFormulaEdit(rawObjectID: EntityIDValue, newFormulaText: String) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let ctrl = designController,
               let object = ctrl.object(objectID) else { return }
 
@@ -577,7 +577,8 @@ public class CanvasController: SwiftGodot.Node {
     }
 
     @Callable(autoSnakeCase: true)
-    func commitNumericAttributeEdit(objectID: PoieticCore.ObjectID, attribute: String, newTextValue: String) {
+    func commitNumericAttributeEdit(rawObjectID: EntityIDValue, attribute: String, newTextValue: String) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let ctrl = designController,
               let object = ctrl.object(objectID) else { return }
         

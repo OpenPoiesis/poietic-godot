@@ -118,17 +118,9 @@ class ConnectTool: CanvasTool {
             return false
         }
         let flag = ctrl.checker.canConnect(type: type,
-                                       from: originID,
-                                       to: targetID,
-                                       in: ctrl.currentFrame)
-        if let origin = ctrl.getObject(originID),
-           let target = ctrl.getObject(targetID)
-        {
-            GD.print("--? can connect: \(typeName) from: \(origin.object!.type.name) to: \(target.object!.type.name) -> \(flag)")
-        }
-        else {
-            GD.print("--? can connect: \(typeName) from: \(originID) to: \(targetID) -> \(flag)")
-        }
+                                           from: originID,
+                                           to: targetID,
+                                           in: ctrl.currentFrame)
         return flag
     }
     

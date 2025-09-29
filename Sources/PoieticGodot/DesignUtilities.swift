@@ -69,7 +69,8 @@ func resolveParameters(objects: [ObjectSnapshot], view: StockFlowView) -> [Poiet
 ///
 func autoConnectParameters(_ resolvedMap: [PoieticCore.ObjectID:ResolvedParameters], in frame: TransientFrame) {
     for (id, resolved) in resolvedMap {
-        let object = frame[id]
+        guard let object = frame[id] else { continue }
+
         for name in resolved.missing {
             guard let paramNode = frame.object(named: name) else {
                 continue

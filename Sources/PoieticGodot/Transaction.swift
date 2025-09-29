@@ -127,12 +127,12 @@ class PoieticTransaction: SwiftGodot.Object {
             GD.pushError("Invalid object ID type")
             return false
         }
-        guard let frame, frame.contains(actual_id) else {
+        guard let frame,
+              let original = frame[actual_id] else {
             GD.pushError("Unknown object ID \(object_id)")
             return false
         }
         var metamodel = frame.design.metamodel
-        var original = frame[actual_id]
         guard let valueType = original.type.attribute(attribute)?.type else {
             return false
         }

@@ -94,6 +94,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such block exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
+    public func representedBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
+        let id = PoieticCore.ObjectID(rawValue: rawID)
+        return _representedBlocks[id]
+    }
+    
     public func representedBlock(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
         return _representedBlocks[id]
     }
@@ -119,6 +124,10 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such connector exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
+    public func representedConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
+        let id = PoieticCore.ObjectID(rawValue: rawID)
+        return _representedConnectors[id]
+    }
     public func representedConnector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
         return _representedConnectors[id]
     }
@@ -255,8 +264,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
 
     @Callable(autoSnakeCase: true)
-    func promptPosition(for nodeID: PoieticCore.ObjectID) -> Vector2 {
-        guard let block = _representedBlocks[nodeID] else { return .zero }
+    func promptPosition(for rawID: EntityIDValue) -> Vector2 {
+        let nodeID = PoieticCore.ObjectID(rawValue: rawID)
+        guard let block = _representedBlocks[nodeID]
+        else {
+            return .zero
+        }
 
         let position: Vector2
         if let primaryLabel = block.primaryLabel {
@@ -283,7 +296,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// Default position where a pop-up is expected to be displayed around a given object.
     ///
     @Callable(autoSnakeCase: true)
-    public func defaultPopupPosition(objectID: PoieticCore.ObjectID) -> Vector2 {
+    public func defaultPopupPosition(rawID: EntityIDValue) -> Vector2 {
+        let objectID = PoieticCore.ObjectID(rawValue: rawID)
         if let block = _representedBlocks[objectID] {
             let y: Float
             if let label = block.primaryLabel {

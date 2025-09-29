@@ -37,9 +37,9 @@ class SelectionManager: SwiftGodot.Node {
     /// editing.
     ///
     @Callable(autoSnakeCase: true)
-    public func selectionOfOne() -> PoieticCore.ObjectID? {
+    public func selectionOfOne() -> EntityIDValue? {
         guard selection.count == 1 else { return nil }
-        return selection.first
+        return selection.first?.rawValue
     }
     
     @Callable
