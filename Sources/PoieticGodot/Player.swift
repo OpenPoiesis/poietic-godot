@@ -82,12 +82,9 @@ class ResultPlayer: SwiftGodot.Node {
     }
 
     /// Get a numeric value of computed object with given ID.
-    @Callable
-    public func numeric_value(id: Int64) -> Double? {
-        guard let poieticID = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid ID")
-            return nil
-        }
+    @Callable(autoSnakeCase: true)
+    public func numeric_value(id: UInt64) -> Double? {
+        let poieticID = PoieticCore.ObjectID(rawValue: id)
         guard let wrappedResult = result?.result, let plan = result?.plan else {
             GD.printErr("Playing without result or plan")
             return nil

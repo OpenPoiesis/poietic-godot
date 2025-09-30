@@ -507,7 +507,7 @@ public class CanvasController: SwiftGodot.Node {
         var position = canvas.promptPosition(for: rawObjectID)
         openInlinePopup(control: editor, position: position)
         editor.call(method: "open",
-                    objectID.asGodotVariant(),
+                    SwiftGodot.Variant(objectID.rawValue),
                     SwiftGodot.Variant(attribute),
                     value?.asGodotVariant())
         self.inlinePopup = editor

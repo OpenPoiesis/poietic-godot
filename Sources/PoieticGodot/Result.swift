@@ -68,15 +68,12 @@ class PoieticResult: SwiftGodot.Object {
             }
         }
         
-        return PackedInt64Array(ids.map { $0.godotInt} )
+        return PackedInt64Array(compactingValid: ids)
     }
 
     @Callable
-    public func time_series(id: Int64) -> PoieticTimeSeries? {
-        guard let poieticID = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid ID")
-            return nil
-        }
+    public func time_series(id: EntityIDValue) -> PoieticTimeSeries? {
+        let poieticID = PoieticCore.ObjectID(rawValue: id)
         guard let objectSeries else {
             GD.printErr("Empty result")
             return nil
@@ -90,9 +87,9 @@ class PoieticTimeSeries: SwiftGodot.Object {
     var _object_id: PoieticCore.ObjectID? = nil
     var series: RegularTimeSeries? = nil
     
-    @Export var object_id: Int64? {
+    @Export var object_id: EntityIDValue? {
         get {
-            if let _object_id { _object_id.godotInt }
+            if let _object_id { _object_id.rawValue }
             else { nil }
         }
         set(value) { GD.pushError("Trying to set read-only variable") }

@@ -88,8 +88,7 @@ class SelectionTool: CanvasTool {
                 return false
             }
             selectionManager.replaceAll([id])
-            GD.pushError("Name editor not reimplemented")
-            // FIXME: prompt_manager.open_name_editor_for(node.object_id)
+            canvasController?.openInlineEditor("name", rawObjectID: id.rawValue, attribute: "name")
         case .secondaryLabel:
             guard let block = target.object as? DiagramCanvasBlock,
                   let id = block.objectID else
@@ -97,8 +96,7 @@ class SelectionTool: CanvasTool {
                 return false
             }
             selectionManager.replaceAll([id])
-            GD.pushError("formula editor not implemented")
-            // FIXME: prompt_manager.open_formula_editor_for(node.object_id)
+            canvasController?.openInlineEditor("formula", rawObjectID: id.rawValue, attribute: "formula")
         case .errorIndicator:
             guard let block = target.object as? DiagramCanvasBlock,
                   let id = block.objectID else

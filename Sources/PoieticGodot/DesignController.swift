@@ -82,8 +82,8 @@ public class DesignController: SwiftGodot.Node {
             return PackedInt64Array()
         }
         let objects = currentFrame.filter { $0.type === type }
-        let ids = objects.map { Int64($0.objectID.intValue) }
-        return PackedInt64Array(ids)
+        let ids = objects.map { $0.objectID }
+        return PackedInt64Array(compactingValid: ids)
     }
     
     /// Order given IDs by the given attribute in ascending order.
@@ -96,9 +96,8 @@ public class DesignController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func vaguelyOrdered(ids: PackedInt64Array, orderAttribute: String) -> PackedInt64Array {
         // TODO: Make this method Frame.vaguelyOrdered(ids, orderAttribute:)
-        var objects:[ObjectSnapshot] = ids.compactMap {
-            guard let id = ObjectID($0) else { return nil }
-            return currentFrame[id]
+        var objects:[ObjectSnapshot] = ids.asValidEntityIDs().compactMap {
+            currentFrame[$0]
         }
         if objects.count != ids.count {
             GD.pushError("Some IDs were not found in the frame")
@@ -110,25 +109,23 @@ public class DesignController: SwiftGodot.Node {
                     return flag
                 }
                 else {
-                    return left.objectID.intValue < right.objectID.intValue
+                    return left.objectID.rawValue < right.objectID.rawValue
                 }
             case (.none, .some(_)): return false
             case (.some(_), .none): return true
             case (.none, .none):
-                return left.objectID.intValue < right.objectID.intValue
+                return left.objectID.rawValue < right.objectID.rawValue
             }
         }
-        
-        return PackedInt64Array(objects.map { Int64($0.objectID.intValue) })
+        let ids = objects.compactMap { Int64(exactly: $0.objectID.rawValue) }
+
+        return PackedInt64Array(ids)
     }
     
     // FIXME: Used only for charts, remove this
     @Callable
-    func get_outgoing_ids(origin_id: Int64, type_name: String) -> PackedInt64Array {
-        guard let origin_id = PoieticCore.ObjectID(origin_id) else {
-            GD.pushError("Invalid object ID")
-            return PackedInt64Array()
-        }
+    func get_outgoing_ids(origin_id: UInt64, type_name: String) -> PackedInt64Array {
+        let origin_id = PoieticCore.ObjectID(rawValue: origin_id)
         
         guard let type = design.metamodel.objectType(name: type_name) else {
             GD.pushError("Unknown object type '\(type_name)'")
@@ -136,7 +133,8 @@ public class DesignController: SwiftGodot.Node {
         }
         
         let objects = currentFrame.outgoing(origin_id).filter { $0.object.type === type }
-        return PackedInt64Array(objects.map { Int64($0.object.objectID.intValue) })
+        let ids = objects.compactMap { Int64(exactly: $0.key.rawValue) }
+        return PackedInt64Array(ids)
     }
     
     // MARK: - Special Objects
@@ -350,8 +348,8 @@ public class DesignController: SwiftGodot.Node {
     func getDistinctValues(ids: PackedInt64Array, attribute: String) -> SwiftGodot.VariantArray {
         // FIXME: Use array not selection
         guard let frame = design.currentFrame else { return VariantArray() }
-        let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.existing(from: poieticIDs)
+        let validIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
+        let contained = frame.existing(from: validIDs)
         let values = frame.distinctAttribute(attribute, ids: contained)
         var result = SwiftGodot.VariantArray()
         
@@ -364,8 +362,8 @@ public class DesignController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func getDistinctTypes(ids: PackedInt64Array) -> [String] {
         guard let frame = design.currentFrame else { return [] }
-        let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.existing(from: poieticIDs)
+        let validIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
+        let contained = frame.existing(from: validIDs)
         let types = frame.distinctTypes(contained)
         return types.map { $0.name }
     }
@@ -373,8 +371,8 @@ public class DesignController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func getSharedTraits(ids: PackedInt64Array) -> [String] {
         guard let frame = design.currentFrame else { return [] }
-        let poieticIDs = ids.compactMap { ObjectID($0) }
-        let contained = frame.existing(from: poieticIDs)
+        let validIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
+        let contained = frame.existing(from: validIDs)
         let traits = frame.sharedTraits(contained)
         return traits.map { $0.name }
     }
@@ -387,7 +385,7 @@ public class DesignController: SwiftGodot.Node {
             return
         }
         
-        let ids = ids.compactMap { PoieticCore.ObjectID($0) }
+        let ids: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
         let view = StockFlowView(validated)
         let nodes: [ObjectSnapshot]
         if ids.isEmpty {
@@ -748,7 +746,7 @@ public class DesignController: SwiftGodot.Node {
         }
 
         do {
-            let actualIDs: [PoieticCore.ObjectID] = ids.compactMap { PoieticCore.ObjectID($0) }
+            let actualIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
             try writeToCSV(path: path, result: result, plan: plan, ids: actualIDs)
         }
         catch {

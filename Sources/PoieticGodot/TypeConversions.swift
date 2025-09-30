@@ -8,23 +8,17 @@ import SwiftGodot
 import PoieticFlows
 import PoieticCore
 
-typealias PoieticID = Int64
-typealias PoieticIDArray = PackedInt64Array
-
-extension PoieticCore.ObjectID {
-    init?(_ value: Int64) {
-        guard let value: UInt64 = UInt64(exactly: value) else {
-            return nil
-        }
-        self.init(rawValue: value)
+extension PackedInt64Array {
+    public convenience init<T>(compactingValid ids: some Collection<EntityID<T>>) {
+        let valid = ids.compactMap { Int64(exactly: $0.rawValue) }
+        self.init(valid)
     }
-
-    // For regular ints
-    var godotInt: Int64 { Int64(self.intValue) }
-    func asGodotVariant() -> SwiftGodot.Variant {
-        SwiftGodot.Variant(Int64(self.intValue))
+    public func asValidEntityIDs<T>() -> [EntityID<T>] {
+        let valid = self.compactMap { UInt64(exactly: $0) }
+        return valid.map { EntityID<T>(rawValue: $0) }
     }
 }
+
 //extension PoieticCore.ObjectID: SwiftGodot.VariantConvertible {
 //    public static func fromFastVariantOrThrow(_ variant: borrowing SwiftGodot.FastVariant)
 //        throws(SwiftGodot.VariantConversionError) -> PoieticCore.ObjectID
