@@ -12,6 +12,8 @@ import Diagramming
 @Godot
 class Pictogram2D: SwiftGodot.Node2D {
     @Export var curves: TypedArray<SwiftGodot.Curve2D?>
+    @Export var boundingBox: Rect2 = Rect2()
+    @Export var size: Vector2 = .zero
     @Export var color: SwiftGodot.Color = .white
     @Export var lineWidth: Double = 1.0
 
@@ -22,9 +24,11 @@ class Pictogram2D: SwiftGodot.Node2D {
         super.init(context)
     }
     
-    func setCurves(from pictogram: Pictogram) {
+    func setPictogram(_ pictogram: Pictogram) {
         // FIXME: Do not translate. Currently we must. See also: DiagramCanvasBlock
         self.curves = TypedArray(pictogram.path.asGodotCurves())
+        self.size = Vector2(pictogram.pathBoundingBox.size)
+        self.boundingBox = Rect2(pictogram.pathBoundingBox)
     }
     
     public override func _draw() {

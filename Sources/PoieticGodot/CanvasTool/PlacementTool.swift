@@ -150,7 +150,7 @@ class PlaceTool: CanvasTool {
             shadow.color = SwiftGodot.Color(r: 0.5, g: 0.5, b: 0.1, a: 0.8)
         }
 
-        shadow.setCurves(from: pictogram)
+        shadow.setPictogram(pictogram)
         shadow.position = canvasPosition
         shadow.name = "placement-intent-shadow"
         canvas.addChild(node: shadow)

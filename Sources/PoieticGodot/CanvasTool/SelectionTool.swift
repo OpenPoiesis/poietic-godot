@@ -43,9 +43,10 @@ class SelectionTool: CanvasTool {
     }
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         // TODO: Move this to tool
-        guard let event = event as? InputEventWithModifiers else { return false }
-        guard let canvas else { return false }
-        guard let selectionManager = designController?.selectionManager else { return false }
+        guard let event = event as? InputEventWithModifiers,
+              let canvas,
+              let selectionManager = designController?.selectionManager
+        else { return false }
 
         canvasController?.closeInlinePopup()
 
@@ -104,8 +105,8 @@ class SelectionTool: CanvasTool {
                 return false
             }
             selectionManager.replaceAll([id])
-            GD.pushError("Issue inspector not implemented")
-            // FIXME: prompt_manager.open_issues_for(node.object_id)
+            // FIXME: Who has responsibility for filling in the popup info?
+            canvasController?.openIssuesPopup(id.rawValue)
         }
         return true
     }

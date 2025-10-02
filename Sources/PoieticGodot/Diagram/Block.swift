@@ -160,7 +160,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         
         // 2. Pictogram and shape
         if let pictogram = block.pictogram {
-            self.pictogram?.setCurves(from: pictogram)
+            self.pictogram?.setPictogram(pictogram)
             // FIXME: Do not translate. Currently we must. See also: Shaodw
             let pictoCollision = pictogram.collisionShape
 

@@ -694,6 +694,21 @@ public class DesignController: SwiftGodot.Node {
         set { GD.pushError("Trying to set read-only attribute") }
     }
     
+    // MARK: - Metamodel Queries
+
+    /// Get names of object types that can be placed on the diagram.
+    ///
+    /// Returns types that have the `DiagramBlock` trait, which indicates they can be
+    /// visually represented as blocks on the canvas.
+    ///
+    /// - Returns: Array of type names suitable for diagram placement
+    ///
+    @Callable(autoSnakeCase: true)
+    func getPlaceablePictogramNames() -> PackedStringArray {
+        let types = design.metamodel.types.filter { $0.hasTrait(.DiagramBlock) }
+        return PackedStringArray(types.map { $0.name })
+    }
+
     // MARK: - Simulation Result
     func simulate() {
         guard let simulationPlan else {

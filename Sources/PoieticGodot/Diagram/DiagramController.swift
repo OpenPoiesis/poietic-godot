@@ -29,27 +29,29 @@ public class CanvasController: SwiftGodot.Node {
     /// Controller of a design that is composed as a diagram on canvas.
     @Export public var designController: DesignController?
     var composer: DiagramComposer?
-
+    
     @Export public var contextMenu: SwiftGodot.Control?
     var inlineEditors: [String:SwiftGodot.Control] = [:]
-
+    
+    @Export public var issuesPopup: SwiftGodot.Control?
+    
     /// A control that is shown alongside a node, such as inline editor or issue list.
     @Export var inlinePopup: SwiftGodot.Control?
     
     var pictograms: PictogramCollection?
     
-
+    
     // MARK: - Initialisation
     //
     required init(_ context: InitContext) {
         super.init(context)
     }
-
+    
     @Callable
     func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
-
+        
         loadPictograms(path: StockFlowPictogramsPath)
         
         designController.designChanged.connect(self.on_design_changed)
@@ -92,7 +94,7 @@ public class CanvasController: SwiftGodot.Node {
     
     func setDiagramStyle(_ style: DiagramStyle) {
         self.composer = DiagramComposer(style: style)
-
+        
         guard let frame = designController?.currentFrame else { return }
         updateCanvas(frame: frame)
     }
@@ -152,7 +154,7 @@ public class CanvasController: SwiftGodot.Node {
         }
         ctrl.accept(trans)
     }
-
+    
     // MARK: - Actions (basic)
     //
     @Callable
@@ -169,7 +171,7 @@ public class CanvasController: SwiftGodot.Node {
             }
         }
     }
-
+    
     /// Select all objects in the canvas
     @Callable(autoSnakeCase: true)
     public func selectAll() {
@@ -178,13 +180,13 @@ public class CanvasController: SwiftGodot.Node {
         let ids = canvas.representedObjectIDs()
         manager.replaceAll(ids)
     }
-
+    
     @Callable(autoSnakeCase: true)
     func clearCanvas() {
         canvas?.clear()
         designController?.selectionManager.clear()
     }
-
+    
     // MARK: - Synchronisation
     //
     
@@ -193,13 +195,13 @@ public class CanvasController: SwiftGodot.Node {
         // FIXME: Implement this
         GD.pushWarning("Syncing indicators not yet re-implemented")
     }
-
+    
     func updateCanvas(frame: DesignFrame) {
         guard let composer else { return }
-
+        
         let nodes = frame.nodes(withTrait: .DiagramBlock)
         syncDesignBlocks(nodes: nodes)
-
+        
         let edges = frame.edges(withTrait: .DiagramConnector)
         syncDesignConnectors(edges: edges)
     }
@@ -207,7 +209,7 @@ public class CanvasController: SwiftGodot.Node {
     func syncDesignBlocks(nodes: [ObjectSnapshot]) {
         guard let canvas else { return }
         guard let composer else { return }
-
+        
         var existing: Set<PoieticCore.ObjectID> = Set(canvas.representedBlocks.compactMap {
             $0.objectID
         })
@@ -248,7 +250,7 @@ public class CanvasController: SwiftGodot.Node {
     func syncDesignConnectors(edges: [EdgeObject]) {
         guard let canvas else { return }
         guard let composer else { return }
-
+        
         var existing: Set<PoieticCore.ObjectID> = Set(canvas.representedConnectors.compactMap {
             $0.objectID
         })
@@ -263,7 +265,7 @@ public class CanvasController: SwiftGodot.Node {
             canvas.removeRepresentedConnector(id)
         }
     }
-
+    
     /// Synchronises a connector with an edge that it represents.
     ///
     /// Represented blocks the edge connects must exist in the canvas.
@@ -278,18 +280,18 @@ public class CanvasController: SwiftGodot.Node {
             GD.pushError("Connector \(edge.key) is missing blocks")
             return // Broken connector
         }
-
+        
         let shapeStyle = StockFlowShapeStyes[edge.object.type.name]
-                ?? StockFlowShapeStyes["default"]
-                ?? ShapeStyle(lineWidth: 1.0, lineColor: "white", fillColor: "none")
+        ?? StockFlowShapeStyes["default"]
+        ?? ShapeStyle(lineWidth: 1.0, lineColor: "white", fillColor: "none")
         
         if let object = canvas.representedConnector(id: edge.key) {
             guard let connector = object.connector else { return }
             connector.shapeStyle = shapeStyle
             composer.updateConnector(connector: connector,
-                                      edge: edge,
-                                      origin: originBlock,
-                                      target: targetBlock)
+                                     edge: edge,
+                                     origin: originBlock,
+                                     target: targetBlock)
             object.updateContent(connector: connector)
         }
         else {
@@ -298,8 +300,8 @@ public class CanvasController: SwiftGodot.Node {
             object.originID = edge.origin
             object.targetID = edge.target
             let connector = composer.createConnector(edge,
-                                                      origin: originBlock,
-                                                      target: targetBlock)
+                                                     origin: originBlock,
+                                                     target: targetBlock)
             connector.shapeStyle = shapeStyle
             canvas.insertRepresentedConnector(object)
             object.updateContent(connector: connector)
@@ -326,7 +328,7 @@ public class CanvasController: SwiftGodot.Node {
                                  target: targetBlock)
         connector.setDirty()
     }
-
+    
     // MARK: - Canvas Tool
     //
     /// Create a connector originating in a block and ending at a given point, typically
@@ -337,13 +339,13 @@ public class CanvasController: SwiftGodot.Node {
     /// - SeeAlso: ``updateDragConnector(connector:origin:targetPoint:)``
     ///
     public func createDragConnector(type: String,
-                             origin: DiagramCanvasBlock,
-                             targetPoint: Vector2D) -> DiagramCanvasConnector? {
+                                    origin: DiagramCanvasBlock,
+                                    targetPoint: Vector2D) -> DiagramCanvasConnector? {
         guard let canvas else { return nil }
         guard let composer else { return nil }
         
         let result = DiagramCanvasConnector()
-
+        
         let originPoint: Vector2D
         
         if let block = origin.block {
@@ -402,7 +404,7 @@ public class CanvasController: SwiftGodot.Node {
     public func moveSelection(_ selection: Selection, by designDelta: Vector2D) {
         guard let ctrl = designController else { return }
         let trans = ctrl.newTransaction()
-
+        
         for id in selection {
             guard trans.contains(id) else {
                 GD.pushWarning("Selection has unknown ID:", id)
@@ -429,11 +431,11 @@ public class CanvasController: SwiftGodot.Node {
             object["midpoints"] = PoieticCore.Variant(movedMidpoints)
         }
     }
-
+    
     public func setMidpoints(object id: PoieticCore.ObjectID, midpoints: [Vector2D]) {
         guard let ctrl = designController else { return }
         let trans = ctrl.newTransaction()
-
+        
         guard trans.contains(id) else {
             GD.pushWarning("Unknown ID: \(id)")
             ctrl.discard(trans)
@@ -444,7 +446,7 @@ public class CanvasController: SwiftGodot.Node {
         
         ctrl.accept(trans)
     }
-
+    
     // MARK: - Inline Editors and Pop-ups
     //
     @Callable(autoSnakeCase: true)
@@ -464,7 +466,7 @@ public class CanvasController: SwiftGodot.Node {
             GD.pushError("Can not register editor '\(name)': missing required methods")
             return
         }
-
+        
         inlineEditors[name] = editor
     }
     
@@ -483,11 +485,23 @@ public class CanvasController: SwiftGodot.Node {
         let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
                                y: desiredGlobalPosition.y)
         // TODO: Context menu needs attention. We are bridging makeshift context meno here.
-        GD.print("--- Open context menu")
         contextMenu.call(method: "update", Variant(selection))
         openInlinePopup(control: contextMenu, position: position)
     }
-
+    
+    @Callable(autoSnakeCase: true)
+    func openIssuesPopup(_ rawObjectID: EntityIDValue) {
+        guard let issuesPopup,
+              let canvas
+        else { return }
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
+        var position = canvas.promptPosition(for: rawObjectID)
+        if issuesPopup.hasMethod("update") {
+            issuesPopup.call(method: "update", Variant(rawObjectID))
+        }
+        openInlinePopup(control: issuesPopup, position: position)
+    }
+    
     @Callable(autoSnakeCase: true)
     func openInlineEditor(_ editorName: String,
                           rawObjectID: EntityIDValue,
@@ -497,7 +511,7 @@ public class CanvasController: SwiftGodot.Node {
         guard let canvas,
               let designController,
               let editor = inlineEditor(editorName)
-              else { return }
+        else { return }
         guard let object = designController.currentFrame[objectID] else
         {
             GD.pushError("No object '\(objectID)' for inline editor")
@@ -512,7 +526,7 @@ public class CanvasController: SwiftGodot.Node {
                     value?.asGodotVariant())
         self.inlinePopup = editor
     }
-
+    
     @Callable(autoSnakeCase: true)
     func openInlinePopup(control: SwiftGodot.Control, position: Vector2) {
         if let inlinePopup {
@@ -545,13 +559,13 @@ public class CanvasController: SwiftGodot.Node {
         object.finishLabelEdit()
         
         guard block.label != newValue else { return } // Nothing changed
-            
+        
         var trans = ctrl.newTransaction()
         var obj = trans.mutate(objectID)
         obj["name"] = PoieticCore.Variant(newValue)
         ctrl.accept(trans)
     }
-
+    
     @Callable(autoSnakeCase: true)
     func cancelNameEdit(objectID: PoieticCore.ObjectID) {
         guard let canvas,
@@ -559,13 +573,13 @@ public class CanvasController: SwiftGodot.Node {
               let block = object.block else { return }
         object.finishLabelEdit()
     }
-
+    
     @Callable(autoSnakeCase: true)
     func commitFormulaEdit(rawObjectID: EntityIDValue, newFormulaText: String) {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let ctrl = designController,
               let object = ctrl.object(objectID) else { return }
-
+        
         if (try? object["formula"]?.stringValue()) == newFormulaText {
             return // Attribute not changed
         }
@@ -575,7 +589,7 @@ public class CanvasController: SwiftGodot.Node {
         obj["formula"] = PoieticCore.Variant(newFormulaText)
         ctrl.accept(trans)
     }
-
+    
     @Callable(autoSnakeCase: true)
     func commitNumericAttributeEdit(rawObjectID: EntityIDValue, attribute: String, newTextValue: String) {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
@@ -596,5 +610,58 @@ public class CanvasController: SwiftGodot.Node {
             GD.pushWarning("Numeric attribute '",attribute,"' was not set: '", newTextValue, "'")
             ctrl.discard(trans)
         }
+    }
+    
+    // MARK: - Pictogram UI Support
+    //
+    
+    /// Get a Pictogram2D node for UI display (toolbar buttons, palettes).
+    ///
+    /// This method creates a `Pictogram2D` node that can be added as a child to UI controls
+    /// like buttons. The node will be properly scaled and positioned to fit the specified size.
+    ///
+    /// - Parameters:
+    ///   - typeName: Name of the object type whose pictogram to create
+    ///   - size: Size to scale the pictogram to fit (default: 60)
+    ///   - color: Color to render the pictogram (default: white)
+    ///
+    /// - Returns: Configured `Pictogram2D` node, or `nil` if pictogram not found
+    ///
+    /// - Note: The returned node should be added to the scene tree. The caller is responsible
+    ///   for adding it as a child to an appropriate parent node.
+    ///
+    @Callable(autoSnakeCase: true)
+    func getPictogramNode(typeName: String,
+                          size: Int?,
+                          color: SwiftGodot.Color?) -> Pictogram2D? {
+        guard let pictogram = pictograms?.pictogram(typeName) else {
+            GD.pushWarning("No pictogram for type: \(typeName)")
+            return nil
+        }
+
+        let scaledPictogram: Pictogram
+        if let targetSize = size {
+            // Scale the curves to fit target size
+            let bounds = pictogram.pathBoundingBox
+            let maxDimension = max(bounds.width, bounds.height)
+            guard maxDimension > 0 else {
+                GD.pushWarning("Pictogram '\(typeName)' has zero size")
+                return nil
+            }
+
+            let scaleFactor = Double(targetSize) / maxDimension
+            scaledPictogram = pictogram.scaled(scaleFactor)
+        } else {
+            // Use original pictogram without scaling
+            scaledPictogram = pictogram
+        }
+
+        // Create and configure Pictogram2D node
+        let picto2d = Pictogram2D()
+        picto2d.setPictogram(scaledPictogram)
+        picto2d.color = color ?? PictogramIconColor
+        picto2d.lineWidth = 2.0
+
+        return picto2d
     }
 }

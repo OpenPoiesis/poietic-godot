@@ -5,9 +5,13 @@
 //  Created by Stefan Urbanek on 20/09/2025.
 //
 
+import SwiftGodot
 import Diagramming
 
 let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms-jolly.json"
+
+// Pictogram icon rendering configuration
+nonisolated(unsafe) let PictogramIconColor: SwiftGodot.Color = .white  // TODO: Get from theme
 
 public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
     "default": .thin(ThinConnectorStyle(

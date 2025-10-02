@@ -42,3 +42,9 @@ extension Vector2 {
         self.init(x: Float(vector2D.x), y: Float(vector2D.y))
     }
 }
+
+extension Rect2 {
+    public init(_ rect2D: Rect2D) {
+        self.init(position: Vector2(rect2D.origin), size: Vector2(rect2D.size))
+    }
+}
