@@ -27,13 +27,6 @@ extension Diagramming.ShapeType {
             shape.points = PackedVector2Array(points)
             return shape
         case .concavePolygon(let points):
-//            let shape = SwiftGodot.ConcavePolygonShape2D()
-//            var result: [Vector2D] = []
-//            for segment in Geometry.toSegments(polygon: points) {
-//                result.append(segment.start)
-//                result.append(segment.end)
-//            }
-//            shape.segments = PackedVector2Array(result)
             let shape = SwiftGodot.ConvexPolygonShape2D()
             let gPoints = PackedVector2Array(points.map { SwiftGodot.Vector2($0) })
             shape.points = Geometry2D.convexHull(points: gPoints)
