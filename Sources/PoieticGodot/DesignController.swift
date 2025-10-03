@@ -295,7 +295,7 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func issuesForObject(rawID: EntityIDValue) -> [PoieticIssue] {
+    func issuesForObject(rawID: EntityIDValue) -> TypedArray<PoieticIssue?> {
         let id = PoieticCore.ObjectID(rawValue: rawID)
         // FIXME: Replace with runtime component
         guard let issues,
@@ -306,7 +306,7 @@ public class DesignController: SwiftGodot.Node {
             issue.issue = $0
             return issue
         }
-        return result
+        return TypedArray(result)
     }
     
     @Callable(autoSnakeCase: true)

@@ -484,21 +484,28 @@ public class CanvasController: SwiftGodot.Node {
         let halfWidth = contextMenu.getRect().size.x / 2
         let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
                                y: desiredGlobalPosition.y)
-        // TODO: Context menu needs attention. We are bridging makeshift context meno here.
+        // TODO: Context menu needs to be populated before we call open
         contextMenu.call(method: "update", Variant(selection))
         openInlinePopup(control: contextMenu, position: position)
     }
     
     @Callable(autoSnakeCase: true)
     func openIssuesPopup(_ rawObjectID: EntityIDValue) {
-        guard let issuesPopup,
+        guard let designController,
+              let issuesPopup,
               let canvas
         else { return }
-        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
-        var position = canvas.promptPosition(for: rawObjectID)
-        if issuesPopup.hasMethod("update") {
-            issuesPopup.call(method: "update", Variant(rawObjectID))
+        guard issuesPopup.hasMethod("set_issues") else {
+            GD.pushError("Invalid issues popup node: set_issues method missing")
+            return
         }
+
+        let issues = designController.issuesForObject(rawID: rawObjectID)
+        issuesPopup.call(method: "set_issues",
+                         SwiftGodot.Variant(rawObjectID),
+                         SwiftGodot.Variant(issues))
+
+        var position = canvas.promptPosition(for: rawObjectID)
         openInlinePopup(control: issuesPopup, position: position)
     }
     
