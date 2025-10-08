@@ -12,9 +12,6 @@ import PoieticCore
 public let DiagramBlockNamePrefix: String = "block"
 public let DiagramConnectorNamePrefix: String = "connector"
 
-public let EmptyLabelTextFontKey = "empty_text_font"
-public let EmptyLabelTextFontColorKey = "empty_text_color"
-
 @Godot
 public class DiagramCanvas: SwiftGodot.Node2D {
     static let ChartsVisibleZoomLevel: Float = 2.0
@@ -41,6 +38,10 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     public var representedConnectors: [DiagramCanvasConnector] { Array(_representedConnectors.values) }
     private var _representedConnectors: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
    
+    @Export var primaryLabelSettings: SwiftGodot.LabelSettings?
+    @Export var secondaryLabelSettings: SwiftGodot.LabelSettings?
+    @Export var invalidLabelSettings: SwiftGodot.LabelSettings?
+
     required init(_ context: InitContext) {
         super.init(context)
     }
@@ -168,7 +169,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
     @Callable(autoSnakeCase: true)
     public func updateCanvasView() {
-        // TODO: Implement this
         self.position = canvasOffset
         self.scale = Vector2(x: zoomLevel, y: zoomLevel)
         canvasViewChanged.emit(canvasOffset, zoomLevel)
@@ -231,7 +231,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             return nil
         }
         else {
-            GD.print("--- Hit target (count: \(targets.count)): \(targets[0].type) \(targets[0].object)")
             return targets[0]
         }
     }

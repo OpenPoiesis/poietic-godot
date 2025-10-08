@@ -493,7 +493,8 @@ public class CanvasController: SwiftGodot.Node {
     func openIssuesPopup(_ rawObjectID: EntityIDValue) {
         guard let designController,
               let issuesPopup,
-              let canvas
+              let canvas,
+              let block = canvas.representedBlock(rawID: rawObjectID)
         else { return }
         guard issuesPopup.hasMethod("set_issues") else {
             GD.pushError("Invalid issues popup node: set_issues method missing")
@@ -505,7 +506,13 @@ public class CanvasController: SwiftGodot.Node {
                          SwiftGodot.Variant(rawObjectID),
                          SwiftGodot.Variant(issues))
 
-        var position = canvas.promptPosition(for: rawObjectID)
+        let position: Vector2
+        if let indicator =  block.issueIndicator {
+            position = indicator.globalPosition
+        }
+        else {
+            position = canvas.promptPosition(for: rawObjectID)
+        }
         openInlinePopup(control: issuesPopup, position: position)
     }
     
@@ -537,9 +544,13 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func openInlinePopup(control: SwiftGodot.Control, position: Vector2) {
         if let inlinePopup {
+            GD.printDebug("--- Close before open ", inlinePopup)
             closeInlinePopup()
         }
-        control.setGlobalPosition(position)
+        GD.printDebug("--> Open popup ", control)
+        let size = control.getSize()
+        let adjustedPosition = Vector2(x: position.x - size.x / 2.0, y: position.y)
+        control.setGlobalPosition(adjustedPosition)
         control.setProcess(enable: true)
         control.show()
         self.inlinePopup = control
@@ -548,6 +559,7 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func closeInlinePopup() {
         guard let inlinePopup else { return }
+        GD.printDebug("<-- Close popup ", inlinePopup)
         if inlinePopup.hasMethod("close") {
             inlinePopup.call(method: "close")
         }

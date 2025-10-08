@@ -7,6 +7,8 @@
 
 import SwiftGodot
 
+// TODO: Implement "tool locking": When tool is clicked/selected twice, it is locked. Otherwise it returns to selection tool.
+
 /// Abstract class for tools operating on diagram canvas.
 ///
 @Godot
@@ -17,6 +19,7 @@ class CanvasTool: SwiftGodot.Node {
     /// Auxiliary palette that provides selection of tool items
     /// such as placeable objects or possible connectors.
 //    @Export var palette: GridContainer?
+    
     
     /// Identifier of an item, selected in palette, to be placed.
     @Export var paletteItemIdentifier: String? {
@@ -35,6 +38,17 @@ class CanvasTool: SwiftGodot.Node {
     
     @Callable
     func toolName() -> String { "default" }
+    
+    var application: PoieticApplication? {
+        var parent: Node? = self.getParent()
+        while parent != nil {
+            if let app = parent as? PoieticApplication {
+                return app
+            }
+            parent = parent?.getParent()
+        }
+        return nil
+    }
     
     /// Name of an object palette to be used with the tool.
     ///

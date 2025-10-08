@@ -43,6 +43,19 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     @Export var hasValueIndicator: Bool = false
     @Export var valueIndicator: SwiftGodot.Node2D?
 
+    /// Canvas owning the block. Nil if the block is not under a canvas hierarchy.
+    ///
+    public var canvas: DiagramCanvas? {
+        var parent: Node? = self.getParent()
+        while parent != nil {
+            if let result = parent as? DiagramCanvas {
+                return result
+            }
+            parent = parent?.getParent()
+        }
+        return nil
+    }
+    
     public override func _process(delta: Double) {
         if isDirty {
             updateVisuals()
@@ -74,6 +87,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             let label = SwiftGodot.Label()
             label.horizontalAlignment = .center
             label.verticalAlignment = .top
+            label.themeTypeVariation = "PrimaryBlockLabel"
             self.addChild(node: label)
             self.primaryLabel = label
         }
@@ -81,6 +95,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             let label = SwiftGodot.Label()
             label.horizontalAlignment = .center
             label.verticalAlignment = .top
+            label.themeTypeVariation = "SecondaryBlockLabel"
             self.addChild(node: label)
             self.secondaryLabel = label
         }
@@ -125,7 +140,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
     }
     
-    func setLabel(_ label: SwiftGodot.Label, text: String?, emptyText: String? = nil, themeType: SwiftGodot.StringName = "Label") {
+    func setLabel(_ label: SwiftGodot.Label, text: String?, emptyText: String? = nil, settings: LabelSettings?=nil, emptySettings: LabelSettings?=nil) {
         let theme = ThemeDB.getProjectTheme()
         guard let text else {
             label.text = ""
@@ -134,17 +149,16 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
         
         if let emptyText, text.isVisuallyEmpty {
-            if let font = theme?.getFont(name: SwiftGodot.StringName(EmptyLabelTextFontKey), themeType: themeType) {
-                label.addThemeFontOverride(name: "font", font: font)
+            if let settings = emptySettings ?? settings {
+                label.labelSettings = settings
             }
-            if let color = theme?.getColor(name: SwiftGodot.StringName(EmptyLabelTextFontColorKey), themeType: themeType) {
-                label.addThemeColorOverride(name: "font_color", color: color)
+            else {
+                label.labelSettings = nil
             }
             label.text = emptyText
         }
         else {
-            label.removeThemeFontOverride(name: "font")
-            label.removeThemeColorOverride(name: "font_color")
+            label.labelSettings = settings
             label.text = text
         }
     }
@@ -189,26 +203,32 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         let bottom = LineSegment(from: pictogramBox.topLeft, to: pictogramBox.topRight)
         let mid = bottom.midpoint
         
-        let primaryLabelOffset: Float = 0.0 // FIXME: Compute this
-        let secondaryLabelOffset: Float = 16.0 // FIXME: Compute this
-        
+        var labelOffset: Float = 0.0
         
         if let label = self.primaryLabel {
-            setLabel(label, text: block.label, emptyText: "(empty)", themeType: "PrimaryLabel")
+            setLabel(label, text: block.label,
+                     emptyText: "(empty)",
+                     settings: self.canvas?.primaryLabelSettings,
+                     emptySettings: self.canvas?.invalidLabelSettings)
             let size = label.getMinimumSize()
             let center = Vector2(
                 x: Float(mid.x) - size.x / 2.0,
-                y: Float(mid.y) + primaryLabelOffset
+                y: Float(mid.y) + PrimaryLabelOffset
             )
             label.setPosition(center)
+            labelOffset = PrimaryLabelOffset + size.y
         }
 
         if let label = self.secondaryLabel {
-            setLabel(label, text: block.secondaryLabel, emptyText: nil, themeType: "SecondaryLabel")
+            setLabel(label,
+                     text: block.secondaryLabel,
+                     emptyText: nil,
+                     settings: self.canvas?.secondaryLabelSettings,
+                     emptySettings: self.canvas?.invalidLabelSettings)
             let size = label.getMinimumSize()
             let center = Vector2(
                 x: Float(mid.x) - size.x / 2.0,
-                y: Float(mid.y) + secondaryLabelOffset
+                y: Float(mid.y) + labelOffset + SecondaryLabelOffset
             )
             label.setPosition(center)
         }

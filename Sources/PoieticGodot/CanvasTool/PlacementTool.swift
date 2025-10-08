@@ -19,8 +19,6 @@ class PlaceTool: CanvasTool {
     ///
     @Export var objectPanel: SwiftGodot.PanelContainer?
     
-
-    
     var lastPointerPosition = Vector2()
     var intentShadow: Pictogram2D?
 
@@ -35,21 +33,13 @@ class PlaceTool: CanvasTool {
         if paletteItemIdentifier == nil {
             paletteItemIdentifier = DefaultBlockNodeType
         }
-
-        // objectPalette?.show()
-        // FIXME: Add palette loading
-//        object_panel.load_node_pictograms()
-//        object_panel.selection_changed.connect(_on_object_selection_changed)
     }
     
     override func toolReleased() {
-//        lastSelectedObjectIdentifier = object_panel.selected_item
-//        object_panel.selection_changed.disconnect(_on_object_selection_changed)
         removeIntentShadow()
     }
     
     override func paletteItemChanged(_ identifier: String?) {
-        GD.print("--- Place tool palette item changed: ", identifier ?? "(nil)")
         if intentShadow != nil {
             removeIntentShadow()
         }
@@ -105,6 +95,10 @@ class PlaceTool: CanvasTool {
             return true
         }
         placeObject(typeName: paletteItemIdentifier, globalPosition: globalPosition)
+        // TODO: Implement "tool locking"
+        if let app = self.application {
+            app.switchTool(app.selectionTool)
+        }
         return true
     }
     

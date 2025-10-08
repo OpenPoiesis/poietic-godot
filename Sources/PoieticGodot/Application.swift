@@ -72,21 +72,28 @@ class PoieticApplication: SwiftGodot.Node {
         super.init(context)
     }
 
+    override func _ready() {
+        self.addChild(node: selectionTool)
+        self.addChild(node: placeTool)
+        self.addChild(node: connectTool)
+        self.addChild(node: panTool)
+    }
+    
     @Callable(autoSnakeCase: true)
     func setTool(_ toolName: String) {
         switch toolName {
-        case "selection": self.changeTool(self.selectionTool)
-        case "place": self.changeTool(self.placeTool)
-        case "connect": self.changeTool(self.connectTool)
-        case "pan": self.changeTool(self.panTool)
+        case "selection": self.switchTool(self.selectionTool)
+        case "place": self.switchTool(self.placeTool)
+        case "connect": self.switchTool(self.connectTool)
+        case "pan": self.switchTool(self.panTool)
         default:
             GD.pushWarning("Unknown tool: ", toolName)
-            self.changeTool(self.selectionTool)
+            self.switchTool(self.selectionTool)
         }
     }
 
     @Callable(autoSnakeCase: true)
-    func changeTool(_ tool: CanvasTool) {
+    func switchTool(_ tool: CanvasTool) {
         // TODO: Rename to setTool(...)
         if let currentTool {
             currentTool.toolReleased()
@@ -103,6 +110,13 @@ class PoieticApplication: SwiftGodot.Node {
         }
         tool.toolSelected()
         toolChanged.emit(tool)
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func flipTool() {
+        if let previousTool {
+            switchTool(previousTool)
+        }
     }
     
     // MARK: - Undo/Redo

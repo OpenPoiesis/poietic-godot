@@ -142,7 +142,12 @@ class ConnectTool: CanvasTool {
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
         if self.canConnect(typeName: typeName, from: originID, to: targetID) {
             createEdge(typeName: typeName, from: originID, to: targetID)
+            // TODO: Implement "tool locking"
+            if let app = self.application {
+                app.switchTool(app.selectionTool)
+            }
         }
+        
         else {
             // TODO: Puff!
         }

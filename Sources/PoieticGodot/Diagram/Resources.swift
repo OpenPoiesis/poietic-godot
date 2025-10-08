@@ -32,6 +32,10 @@ public let SelectionOutlineColorKey = "selection_outline"
 public let SelectionFillColorKey = "selection_fill"
 public let SelectionMargin: Double = 4.0
 
+// Diagram Canvas Presetnation
+let PrimaryLabelOffset: Float = 6.0
+let SecondaryLabelOffset: Float = 6.0
+
 
 public let DefaultFatConnectorFillAlpha: Float = 0.6
 
