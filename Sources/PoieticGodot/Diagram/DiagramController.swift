@@ -481,11 +481,11 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func openContextMenu(_ selection: PackedInt64Array, desiredGlobalPosition: Vector2) {
         guard let contextMenu else { return }
-        let halfWidth = contextMenu.getRect().size.x / 2
-        let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
-                               y: desiredGlobalPosition.y)
         // TODO: Context menu needs to be populated before we call open
         contextMenu.call(method: "update", Variant(selection))
+        let halfWidth = contextMenu.getSize().x / 2.0
+        let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
+                               y: desiredGlobalPosition.y)
         openInlinePopup(control: contextMenu, position: position)
     }
     

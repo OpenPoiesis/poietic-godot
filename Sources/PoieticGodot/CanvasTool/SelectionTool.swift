@@ -10,12 +10,20 @@ import Diagramming
 import PoieticCore
 
 enum SelectToolState: Int, CaseIterable {
+    /// Nothing hit, initial state
     case empty
+    /// Direct hit of a single object, typically a block or a connector.
     case objectHit
+    /// Object selection initiated.
     case objectSelect
+    /// Dragging selection around.
     case objectMove
+    /// Handle that can be moved was hit.
     case handleHit
+    /// Dragging handle around.
     case handleMove
+    /// Some other object child was hit, such as label or issue indicator.
+    case childHit
 }
 
 @Godot
@@ -29,18 +37,14 @@ class SelectionTool: CanvasTool {
     // selected > not selected
     // handle > object > prompt
 
-//    @Export var lastPointerPosition = Vector2()
     @Export var state: SelectToolState = .empty
-    @Export var handleTarget: CanvasHitTarget?
+    @Export var hitTarget: CanvasHitTarget?
     
     var previousCanvasPosition: Vector2 = .zero
     var initialCanvasPosition: Vector2 = .zero
-
+    
     override func toolName() -> String { "select" }
 
-    override func toolReleased() {
-        // TODO: Close prompt
-    }
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
         // TODO: Move this to tool
         guard let event = event as? InputEventWithModifiers,
@@ -61,6 +65,7 @@ class SelectionTool: CanvasTool {
         
         switch target.type {
         case .object:
+            // TODO: Defer opening of context menu on inputEnded
             guard let object = target.object as? DiagramCanvasObject, let objectID = object.objectID else {
                 GD.pushWarning("Hit object is not a diagram canvas object")
                 return false
@@ -79,34 +84,14 @@ class SelectionTool: CanvasTool {
             }
             state = .objectHit
         case .handle:
-            handleTarget = target
+            hitTarget = target
             state = .handleHit
             selectionManager.clear()
-        case .primaryLabel:
-            guard let block = target.object as? DiagramCanvasBlock,
-                  let id = block.objectID else
-            {
-                return false
-            }
-            selectionManager.replaceAll([id])
-            canvasController?.openInlineEditor("name", rawObjectID: id.rawValue, attribute: "name")
-        case .secondaryLabel:
-            guard let block = target.object as? DiagramCanvasBlock,
-                  let id = block.objectID else
-            {
-                return false
-            }
-            selectionManager.replaceAll([id])
-            canvasController?.openInlineEditor("formula", rawObjectID: id.rawValue, attribute: "formula")
-        case .errorIndicator:
-            guard let block = target.object as? DiagramCanvasBlock,
-                  let id = block.objectID else
-            {
-                return false
-            }
-            selectionManager.replaceAll([id])
-            // FIXME: Who has responsibility for filling in the popup info?
-            canvasController?.openIssuesPopup(id.rawValue)
+        case .primaryLabel,
+                .secondaryLabel,
+                .errorIndicator:
+            hitTarget = target
+            state = .childHit
         }
         return true
     }
@@ -126,7 +111,7 @@ class SelectionTool: CanvasTool {
         switch state {
         case .empty: break
         case .objectSelect: break
-        case .objectHit, .objectMove:
+        case .objectHit, .objectMove, .childHit:
             Input.setDefaultCursorShape(.drag)
             moveSelection(byCanvasDelta: delta)
             state = .objectMove
@@ -181,12 +166,12 @@ class SelectionTool: CanvasTool {
         canvas.queueRedraw()
     }
     func dragHandle(byCanvasDelta canvasDelta: Vector2) {
-        guard let handleTarget else { return }
+        guard let hitTarget else { return }
         guard let canvas else { return }
         guard let diagramCtrl = canvasController else { return }
 
-        if let object = handleTarget.object as? DiagramCanvasConnector {
-            guard let tag = handleTarget.tag else { return }
+        if let object = hitTarget.object as? DiagramCanvasConnector {
+            guard let tag = hitTarget.tag else { return }
             object.moveMidpoint(tag: tag, canvasDelta: canvasDelta)
             diagramCtrl.updateConnectorPreview(object)
         }
@@ -200,7 +185,7 @@ class SelectionTool: CanvasTool {
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
         defer {
             state = .empty
-            handleTarget = nil
+            hitTarget = nil
         }
         guard let canvas else { return false }
         guard let selection = designController?.selectionManager.selection else { return false }
@@ -215,8 +200,8 @@ class SelectionTool: CanvasTool {
             canvasController?.moveSelection(selection, by: designMoveDelta)
         case .handleMove:
             // FIXME: Last position
-            guard let handleTarget,
-                  let object = handleTarget.object as? DiagramCanvasConnector,
+            guard let hitTarget,
+                  let object = hitTarget.object as? DiagramCanvasConnector,
                   let objectID = object.objectID,
                   let connector = object.connector else
             {
@@ -229,6 +214,29 @@ class SelectionTool: CanvasTool {
         case .handleHit: break
         case .objectHit: break
         case .objectSelect: break
+        case .childHit:
+            guard let hitTarget,
+                  let block = hitTarget.object as? DiagramCanvasBlock,
+                  let id = block.objectID,
+                  let selectionManager = designController?.selectionManager
+            else {
+                break
+            }
+            
+            switch hitTarget.type {
+            case .primaryLabel:
+                selectionManager.replaceAll([id])
+                canvasController?.openInlineEditor("name", rawObjectID: id.rawValue, attribute: "name")
+            case .secondaryLabel:
+                selectionManager.replaceAll([id])
+                canvasController?.openInlineEditor("formula", rawObjectID: id.rawValue, attribute: "formula")
+            case .errorIndicator:
+                selectionManager.replaceAll([id])
+                // FIXME: Who has responsibility for filling in the popup info?
+                canvasController?.openIssuesPopup(id.rawValue)
+            case .object: break
+            case .handle: break
+            }
         }
         return true
     }
