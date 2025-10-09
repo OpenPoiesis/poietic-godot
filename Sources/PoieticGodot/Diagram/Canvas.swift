@@ -38,14 +38,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     public var representedConnectors: [DiagramCanvasConnector] { Array(_representedConnectors.values) }
     private var _representedConnectors: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
    
+    // - MARK: - Styling
     @Export var primaryLabelSettings: SwiftGodot.LabelSettings?
     @Export var secondaryLabelSettings: SwiftGodot.LabelSettings?
     @Export var invalidLabelSettings: SwiftGodot.LabelSettings?
 
-    required init(_ context: InitContext) {
-        super.init(context)
-    }
-    
+    // - MARK: Content
     /// Get IDs of design objects represented within the canvas.
     ///
     /// Example use case of this method is to provide IDs for the _"Select all"`_ command.

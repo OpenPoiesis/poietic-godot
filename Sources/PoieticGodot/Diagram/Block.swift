@@ -41,7 +41,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     @Export var showsSecondaryLabel: Bool = true
 
     @Export var hasValueIndicator: Bool = false
-    @Export var valueIndicator: SwiftGodot.Node2D?
+    @Export var valueIndicator: ValueIndicator?
+
+    @Export var displayValue: Double? {
+        didSet {
+            self.updateValueIndicator()
+        }
+    }
 
     /// Canvas owning the block. Nil if the block is not under a canvas hierarchy.
     ///
@@ -98,6 +104,12 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             label.themeTypeVariation = "SecondaryBlockLabel"
             self.addChild(node: label)
             self.secondaryLabel = label
+        }
+        if self.valueIndicator == nil {
+            // TODO: Use Canvas value indicator prototype to get common style
+            let indicator = ValueIndicator()
+            self.addChild(node: indicator)
+            self.valueIndicator = indicator
         }
         if self.collisionShape == nil {
             self.collisionShape = SwiftGodot.CollisionShape2D()
@@ -246,12 +258,21 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         guard let block else { return }
         guard let canvas = self.getParent() as? DiagramCanvas else { return }
         self.position = canvas.fromDesign(block.position)
-        if let box = block.pictogram?.pathBoundingBox,
-           let issueIndicator
-        {
-            issueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
+        if let box = block.pictogram?.pathBoundingBox {
+            if let issueIndicator {
+                issueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
+            }
+            if let valueIndicator {
+                valueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
+            }
         }
 
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func updateValueIndicator() {
+        guard let valueIndicator else { return }
+        valueIndicator.value = displayValue
     }
     
     var savedPrimaryLabelEditVisible: Bool = false

@@ -9,7 +9,7 @@ import SwiftGodot
 import PoieticCore
 import PoieticFlows
 
-
+// FIXME: [PORTING] Review this
 @Godot
 class ResultPlayer: SwiftGodot.Node {
     @Signal var simulationPlayerStarted: SimpleSignal
@@ -18,15 +18,15 @@ class ResultPlayer: SwiftGodot.Node {
     @Signal var simulationPlayerRestarted: SimpleSignal
     
     @Export var result: PoieticResult?
-    @Export var is_running: Bool = false
-    @Export var is_looping: Bool = true
-    @Export var time_to_step: Double = 0
-    @Export var step_duration: Double = 0.1
-    @Export var current_step: Int = 0
-    @Export var current_time: Double? {
+    @Export var isRunning: Bool = false
+    @Export var isLooping: Bool = true
+    @Export var timeToStep: Double = 0
+    @Export var stepDuration: Double = 0.1
+    @Export var currentStep: Int = 0
+    @Export var currentTime: Double? {
         get {
             guard let result = result?.result else { return nil }
-            return result.initialTime + Double(current_step) * result.timeDelta
+            return result.initialTime + Double(currentStep) * result.timeDelta
         }
         set(value) {
             GD.pushError("Trying to set read-only attribute")
@@ -35,31 +35,31 @@ class ResultPlayer: SwiftGodot.Node {
 
     @Callable
     func restart() {
-        current_step = 0
+        currentStep = 0
         simulationPlayerRestarted.emit()
     }
     
     @Callable
     public func run() {
-        self.is_running = true
+        self.isRunning = true
         simulationPlayerStarted.emit()
     }
 
     @Callable
     public func stop() {
-        self.is_running = false
+        self.isRunning = false
         simulationPlayerStopped.emit()
     }
 
     @Callable
     override public func _process(delta: Double) {
-        if is_running {
-            if time_to_step <= 0 {
+        if isRunning {
+            if timeToStep <= 0 {
                 step()
-                time_to_step = step_duration
+                timeToStep = stepDuration
             }
             else {
-                time_to_step -= delta
+                timeToStep -= delta
             }
         }
     }
@@ -68,9 +68,9 @@ class ResultPlayer: SwiftGodot.Node {
         guard let result = result?.result  else {
             return
         }
-        if current_step >= result.count {
-            if is_looping {
-                current_step = 0
+        if currentStep >= result.count {
+            if isLooping {
+                currentStep = 0
             }
             else {
                 stop()
@@ -78,23 +78,23 @@ class ResultPlayer: SwiftGodot.Node {
             }
         }
         simulationPlayerStep.emit()
-        current_step += 1
+        currentStep += 1
     }
 
     /// Get a numeric value of computed object with given ID.
     @Callable(autoSnakeCase: true)
-    public func numeric_value(id: UInt64) -> Double? {
-        let poieticID = PoieticCore.ObjectID(rawValue: id)
-        guard let wrappedResult = result?.result, let plan = result?.plan else {
-            GD.printErr("Playing without result or plan")
+    public func numericValue(rawObjectID: EntityIDValue) -> Double? {
+        let id = PoieticCore.ObjectID(rawValue: rawObjectID)
+        guard let wrappedResult = result?.result,
+              let plan = result?.plan else {
             return nil
         }
-        guard let index = plan.variableIndex(of: poieticID) else {
-            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
+        guard let index = plan.variableIndex(of: id) else {
+            GD.printErr("Can not get numeric value of unknown object ID \(id)")
             return nil
         }
-        guard let state = wrappedResult[current_step] else {
-            GD.printErr("No current player state for step: \(current_step)")
+        guard let state = wrappedResult[currentStep] else {
+            GD.printErr("No current player state for step: \(currentStep)")
             return nil
         }
         

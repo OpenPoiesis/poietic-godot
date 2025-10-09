@@ -7,6 +7,7 @@
 
 import SwiftGodot
 import PoieticCore
+import PoieticFlows
 import Diagramming
 import Foundation
 
@@ -190,12 +191,6 @@ public class CanvasController: SwiftGodot.Node {
     // MARK: - Synchronisation
     //
     
-    @Callable
-    func sync_indicators(result: PoieticResult) {
-        // FIXME: Implement this
-        GD.pushWarning("Syncing indicators not yet re-implemented")
-    }
-    
     func updateCanvas(frame: DesignFrame) {
         guard let composer else { return }
         
@@ -328,7 +323,71 @@ public class CanvasController: SwiftGodot.Node {
                                  target: targetBlock)
         connector.setDirty()
     }
-    
+   // MARK: - Value Indicators
+    // Update indicators from the player.
+    //
+    // This method is typically called on simulation player step.
+    @Callable(autoSnakeCase: true)
+    func updateIndicatorValues(player: ResultPlayer) {
+        // FIXME: [PORTING] Requires attention after porting from Godot
+        guard let designController,
+              let canvas
+        else { return }
+        
+        for block in canvas.representedBlocks {
+            guard let id = block.objectID?.rawValue else { continue }
+            guard let value = player.numericValue(rawObjectID: id) else { continue }
+            block.displayValue = value
+        }
+    }
+
+    // Remove values from indicators
+    //
+    // This method is called when design fails validation or when the simulation fails.
+    //
+    @Callable(autoSnakeCase: true)
+    func clearIndicators() {
+        // FIXME: [PORTING] Requires attention after porting from Godot
+        guard let canvas else { return }
+        for block in canvas.representedBlocks {
+            guard let id = block.objectID else { continue }
+            block.displayValue = nil
+        }
+    }
+
+    // Synchronize indicators based on a simulation result.
+    //
+    // The method sets initial value of indicators and sets indicator range from the
+    // simulation result (time series).
+    //
+    // This method is typically called on design change.
+    //
+    @Callable(autoSnakeCase: true)
+    func syncIndicators(result: PoieticResult) {
+        // FIXME: [PORTING] Requires attention after porting from Godot
+        guard let canvas else { return }
+        for block in canvas.representedBlocks {
+            guard let id = block.objectID?.rawValue,
+                  let valueIndicator = block.valueIndicator
+            else { continue }
+
+            guard let series = result.timeSeries(id: id) else {
+                GD.pushWarning("No time series for ID ", id)
+                continue
+            }
+            valueIndicator.minValue = series.data_min
+            valueIndicator.maxValue = series.data_max
+            // FIXME: This is setting default bounds, ignoring the object properties
+            if series.data_min < 0 {
+                valueIndicator.origin = 0
+            }
+            else {
+                valueIndicator.origin = series.data_min
+            }
+            block.displayValue = series.first
+        }
+    }
+
     // MARK: - Canvas Tool
     //
     /// Create a connector originating in a block and ending at a given point, typically

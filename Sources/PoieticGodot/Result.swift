@@ -71,13 +71,10 @@ class PoieticResult: SwiftGodot.Object {
         return PackedInt64Array(compactingValid: ids)
     }
 
-    @Callable
-    public func time_series(id: EntityIDValue) -> PoieticTimeSeries? {
+    @Callable(autoSnakeCase: true)
+    public func timeSeries(id: EntityIDValue) -> PoieticTimeSeries? {
         let poieticID = PoieticCore.ObjectID(rawValue: id)
-        guard let objectSeries else {
-            GD.printErr("Empty result")
-            return nil
-        }
+        guard let objectSeries else { return nil }
         return objectSeries[poieticID]
     }
 }
