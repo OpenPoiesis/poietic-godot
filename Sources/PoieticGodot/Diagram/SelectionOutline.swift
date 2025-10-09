@@ -31,6 +31,9 @@ public class SelectionOutline: SwiftGodot.Node2D {
         for curve in self.curves {
             guard let curve else { continue }
             let points = curve.tessellate()
+            // TODO: Investigate when this happens
+            guard points.count >= 3 else { continue }
+
             self.drawPolygon(points: points, colors: [fillColor])
             self.drawPolyline(points: points, color: outlineColor, width: lineWidth)
         }

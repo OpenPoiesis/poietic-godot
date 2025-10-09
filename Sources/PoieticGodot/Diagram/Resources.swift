@@ -12,7 +12,7 @@ import SwiftGodot
 
 // Resources and constants
 
-let TouchShapeRadius: Double = 4.0
+let TouchShapeRadius: Double = 6.0
 
 let IssueIndicatorIcon: String = "res://resources/icons/error.png"
 let IssueIndicatorIconSize: Float = 36.0
