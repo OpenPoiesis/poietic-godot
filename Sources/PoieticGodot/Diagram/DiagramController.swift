@@ -229,16 +229,19 @@ public class CanvasController: SwiftGodot.Node {
         if let object = canvas.representedBlock(id: node.objectID) {
             guard let block = object.block else { return } // Broken block
             composer.updateBlock(block: block, node: node)
-            object.updateContent(from: block)
+
+            object.hasValueIndicator = node.type.hasTrait(.NumericIndicator)
             object.hasIssues = hasIssues
+            object.updateContent(from: block)
         }
         else {
             let object = DiagramCanvasBlock()
             object.objectID = node.objectID
             let block = composer.createBlock(node)
             canvas.insertRepresentedBlock(object)
-            object.updateContent(from: block)
+            object.hasValueIndicator = node.type.hasTrait(.NumericIndicator)
             object.hasIssues = hasIssues
+            object.updateContent(from: block)
         }
     }
     
@@ -369,16 +372,18 @@ public class CanvasController: SwiftGodot.Node {
               let designController else { return }
         
         for block in canvas.representedBlocks {
-            guard let id = block.objectID,
+            guard block.hasValueIndicator, // Whether we *should* have the indicator
+                  let valueIndicator = block.valueIndicator // Whether we actually have it
+                  let id = block.objectID,
                   let object = designController.currentFrame[id],
-                  let valueIndicator = block.valueIndicator
             else { continue }
 
             guard let series = result.timeSeries(id: id.rawValue) else {
                 continue
             }
             let autoscaleFlag = try? object["display_value_auto_scale"]?.boolValue()
-            // TODO: Rename to display_value_min, max, baseline
+
+            // TODO: Rename to display_value_min, max, baseline (see poietic-flows metamodel)
             let rangeMin = try? object["indicator_min_value"]?.doubleValue()
             let rangeMax = try? object["indicator_max_value"]?.doubleValue()
             let baseline = try? object["indicator_mid_value"]?.doubleValue()

@@ -9,7 +9,8 @@ import SwiftGodot
 import Diagramming
 import PoieticCore
 
-// FIXME: Label positions
+/// Offset of value indicator from the top of the pictogram
+public let ValueIndicatorVerticalOffset: Double = 4.0
 
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject {
@@ -254,14 +255,10 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             label.setPosition(center)
         }
 
-//        if object.type.hasTrait(.NumericIndicator) {
-//            // TODO: Implement value indicators
-//        }
-
         self.updateVisuals()
         self.queueRedraw()
     }
-    
+   
     @Callable(autoSnakeCase: true)
     func updateVisuals() {
         guard let block else { return }
@@ -272,7 +269,13 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
                 issueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
             }
             if let valueIndicator {
-                valueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
+                let offset = Vector2D(box.width / 2,
+                                      -(Double(valueIndicator.size.y) + ValueIndicatorVerticalOffset))
+                valueIndicator.position = Vector2(box.bottomLeft + offset)
+                
+                if !hasValueIndicator {
+                    valueIndicator.hide()
+                }
             }
         }
 

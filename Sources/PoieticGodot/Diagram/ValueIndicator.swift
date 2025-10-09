@@ -130,7 +130,7 @@ public class ValueIndicator: SwiftGodot.Node2D {
     }
     
     override public func _draw() {
-        let fullRect = Rect2(position: position - size / 2, size: self.size)
+        let fullRect = Rect2(position: -size / 2, size: self.size)
         let rect = fullRect.grow(amount: -padding)
         let size = rect.size // Adjusted size by padding
         

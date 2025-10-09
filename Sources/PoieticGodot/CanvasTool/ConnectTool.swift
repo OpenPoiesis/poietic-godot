@@ -44,8 +44,6 @@ class ConnectTool: CanvasTool {
         // object_panel.selection_changed.disconnect(_on_object_selection_changed)
     }
     override func paletteItemChanged(_ identifier: String?) {
-        GD.print("--- Connect tool palette item changed: ", identifier ?? "(nil)")
-
         guard let identifier else {
             return
         }
