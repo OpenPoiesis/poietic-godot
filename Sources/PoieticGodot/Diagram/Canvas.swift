@@ -24,6 +24,10 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Export var chartsVisible: Bool = false
     @Export var formulasVisible: Bool = false
     
+    /// Prototype node that will be cloned to create value indicators.
+    /// 
+    @Export var valueIndicatorPrototype: ValueIndicator?
+    
     // TODO: Move represented* to diagram controller
     /// Blocks that represent design nodes.
     ///

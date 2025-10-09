@@ -365,29 +365,58 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func syncIndicators(result: PoieticResult) {
         // FIXME: [PORTING] Requires attention after porting from Godot
-        guard let canvas else { return }
+        guard let canvas,
+              let designController else { return }
+        
         for block in canvas.representedBlocks {
-            guard let id = block.objectID?.rawValue,
+            guard let id = block.objectID,
+                  let object = designController.currentFrame[id],
                   let valueIndicator = block.valueIndicator
             else { continue }
 
-            guard let series = result.timeSeries(id: id) else {
-                GD.pushWarning("No time series for ID ", id)
+            guard let series = result.timeSeries(id: id.rawValue) else {
                 continue
             }
-            valueIndicator.minValue = series.data_min
-            valueIndicator.maxValue = series.data_max
-            // FIXME: This is setting default bounds, ignoring the object properties
-            if series.data_min < 0 {
-                valueIndicator.origin = 0
-            }
-            else {
-                valueIndicator.origin = series.data_min
-            }
+            let autoscaleFlag = try? object["display_value_auto_scale"]?.boolValue()
+            // TODO: Rename to display_value_min, max, baseline
+            let rangeMin = try? object["indicator_min_value"]?.doubleValue()
+            let rangeMax = try? object["indicator_max_value"]?.doubleValue()
+            let baseline = try? object["indicator_mid_value"]?.doubleValue()
+
+            let coalescedMin = coalesceRangeValue(requestedValue: rangeMin,
+                                                  autoValue: series.data_min,
+                                                  defaultValue: ValueIndicatorRangeMinDefault,
+                                                  autoScale: autoscaleFlag)
+            let coalescedMax = coalesceRangeValue(requestedValue: rangeMax,
+                                                  autoValue: series.data_max,
+                                                  defaultValue: ValueIndicatorRangeMaxDefault,
+                                                  autoScale: autoscaleFlag)
+            valueIndicator.baseline = coalesceRangeValue(requestedValue: baseline,
+                                                         autoValue: series.data_min,
+                                                         defaultValue: coalescedMin,
+                                                         autoScale: autoscaleFlag)
+
+            // Safety range bounds swap
+            valueIndicator.rangeMin = min(coalescedMin, coalescedMax)
+            valueIndicator.rangeMax = max(coalescedMin, coalescedMax)
+            // Clamp baseline within bounds
+            valueIndicator.baseline = max(min(valueIndicator.baseline, valueIndicator.rangeMax), valueIndicator.rangeMin)
+            
             block.displayValue = series.first
         }
     }
 
+    func coalesceRangeValue(requestedValue: Double?, autoValue: Double, defaultValue: Double, autoScale: Bool?) -> Double {
+        switch (requestedValue, autoScale) {
+        case (.none,            .none):        defaultValue
+        case (.none,            .some(false)): defaultValue
+        case (.none,            .some(true)):  autoValue
+        case (.some(let value), .none):        value
+        case (.some(let value), .some(false)): value
+        case (.some(_),         .some(true)):  autoValue
+        }
+    }
+    
     // MARK: - Canvas Tool
     //
     /// Create a connector originating in a block and ending at a given point, typically
@@ -603,10 +632,8 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func openInlinePopup(control: SwiftGodot.Control, position: Vector2) {
         if let inlinePopup {
-            GD.printDebug("--- Close before open ", inlinePopup)
             closeInlinePopup()
         }
-        GD.printDebug("--> Open popup ", control)
         let size = control.getSize()
         let adjustedPosition = Vector2(x: position.x - size.x / 2.0, y: position.y)
         control.setGlobalPosition(adjustedPosition)
@@ -618,7 +645,6 @@ public class CanvasController: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func closeInlinePopup() {
         guard let inlinePopup else { return }
-        GD.printDebug("<-- Close popup ", inlinePopup)
         if inlinePopup.hasMethod("close") {
             inlinePopup.call(method: "close")
         }

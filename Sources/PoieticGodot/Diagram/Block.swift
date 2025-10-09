@@ -107,8 +107,17 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
         if self.valueIndicator == nil {
             // TODO: Use Canvas value indicator prototype to get common style
-            let indicator = ValueIndicator()
+            let indicator: ValueIndicator
+            if let prototype = self.canvas?.valueIndicatorPrototype,
+               let dupe = prototype.duplicate() as? ValueIndicator
+            {
+                indicator =  dupe
+            }
+            else {
+                indicator = ValueIndicator()
+            }
             self.addChild(node: indicator)
+            indicator.show()
             self.valueIndicator = indicator
         }
         if self.collisionShape == nil {
