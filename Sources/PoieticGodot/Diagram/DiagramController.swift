@@ -659,7 +659,8 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func commitNameEdit(objectID: PoieticCore.ObjectID, newValue: String) {
+    func commitNameEdit(rawObjectID: EntityIDValue, newValue: String) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let ctrl = designController,
               let canvas,
               let object = canvas.representedBlock(id: objectID),
@@ -676,7 +677,8 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func cancelNameEdit(objectID: PoieticCore.ObjectID) {
+    func cancelNameEdit(rawObjectID: EntityIDValue) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let canvas,
               let object = canvas.representedBlock(id: objectID),
               let block = object.block else { return }

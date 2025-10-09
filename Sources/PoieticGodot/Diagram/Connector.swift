@@ -89,6 +89,8 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
 
         for curve in self.filledCurves {
             let points = curve.tessellate()
+            // TODO: Investigate when this happens
+            guard points.count >= 3 else { continue }
             self.drawPolygon(points: points, colors: [lineColor])
             // TODO: Close shape
             self.drawPolyline(points: points, color: lineColor, width: lineWidth)
