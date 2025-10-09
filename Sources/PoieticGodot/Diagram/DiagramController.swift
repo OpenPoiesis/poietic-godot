@@ -373,9 +373,9 @@ public class CanvasController: SwiftGodot.Node {
         
         for block in canvas.representedBlocks {
             guard block.hasValueIndicator, // Whether we *should* have the indicator
-                  let valueIndicator = block.valueIndicator // Whether we actually have it
+                  let valueIndicator = block.valueIndicator, // Whether we actually have it
                   let id = block.objectID,
-                  let object = designController.currentFrame[id],
+                  let object = designController.currentFrame[id]
             else { continue }
 
             guard let series = result.timeSeries(id: id.rawValue) else {
