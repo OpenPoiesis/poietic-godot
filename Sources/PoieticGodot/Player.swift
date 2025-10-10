@@ -15,7 +15,6 @@ class ResultPlayer: SwiftGodot.Node {
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
     @Signal var simulationPlayerStep: SimpleSignal
-    @Signal var simulationPlayerRestarted: SimpleSignal
     
     @Export var result: PoieticResult?
     @Export var isRunning: Bool = false
@@ -33,12 +32,21 @@ class ResultPlayer: SwiftGodot.Node {
         }
     }
 
-    @Callable
-    func restart() {
+    /// Rewind the player to the first simulation step.
+    @Callable(autoSnakeCase: true)
+    func toFirstStep() {
         currentStep = 0
-        simulationPlayerRestarted.emit()
+        simulationPlayerStep.emit()
     }
     
+    /// Forward the player to the last simulation step.
+    @Callable(autoSnakeCase: true)
+    func toLastStep() {
+        guard let result = result?.result  else { return }
+        currentStep = result.count - 1
+        simulationPlayerStep.emit()
+    }
+
     @Callable
     public func run() {
         self.isRunning = true
@@ -47,15 +55,16 @@ class ResultPlayer: SwiftGodot.Node {
 
     @Callable
     public func stop() {
+        guard isRunning else { return }
         self.isRunning = false
         simulationPlayerStopped.emit()
     }
-
+    
     @Callable
     override public func _process(delta: Double) {
         if isRunning {
             if timeToStep <= 0 {
-                step()
+                nextStep()
                 timeToStep = stepDuration
             }
             else {
@@ -64,24 +73,60 @@ class ResultPlayer: SwiftGodot.Node {
         }
     }
     
-    func step() {
-        guard let result = result?.result  else {
-            return
+    @Callable(autoSnakeCase: true)
+    func toStep(_ step: Int) {
+        guard let result = result?.result  else { return }
+        let adjustedStep: Int
+        if result.count == 0 {
+            adjustedStep = 0
         }
+        else {
+            adjustedStep = min(max(step, 0), result.count - 1)
+        }
+        guard adjustedStep != currentStep else { return }
+        currentStep = adjustedStep
+        simulationPlayerStep.emit()
+    }
+
+    @Callable(autoSnakeCase: true)
+    func toTime(_ time: Double) {
+        guard let result = result?.result  else { return }
+        let distance = time - result.initialTime
+        let step = Int((distance / result.timeDelta).rounded())
+        toStep(step)
+    }
+
+    @Callable(autoSnakeCase: true)
+    func nextStep() {
+        guard let result = result?.result  else { return }
         if currentStep >= result.count {
-            if isLooping {
-                currentStep = 0
-            }
-            else {
+            guard isLooping else {
                 stop()
                 return
             }
+            currentStep = 0
         }
         simulationPlayerStep.emit()
         currentStep += 1
     }
 
-    /// Get a numeric value of computed object with given ID.
+    @Callable(autoSnakeCase: true)
+    func previousStep() {
+        guard currentStep > 0 else { return }
+        guard let result = result?.result  else { return }
+        currentStep -= 1
+        if currentStep <= 0 {
+            guard isLooping else {
+                currentStep = 0
+                stop()
+                return
+            }
+            currentStep = result.count - 1
+        }
+        simulationPlayerStep.emit()
+    }
+
+    /// Get a numeric value of computed object with given ID at the current step.
     @Callable(autoSnakeCase: true)
     public func numericValue(rawObjectID: EntityIDValue) -> Double? {
         let id = PoieticCore.ObjectID(rawValue: rawObjectID)
