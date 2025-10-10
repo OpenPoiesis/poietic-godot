@@ -29,37 +29,52 @@ class PoieticResult: SwiftGodot.Object {
             self.objectSeries![obj.objectID] = series
         }
     }
-
+    
     @Export var initial_time: Double? {
         get { result?.initialTime }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var end_time: Double? {
         get { result?.endTime }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var time_delta: Double? {
         get { result?.timeDelta }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
     @Export var count: Int {
         get { result?.count ?? 0 }
         set(value) { GD.pushError("Trying to set read-only variable") }
     }
-
+    
+    /// Get list of IDs of state variables representing computed objects.
+    ///
+    /// This list does not include internal states.
+    ///
     @Callable
-    public func time_series(id: Int64) -> PoieticTimeSeries? {
-        guard let poieticID = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid ID")
-            return nil
+    func get_computed_object_ids() -> PackedInt64Array {
+        guard let plan else {
+            return PackedInt64Array()
         }
-        guard let objectSeries else {
-            GD.printErr("Empty result")
-            return nil
+        let ids = plan.stateVariables.compactMap {
+            if case let .object(id) = $0.content {
+                id
+            }
+            else {
+                nil
+            }
         }
+        
+        return PackedInt64Array(compactingValid: ids)
+    }
+
+    @Callable(autoSnakeCase: true)
+    public func timeSeries(id: EntityIDValue) -> PoieticTimeSeries? {
+        let poieticID = PoieticCore.ObjectID(rawValue: id)
+        guard let objectSeries else { return nil }
         return objectSeries[poieticID]
     }
 }
@@ -69,9 +84,9 @@ class PoieticTimeSeries: SwiftGodot.Object {
     var _object_id: PoieticCore.ObjectID? = nil
     var series: RegularTimeSeries? = nil
     
-    @Export var object_id: Int64? {
+    @Export var object_id: EntityIDValue? {
         get {
-            if let _object_id { _object_id.godotInt }
+            if let _object_id { _object_id.rawValue }
             else { nil }
         }
         set(value) { GD.pushError("Trying to set read-only variable") }

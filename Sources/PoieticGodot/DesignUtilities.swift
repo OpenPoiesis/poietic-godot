@@ -69,7 +69,8 @@ func resolveParameters(objects: [ObjectSnapshot], view: StockFlowView) -> [Poiet
 ///
 func autoConnectParameters(_ resolvedMap: [PoieticCore.ObjectID:ResolvedParameters], in frame: TransientFrame) {
     for (id, resolved) in resolvedMap {
-        let object = frame[id]
+        guard let object = frame[id] else { continue }
+
         for name in resolved.missing {
             guard let paramNode = frame.object(named: name) else {
                 continue
@@ -102,6 +103,30 @@ func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID
     for id in current {
         if remaining.contains(id) {
             remaining.remove(id)
+        }
+        else {
+            added.append(id)
+        }
+    }
+
+    return ObjectDifference(added: added, removed: Array(remaining))
+}
+
+struct ObjectDifference2 {
+    let added: [PoieticCore.ObjectID]
+    let removed: [PoieticCore.ObjectID]
+    let remaining: [PoieticCore.ObjectID]
+}
+func difference2(current: [PoieticCore.ObjectID], required: [PoieticCore.ObjectID])
+-> ObjectDifference {
+    var current = Set(current)
+    var added: [PoieticCore.ObjectID] = []
+    var remaining: [PoieticCore.ObjectID] = []
+
+    for id in required {
+        if current.contains(id) {
+            current.remove(id)
+            remaining.append(id)
         }
         else {
             added.append(id)

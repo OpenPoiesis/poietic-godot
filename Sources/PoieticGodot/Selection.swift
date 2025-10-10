@@ -23,14 +23,28 @@ struct PoieticSelectionTypeInfo {
 }
 
 @Godot
-class PoieticSelection: SwiftGodot.Node {
+class SelectionManager: SwiftGodot.Node {
+    // TODO: Consider removing this selection wrapper, just add get_ids() on Canvas
     var selection: Selection = Selection()
    
-    @Signal var selectionChanged: SignalWithArguments<PoieticSelection>
+    @Signal var selectionChanged: SignalWithArguments<SelectionManager>
 
+
+    /// Get an ID of a selected object if only one object is selected. Otherwise
+    /// returns null.
+    ///
+    /// Use this method for actions that operate on single objects, such as name or formula
+    /// editing.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func selectionOfOne() -> EntityIDValue? {
+        guard selection.count == 1 else { return nil }
+        return selection.first?.rawValue
+    }
+    
     @Callable
     func get_ids() -> PackedInt64Array {
-        return PackedInt64Array(selection.map { $0.godotInt })
+        return PackedInt64Array(compactingValid: selection)
     }
     
     @Callable
@@ -50,29 +64,25 @@ class PoieticSelection: SwiftGodot.Node {
     }
     
     @Callable
-    func contains(id: Int64) -> Bool {
-        guard let actual_id = ObjectID(id) else {
-            GD.pushError("Invalid ID: \(id)")
-            return false
-        }
+    func contains(id: EntityIDValue) -> Bool {
+        let actual_id = ObjectID(rawValue: id)
         return selection.contains(actual_id) ?? false
     }
     
+    func contains(_ id: PoieticCore.ObjectID) -> Bool {
+        return selection.contains(id)
+    }
+
     @Callable
-    func append(id: Int64) {
-        guard let actual_id = ObjectID(id) else {
-            GD.pushError("Invalid ID: \(id)")
-            return
-        }
+    func append(id: EntityIDValue) {
+        let actual_id = ObjectID(rawValue: id)
         selection.append(actual_id)
         selectionChanged.emit(self)
     }
 
     @Callable
     func replace(ids: PackedInt64Array) {
-        var actualIDs: [PoieticCore.ObjectID] = ids.compactMap {
-            PoieticCore.ObjectID($0)
-        }
+        var actualIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
         guard ids.count == actualIDs.count else {
             GD.pushError("Some IDs are invalid")
             return
@@ -81,23 +91,26 @@ class PoieticSelection: SwiftGodot.Node {
         selectionChanged.emit(self)
     }
     
+    func replaceAll(_ ids: [PoieticCore.ObjectID]) {
+        selection.replaceAll(ids)
+        selectionChanged.emit(self)
+    }
+    
     @Callable
-    func remove(id: Int64) {
-        guard let actual_id = ObjectID(id) else {
-            GD.pushError("Invalid ID: \(id)")
-            return
-        }
+    func remove(id: EntityIDValue) {
+        let actual_id = ObjectID(rawValue: id)
         selection.remove(actual_id)
         selectionChanged.emit(self)
     }
 
     @Callable
-    func toggle(id: Int64) {
-        guard let actual_id = ObjectID(id) else {
-            GD.pushError("Invalid ID: \(id)")
-            return
-        }
+    func toggle(id: EntityIDValue) {
+        let actual_id = ObjectID(rawValue: id)
         selection.toggle(actual_id)
+        selectionChanged.emit(self)
+    }
+    func toggle(_ id: PoieticCore.ObjectID) {
+        selection.toggle(id)
         selectionChanged.emit(self)
     }
 }

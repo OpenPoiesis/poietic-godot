@@ -18,25 +18,24 @@ class PoieticTransaction: SwiftGodot.Object {
     }
     
     @Callable
-    func create_object(typeName: String, attributes: GDictionary) -> Int64? {
+    func create_object(typeName: String, attributes: GDictionary) -> EntityIDValue? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
         }
         
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
-            GD.pushError("Trying to create a node of unknown type '\(typeName)'")
+            GD.pushError("Trying to create an object of unknown type '\(typeName)'")
             return nil
         }
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
         let object = frame.create(type, attributes: lossyAttributes)
         
-        return object.objectID.godotInt
+        return object.objectID.rawValue
     }
 
     @Callable
-    func create_node(typeName: String, name: String? = nil, attributes: GDictionary = GDictionary()) -> Int64? {
-        GD.print("CREATE NODE: ", typeName, " name: '", name, "'")
+    func create_node(typeName: String, name: String? = nil, attributes: GDictionary = GDictionary()) -> EntityIDValue? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
@@ -44,29 +43,25 @@ class PoieticTransaction: SwiftGodot.Object {
         
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
+            let names = frame.design.metamodel.types.map { $0.name }.joined(separator: ", ")
+            GD.pushError("Available types: \(names)")
             return nil
         }
 
         var lossyAttributes: [String:PoieticCore.Variant] = attributes.asLossyPoieticAttributes()
         let object = frame.createNode(type, name: name, attributes: lossyAttributes)
         
-        return object.objectID.godotInt
+        return object.objectID.rawValue
     }
     
     @Callable
-    func create_edge(typeName: String, origin: Int64, target: Int64) -> Int64? {
+    func create_edge(typeName: String, origin: EntityIDValue, target: EntityIDValue) -> EntityIDValue? {
         guard let frame else {
             GD.pushError("Using transaction without a frame")
             return nil
         }
-        guard let originID = PoieticCore.ObjectID(origin) else {
-            GD.pushError("Invalid origin ID")
-            return nil
-        }
-        guard let targetID = PoieticCore.ObjectID(target) else {
-            GD.pushError("Invalid target ID")
-            return nil
-        }
+        let originID = PoieticCore.ObjectID(rawValue: origin)
+        let targetID = PoieticCore.ObjectID(rawValue: target)
         
         guard let type = frame.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Trying to create a node of unknown type '\(typeName)'")
@@ -83,15 +78,12 @@ class PoieticTransaction: SwiftGodot.Object {
         
         let object = frame.createEdge(type, origin: originID, target: targetID)
         
-        return object.objectID.godotInt
+        return object.objectID.rawValue
     }
     
     @Callable
-    func remove_object(object_id: Int64) {
-        guard let actual_id = PoieticCore.ObjectID(object_id) else {
-            GD.pushError("Invalid object ID type")
-            return
-        }
+    func remove_object(object_id: EntityIDValue) {
+        let actual_id = PoieticCore.ObjectID(rawValue: object_id)
         guard let frame, frame.contains(actual_id) else {
             GD.pushError("Unknown object ID \(object_id)")
             return
@@ -101,11 +93,9 @@ class PoieticTransaction: SwiftGodot.Object {
     }
     
     @Callable
-    func set_attribute(object_id: Int64, attribute: String, value: SwiftGodot.Variant?) {
-        guard let actual_id = PoieticCore.ObjectID(object_id) else {
-            GD.pushError("Invalid object ID type")
-            return
-        }
+    func set_attribute(object_id: EntityIDValue, attribute: String, value: SwiftGodot.Variant?) {
+        let actual_id = PoieticCore.ObjectID(rawValue: object_id)
+        
         guard let frame, frame.contains(actual_id) else {
             GD.pushError("Unknown object ID \(object_id)")
             return
@@ -121,17 +111,14 @@ class PoieticTransaction: SwiftGodot.Object {
     }
 
     @Callable
-    func set_numeric_attribute_from_string(object_id: Int64, attribute: String, stringValue: String) -> Bool {
-        guard let actual_id = PoieticCore.ObjectID(object_id) else {
-            GD.pushError("Invalid object ID type")
-            return false
-        }
-        guard let frame, frame.contains(actual_id) else {
+    func set_numeric_attribute_from_string(object_id: EntityIDValue, attribute: String, stringValue: String) -> Bool {
+        let actual_id = PoieticCore.ObjectID(rawValue: object_id)
+        guard let frame,
+              let original = frame[actual_id] else {
             GD.pushError("Unknown object ID \(object_id)")
             return false
         }
         var metamodel = frame.design.metamodel
-        var original = frame[actual_id]
         guard let valueType = original.type.attribute(attribute)?.type else {
             return false
         }
@@ -160,42 +147,5 @@ class PoieticTransaction: SwiftGodot.Object {
 
         object[attribute] = variant
         return true
-    }
-    
-    @Callable
-    func paste_from_text(text: String) -> PackedInt64Array {
-        guard let frame else {
-            GD.pushError("Using transaction without a frame")
-            return PackedInt64Array()
-        }
-        guard let data = text.data(using: .utf8) else {
-            GD.pushError("Can not get data from text")
-            return PackedInt64Array()
-        }
-
-        let reader = JSONDesignReader()
-        let rawDesign: RawDesign
-        do {
-            rawDesign = try reader.read(data: data)
-        }
-        catch {
-            GD.pushError("Unable to paste: \(error)")
-            return PackedInt64Array()
-        }
-        
-        let loader = DesignLoader(metamodel: frame.design.metamodel)
-        let ids: [PoieticCore.ObjectID]
-        do {
-            ids = try loader.load(rawDesign.snapshots,
-                                  into: frame,
-                                  identityStrategy: .preserveOrCreate)
-        }
-        catch {
-            GD.pushError("Unable to load: \(error)")
-            return PackedInt64Array()
-//            let position = $0.position ?? Point(0.0, 0.0)
-//            $0.position = Point(position.x + offset.x, position.y + offset.y)
-        }
-        return PackedInt64Array( ids.map {$0.godotInt} )
     }
 }

@@ -9,95 +9,137 @@ import SwiftGodot
 import PoieticCore
 import PoieticFlows
 
-
+// FIXME: [PORTING] Review this
 @Godot
-class PoieticPlayer: SwiftGodot.Node {
+class ResultPlayer: SwiftGodot.Node {
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
     @Signal var simulationPlayerStep: SimpleSignal
-    @Signal var simulationPlayerRestarted: SimpleSignal
     
     @Export var result: PoieticResult?
-    @Export var is_running: Bool = false
-    @Export var is_looping: Bool = true
-    @Export var time_to_step: Double = 0
-    @Export var step_duration: Double = 0.1
-    @Export var current_step: Int = 0
-    @Export var current_time: Double? {
+    @Export var isRunning: Bool = false
+    @Export var isLooping: Bool = true
+    @Export var timeToStep: Double = 0
+    @Export var stepDuration: Double = 0.1
+    @Export var currentStep: Int = 0
+    @Export var currentTime: Double? {
         get {
             guard let result = result?.result else { return nil }
-            return result.initialTime + Double(current_step) * result.timeDelta
+            return result.initialTime + Double(currentStep) * result.timeDelta
         }
         set(value) {
             GD.pushError("Trying to set read-only attribute")
         }
     }
 
-    @Callable
-    func restart() {
-        current_step = 0
-        simulationPlayerRestarted.emit()
+    /// Rewind the player to the first simulation step.
+    @Callable(autoSnakeCase: true)
+    func toFirstStep() {
+        currentStep = 0
+        simulationPlayerStep.emit()
     }
     
+    /// Forward the player to the last simulation step.
+    @Callable(autoSnakeCase: true)
+    func toLastStep() {
+        guard let result = result?.result  else { return }
+        currentStep = result.count - 1
+        simulationPlayerStep.emit()
+    }
+
     @Callable
     public func run() {
-        self.is_running = true
+        self.isRunning = true
         simulationPlayerStarted.emit()
     }
 
     @Callable
     public func stop() {
-        self.is_running = false
+        guard isRunning else { return }
+        self.isRunning = false
         simulationPlayerStopped.emit()
     }
-
+    
     @Callable
     override public func _process(delta: Double) {
-        if is_running {
-            if time_to_step <= 0 {
-                step()
-                time_to_step = step_duration
+        if isRunning {
+            if timeToStep <= 0 {
+                nextStep()
+                timeToStep = stepDuration
             }
             else {
-                time_to_step -= delta
+                timeToStep -= delta
             }
         }
     }
     
-    func step() {
-        guard let result = result?.result  else {
-            return
+    @Callable(autoSnakeCase: true)
+    func toStep(_ step: Int) {
+        guard let result = result?.result  else { return }
+        let adjustedStep: Int
+        if result.count == 0 {
+            adjustedStep = 0
         }
-        if current_step >= result.count {
-            if is_looping {
-                current_step = 0
-            }
-            else {
+        else {
+            adjustedStep = min(max(step, 0), result.count - 1)
+        }
+        guard adjustedStep != currentStep else { return }
+        currentStep = adjustedStep
+        simulationPlayerStep.emit()
+    }
+
+    @Callable(autoSnakeCase: true)
+    func toTime(_ time: Double) {
+        guard let result = result?.result  else { return }
+        let distance = time - result.initialTime
+        let step = Int((distance / result.timeDelta).rounded())
+        toStep(step)
+    }
+
+    @Callable(autoSnakeCase: true)
+    func nextStep() {
+        guard let result = result?.result  else { return }
+        if currentStep >= result.count {
+            guard isLooping else {
                 stop()
                 return
             }
+            currentStep = 0
         }
         simulationPlayerStep.emit()
-        current_step += 1
+        currentStep += 1
     }
 
-    /// Get a numeric value of computed object with given ID.
-    @Callable
-    public func numeric_value(id: Int64) -> Double? {
-        guard let poieticID = PoieticCore.ObjectID(id) else {
-            GD.pushError("Invalid ID")
+    @Callable(autoSnakeCase: true)
+    func previousStep() {
+        guard currentStep > 0 else { return }
+        guard let result = result?.result  else { return }
+        currentStep -= 1
+        if currentStep <= 0 {
+            guard isLooping else {
+                currentStep = 0
+                stop()
+                return
+            }
+            currentStep = result.count - 1
+        }
+        simulationPlayerStep.emit()
+    }
+
+    /// Get a numeric value of computed object with given ID at the current step.
+    @Callable(autoSnakeCase: true)
+    public func numericValue(rawObjectID: EntityIDValue) -> Double? {
+        let id = PoieticCore.ObjectID(rawValue: rawObjectID)
+        guard let wrappedResult = result?.result,
+              let plan = result?.plan else {
             return nil
         }
-        guard let wrappedResult = result?.result, let plan = result?.plan else {
-            GD.printErr("Playing without result or plan")
+        guard let index = plan.variableIndex(of: id) else {
+            GD.printErr("Can not get numeric value of unknown object ID \(id)")
             return nil
         }
-        guard let index = plan.variableIndex(of: poieticID) else {
-            GD.printErr("Can not get numeric value of unknown object ID \(poieticID)")
-            return nil
-        }
-        guard let state = wrappedResult[current_step] else {
-            GD.printErr("No current player state for step: \(current_step)")
+        guard let state = wrappedResult[currentStep] else {
+            GD.printErr("No current player state for step: \(currentStep)")
             return nil
         }
         

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -16,6 +16,7 @@ let package = Package(
                 .package(url: "https://github.com/migueldeicaza/SwiftGodot", branch: "main"),
                 .package(url: "https://github.com/openpoiesis/poietic-core", branch: "main"),
                 .package(url: "https://github.com/openpoiesis/poietic-flows", branch: "main"),
+                .package(url: "https://github.com/openpoiesis/poietic-diagram", branch: "main"),
     ],
     targets: [
         .target(
@@ -24,6 +25,7 @@ let package = Package(
                 .product(name: "SwiftGodot", package: "SwiftGodot"),
                 .product(name: "PoieticCore", package: "poietic-core"),
                 .product(name: "PoieticFlows", package: "poietic-flows"),
+                .product(name: "Diagramming", package: "poietic-diagram"),
             ],
             swiftSettings: [.unsafeFlags(["-suppress-warnings"])]
         ),
