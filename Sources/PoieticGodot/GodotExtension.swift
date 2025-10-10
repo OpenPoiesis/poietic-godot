@@ -11,7 +11,7 @@ import SwiftGodot
         DesignController.self,
         SelectionManager.self,
         ResultPlayer.self,
-
+        
         // Design content and other data
         PoieticObject.self,
         PoieticIssue.self,

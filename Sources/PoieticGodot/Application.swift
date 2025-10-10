@@ -78,6 +78,20 @@ class PoieticApplication: SwiftGodot.Node {
         self.addChild(node: connectTool)
         self.addChild(node: panTool)
     }
+
+    // MARK: - Actions and Action Dispatch
+    @Callable(autoSnakeCase: true)
+    func performObjectsAction(_ actionName: String, rawIDs: PackedInt64Array) {
+        let ids: [PoieticCore.ObjectID] = rawIDs.asValidEntityIDs()
+        switch actionName {
+        case "delete_objects":
+            designController?.deleteObjects(ids)
+        default:
+            GD.pushError("Unknown application action: ", actionName)
+        }
+    }
+    
+    // MARK: - Tool
     
     @Callable(autoSnakeCase: true)
     func setTool(_ toolName: String) {

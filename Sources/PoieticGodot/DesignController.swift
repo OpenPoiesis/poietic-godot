@@ -633,14 +633,8 @@ public class DesignController: SwiftGodot.Node {
     ///
     @Callable(autoSnakeCase: true)
     public func deleteSelection() {
-        let trans = self.newTransaction()
         let ids = selectionManager.selection.ids
-
-        for id in ids {
-            guard trans.contains(id) else { continue }
-            trans.removeCascading(id)
-        }
-        self.accept(trans)
+        deleteObjects(ids)
         selectionManager.clear()
     }
         
@@ -802,5 +796,17 @@ public class DesignController: SwiftGodot.Node {
         }
         try writer.close()
     }
-    
+   
+    // MARK: - Actions
+    // TODO: Move towards this, review other methods
+    /// Delete objects in current frame.
+    ///
+    func deleteObjects(_ ids: [PoieticCore.ObjectID]) {
+        let trans = self.newTransaction()
+        let existing = trans.existing(from: ids)
+        for id in existing {
+            trans.removeCascading(id)
+        }
+        self.accept(trans)
+    }
 }

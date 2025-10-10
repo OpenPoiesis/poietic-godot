@@ -381,12 +381,12 @@ public class CanvasController: SwiftGodot.Node {
             guard let series = result.timeSeries(id: id.rawValue) else {
                 continue
             }
-            let autoscaleFlag = try? object["display_value_auto_scale"]?.boolValue()
+            let autoscaleFlag: Bool? = object["display_value_auto_scale"]
 
             // TODO: Rename to display_value_min, max, baseline (see poietic-flows metamodel)
-            let rangeMin = try? object["indicator_min_value"]?.doubleValue()
-            let rangeMax = try? object["indicator_max_value"]?.doubleValue()
-            let baseline = try? object["indicator_mid_value"]?.doubleValue()
+            let rangeMin: Double? = object["indicator_min_value"]
+            let rangeMax: Double? = object["indicator_max_value"]
+            let baseline: Double? = object["indicator_mid_value"]
 
             let coalescedMin = coalesceRangeValue(requestedValue: rangeMin,
                                                   autoValue: series.data_min,
@@ -515,7 +515,7 @@ public class CanvasController: SwiftGodot.Node {
             object.position = (object.position ?? .zero) + designDelta
         }
         else if object.type.hasTrait(.DiagramConnector) {
-            guard let midpoints = (try? object["midpoints"]?.pointArray()) else { return }
+            guard let midpoints: [Point] = object["midpoints"] else { return }
             guard !midpoints.isEmpty else { return }
             
             let movedMidpoints = midpoints.map {
@@ -691,7 +691,7 @@ public class CanvasController: SwiftGodot.Node {
         guard let ctrl = designController,
               let object = ctrl.object(objectID) else { return }
         
-        if (try? object["formula"]?.stringValue()) == newFormulaText {
+        if (object["formula"] as? String) == newFormulaText {
             return // Attribute not changed
         }
         
