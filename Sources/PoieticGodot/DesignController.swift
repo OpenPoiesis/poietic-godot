@@ -34,7 +34,7 @@ public class DesignController: SwiftGodot.Node {
     @Signal var designReset: SimpleSignal
     /// Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
-
+    
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
@@ -741,7 +741,6 @@ public class DesignController: SwiftGodot.Node {
         wrap.set(plan: simulationPlan, result: simulator.result)
         simulationFinished.emit(wrap)
     }
-    
     
     @Callable
     func write_to_csv(path: String, result: PoieticResult, ids: PackedInt64Array) {
