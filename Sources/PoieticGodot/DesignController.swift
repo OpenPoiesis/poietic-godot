@@ -517,7 +517,7 @@ public class DesignController: SwiftGodot.Node {
         let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
             // FIXME: [WIP] add which frame to load
-            try loader.load(rawDesign.snapshots, into: trans)
+            try loader.load(rawDesign, into: trans)
         }
         catch {
             // TODO: Propagate error to the user
@@ -551,7 +551,7 @@ public class DesignController: SwiftGodot.Node {
         let loader = DesignLoader(metamodel: StockFlowMetamodel, options: .useIDAsNameAttribute)
         do {
             // FIXME: add which frame to load
-            try loader.load(rawDesign.snapshots, into: trans)
+            try loader.load(rawDesign, into: trans)
         }
         catch {
             // TODO: Propagate error to the user
@@ -614,7 +614,7 @@ public class DesignController: SwiftGodot.Node {
 
         let trans = self.newTransaction()
         do {
-            ids = try loader.load(rawDesign.snapshots,
+            ids = try loader.load(rawDesign,
                                   into: trans,
                                   identityStrategy: .preserveOrCreate)
         }
