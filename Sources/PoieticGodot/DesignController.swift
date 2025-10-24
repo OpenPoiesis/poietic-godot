@@ -170,6 +170,38 @@ public class DesignController: SwiftGodot.Node {
         }
     }
     
+    /// Get special singleton object with system-defined name.
+    ///
+    /// Known names and their properties:
+    ///     - `DesignInfo`
+    ///         - `title`
+    ///         - `author`
+    ///         - `abstract`
+    ///         - `documentation`
+    ///         - `license`
+    ///     - `Simulation`
+    ///         - `initial_time`
+    ///         - `time_delta`
+    ///         - `end_time`
+    ///
+    @Callable(autoSnakeCase: true)
+    func getSpecialObject(name: String) -> PoieticObject? {
+        let object: ObjectSnapshot?
+        switch name {
+        case "DesignInfo":
+            object = currentFrame.filter(type: ObjectType.DesignInfo).first
+        case "Simulation":
+            object = currentFrame.filter(type: ObjectType.Simulation).first
+        default:
+            return nil
+        }
+        guard let object else { return nil }
+        var result = PoieticObject()
+        result.object = object
+        return result
+    }
+    
+    // TODO: Deprecate in favour of "getSpecialObject"
     @Callable func get_simulation_parameters_object() -> PoieticObject? {
         guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
             return nil

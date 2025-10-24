@@ -29,6 +29,16 @@ class PoieticObject: SwiftGodot.RefCounted {
         set { readOnlyAttributeError() }
     }
     
+    @Export var label: String? {
+        get { object?.label }
+        set { readOnlyAttributeError() }
+    }
+    
+    @Export var secondaryLabel: String? {
+        get { object?.secondaryLabel }
+        set { readOnlyAttributeError() }
+    }
+
     @Export var origin: EntityIDValue? {
         get {
             guard let object,

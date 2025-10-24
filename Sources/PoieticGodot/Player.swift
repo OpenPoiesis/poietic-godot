@@ -129,17 +129,15 @@ class ResultPlayer: SwiftGodot.Node {
     /// Get a numeric value of computed object with given ID at the current step.
     @Callable(autoSnakeCase: true)
     public func numericValue(rawObjectID: EntityIDValue) -> Double? {
-        let id = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let wrappedResult = result?.result,
-              let plan = result?.plan else {
+              let plan = result?.plan,
+              let state = wrappedResult[currentStep]
+        else {
             return nil
         }
+
+        let id = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let index = plan.variableIndex(of: id) else {
-            GD.printErr("Can not get numeric value of unknown object ID \(id)")
-            return nil
-        }
-        guard let state = wrappedResult[currentStep] else {
-            GD.printErr("No current player state for step: \(currentStep)")
             return nil
         }
         
