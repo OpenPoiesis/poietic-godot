@@ -56,6 +56,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         return Array(_representedBlocks.keys) + Array(_representedConnectors.keys)
     }
     
+    /// Get IDs of objects represented in the canvas - blocks and connectors.
+    @Callable(autoSnakeCase: false)
+    func get_represented_object_ids() -> PackedInt64Array {
+        return PackedInt64Array(representedObjectIDs().map {Int64($0.rawValue)})
+    }
+    
     func currentTool() -> CanvasTool? {
         guard let app = getNode(path: NodePath(AppNodePath)) as? PoieticApplication else {
             GD.pushWarning("Unable to get app")

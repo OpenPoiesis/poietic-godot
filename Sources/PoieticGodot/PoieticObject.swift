@@ -61,9 +61,7 @@ class PoieticObject: SwiftGodot.RefCounted {
 
     @Callable(autoSnakeCase: true)
     func getTraits() -> PackedStringArray {
-        guard let type = object?.type else {
-            return PackedStringArray()
-        }
+        guard let type = object?.type else { return PackedStringArray() }
         return PackedStringArray(type.traits.map { String($0.name) })
     }
     
@@ -78,5 +76,11 @@ class PoieticObject: SwiftGodot.RefCounted {
         guard let object,
               let value = object[attribute] else { return nil }
         return value.asGodotVariant()
+    }
+    
+    @Callable(autoSnakeCase: true)
+    func getAttributeKeys() -> PackedStringArray {
+        guard let type = object?.type else { return PackedStringArray() }
+        return PackedStringArray(type.attributes.map {$0.name})
     }
 }

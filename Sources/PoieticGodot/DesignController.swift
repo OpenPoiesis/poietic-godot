@@ -76,7 +76,13 @@ public class DesignController: SwiftGodot.Node {
     func object(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
         return self.currentFrame[id]
     }
-   
+
+    // MARK: - Query
+    @Callable
+    func get_all_ids() -> PackedInt64Array {
+        return PackedInt64Array(self.currentFrame.objectIDs.map { Int64($0.rawValue)} )
+    }
+
     /// Get a list of object IDs that are of given object type.
     ///
     @Callable(autoSnakeCase: true)
@@ -308,7 +314,7 @@ public class DesignController: SwiftGodot.Node {
                     self.issues = issues.asDesignIssueCollection()
                     debugPrintIssues(self.issues!)
                 case .internalError(let error):
-                    self.application?.commandFailed.emit("internal-error:compiler", error.description, SwiftGodot.VariantDictionary())
+                    self.application?.commandFailed.emit("internal-error:compiler", error.localizedDescription, SwiftGodot.VariantDictionary())
                     GD.pushError("INTERNAL ERROR (compiler): \(error)")
                 }
             }
@@ -499,8 +505,8 @@ public class DesignController: SwiftGodot.Node {
             try exporter.export(diagram: diagram, to: path)
         }
         catch {
-            GD.pushError("Export to SVG failed:", error.description)
-            self.application?.commandFailed.emit("export-svg", error.description, SwiftGodot.VariantDictionary())
+            GD.pushError("Export to SVG failed:", error.localizedDescription)
+            self.application?.commandFailed.emit("export-svg", error.localizedDescription, SwiftGodot.VariantDictionary())
         }
     }
     
@@ -767,7 +773,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             GD.pushError("Simulation initialisation failed: \(error)")
             simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation-init", error.description, SwiftGodot.VariantDictionary())
+            self.application?.commandFailed.emit("simulation-init", error.localizedDescription, SwiftGodot.VariantDictionary())
             return
         }
         
@@ -777,7 +783,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
             simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation", error.description, SwiftGodot.VariantDictionary())
+            self.application?.commandFailed.emit("simulation", error.localizedDescription, SwiftGodot.VariantDictionary())
             return
         }
         
@@ -805,7 +811,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             // TODO: Handle error gracefuly
             GD.pushError("Unable to write to '\(path)'. Reason: \(error)")
-            self.application?.commandFailed.emit("export-csv", error.description, SwiftGodot.VariantDictionary())
+            self.application?.commandFailed.emit("export-csv", error.localizedDescription, SwiftGodot.VariantDictionary())
             return
         }
     }
