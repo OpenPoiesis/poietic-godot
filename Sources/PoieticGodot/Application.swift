@@ -20,6 +20,14 @@ public let AppNodePath = "/root/Main/PoieticApplication"
 ///
 @Godot
 class PoieticApplication: SwiftGodot.Node {
+    /// Signal emitted when an action has failed. For example when opening a corrupted file.
+    ///
+    /// The signal parameters are:
+    /// - Failed action name
+    /// - Error message
+    /// - Additional information
+    @Signal var commandFailed: SignalWithArguments<String,String,SwiftGodot.VariantDictionary>
+
     // MARK: - Tools
     @Export var currentTool: CanvasTool?
     @Export var previousTool: CanvasTool?
@@ -70,6 +78,7 @@ class PoieticApplication: SwiftGodot.Node {
         
         GD.print("Poietic Application initialised.")
         super.init(context)
+        designController?.application = self
     }
 
     override func _ready() {

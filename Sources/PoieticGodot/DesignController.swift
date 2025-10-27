@@ -5,6 +5,8 @@
 //  Created by Stefan Urbanek on 22/02/2025.
 //
 
+// TODO: Change error descriptions to be localizedDescription
+
 import SwiftGodot
 import Foundation
 import PoieticFlows
@@ -16,6 +18,8 @@ import Diagramming
 @Godot
 public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
+    
+    @Export var application: PoieticApplication?
     
     // TODO: Review where is the ctrl metamodel used
     // TODO: Remove this or rename to `metamodel`
@@ -304,6 +308,7 @@ public class DesignController: SwiftGodot.Node {
                     self.issues = issues.asDesignIssueCollection()
                     debugPrintIssues(self.issues!)
                 case .internalError(let error):
+                    self.application?.commandFailed.emit("internal-error:compiler", error.description, SwiftGodot.VariantDictionary())
                     GD.pushError("INTERNAL ERROR (compiler): \(error)")
                 }
             }
@@ -461,7 +466,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             // TODO: Handle various load errors (as in ToolEnvironment of poietic-tool package)
             GD.pushError("Unable to open design: \(error)")
-            return
+            self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
         designReset.emit()
         validateAndCompile()
@@ -476,6 +481,7 @@ public class DesignController: SwiftGodot.Node {
         }
         catch {
             GD.pushError("Unable to save design: \(error)")
+            self.application?.commandFailed.emit("save", error.description, SwiftGodot.VariantDictionary())
         }
     }
     
@@ -493,7 +499,8 @@ public class DesignController: SwiftGodot.Node {
             try exporter.export(diagram: diagram, to: path)
         }
         catch {
-            GD.pushError("Export to SVG failed:", error.localizedDescription)
+            GD.pushError("Export to SVG failed:", error.description)
+            self.application?.commandFailed.emit("export-svg", error.description, SwiftGodot.VariantDictionary())
         }
     }
     
@@ -542,6 +549,7 @@ public class DesignController: SwiftGodot.Node {
         }
         catch {
             GD.printErr("Unable to read frame '\(path)': \(error)")
+            self.application?.commandFailed.emit("import", error.description, SwiftGodot.VariantDictionary())
             return false
         }
         
@@ -554,7 +562,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             // TODO: Propagate error to the user
             GD.printErr("Unable to load frame \(path): \(error)")
-            return false
+            self.application?.commandFailed.emit("import", error.description, SwiftGodot.VariantDictionary())
         }
         
         accept(trans)
@@ -576,6 +584,7 @@ public class DesignController: SwiftGodot.Node {
         }
         catch {
             GD.printErr("Unable to read frame from data: \(error)")
+            self.application?.commandFailed.emit("import-data", error.description, SwiftGodot.VariantDictionary())
             return false
         }
         
@@ -588,11 +597,11 @@ public class DesignController: SwiftGodot.Node {
         catch {
             // TODO: Propagate error to the user
             GD.printErr("Unable to load frame from data: \(error)")
+            self.application?.commandFailed.emit("import-data", error.description, SwiftGodot.VariantDictionary())
             return false
         }
         
         accept(trans)
-        return true
         return true
     }
     
@@ -639,6 +648,7 @@ public class DesignController: SwiftGodot.Node {
         }
         catch {
             GD.pushError("Unable to paste: \(error)")
+            self.application?.commandFailed.emit("paste", error.description, SwiftGodot.VariantDictionary())
             return false
         }
         let loader = DesignLoader(metamodel: self._metamodel)
@@ -653,6 +663,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             GD.pushError("Unable to paste: \(error)")
             self.discard(trans)
+            self.application?.commandFailed.emit("paste", error.description, SwiftGodot.VariantDictionary())
             return false
         }
 
@@ -756,6 +767,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             GD.pushError("Simulation initialisation failed: \(error)")
             simulationFailed.emit()
+            self.application?.commandFailed.emit("simulation-init", error.description, SwiftGodot.VariantDictionary())
             return
         }
         
@@ -765,6 +777,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
             simulationFailed.emit()
+            self.application?.commandFailed.emit("simulation", error.description, SwiftGodot.VariantDictionary())
             return
         }
         
@@ -792,6 +805,7 @@ public class DesignController: SwiftGodot.Node {
         catch {
             // TODO: Handle error gracefuly
             GD.pushError("Unable to write to '\(path)'. Reason: \(error)")
+            self.application?.commandFailed.emit("export-csv", error.description, SwiftGodot.VariantDictionary())
             return
         }
     }
