@@ -11,6 +11,8 @@ import PoieticFlows
 import Diagramming
 import Foundation
 
+// FIXME: There is confusion between Diagramming.DiagramStyle and our DiagramStyle. Resolve that.
+
 /// Canvas Controller synchronises design with canvas.
 ///
 /// Responsibilities:
@@ -31,6 +33,8 @@ public class CanvasController: SwiftGodot.Node {
     @Export public var designController: DesignController?
     var composer: DiagramComposer?
     
+    // TODO: Update visuals on style change
+    @Export public var style: DiagramStyle?
     @Export public var contextMenu: SwiftGodot.Control?
     var inlineEditors: [String:SwiftGodot.Control] = [:]
     
@@ -86,14 +90,14 @@ public class CanvasController: SwiftGodot.Node {
         
         self.pictograms = PictogramCollection(scaled)
         
-        let style = DiagramStyle(
+        let style = Diagramming.DiagramStyle(
             pictograms: pictograms,
             connectorStyles: StockFlowConnectorStyles,
         )
         setDiagramStyle(style)
     }
     
-    func setDiagramStyle(_ style: DiagramStyle) {
+    func setDiagramStyle(_ style: Diagramming.DiagramStyle) {
         self.composer = DiagramComposer(style: style)
         
         guard let frame = designController?.currentFrame else { return }
@@ -221,6 +225,9 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     func syncDesignBlock(_ node: ObjectSnapshot) {
+        // FIXME: Require style (this is just a quick hack to make swatches work)
+        let style = style ?? DiagramStyle()
+        
         guard let canvas,
               let composer,
               let designController else { return }
@@ -232,7 +239,7 @@ public class CanvasController: SwiftGodot.Node {
 
             object.hasValueIndicator = node.type.hasTrait(.NumericIndicator)
             object.hasIssues = hasIssues
-            object.updateContent(from: block)
+            object.updateContent(from: block, object: node, style: style)
         }
         else {
             let object = DiagramCanvasBlock()
@@ -241,7 +248,7 @@ public class CanvasController: SwiftGodot.Node {
             canvas.insertRepresentedBlock(object)
             object.hasValueIndicator = node.type.hasTrait(.NumericIndicator)
             object.hasIssues = hasIssues
-            object.updateContent(from: block)
+            object.updateContent(from: block, object: node, style: style)
         }
     }
     

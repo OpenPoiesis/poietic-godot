@@ -36,6 +36,7 @@ public let SelectionMargin: Double = 4.0
 let PrimaryLabelOffset: Float = 6.0
 let SecondaryLabelOffset: Float = 6.0
 
+let ColorSwatchSize: Float = 10.0
 
 public let DefaultFatConnectorFillAlpha: Float = 0.6
 

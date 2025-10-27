@@ -19,7 +19,8 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
     @Export var pictogram: Pictogram2D?
     @Export var collisionShape: SwiftGodot.CollisionShape2D?
-    
+    @Export var colorSwatch: SwiftGodot.Polygon2D?
+
     // TODO: Review necessity of has*Label
     @Export var hasPrimaryLabel: Bool = true
     /// Primary label of a block, typically a block name.
@@ -131,6 +132,21 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
             self.selectionOutline = outline
             self.addChild(node: outline)
         }
+        
+        if self.colorSwatch == nil {
+            let swatch = Polygon2D()
+            let halfSize = ColorSwatchSize / 2.0
+            let points: [SwiftGodot.Vector2] = [
+                SwiftGodot.Vector2(x: -halfSize, y: -halfSize),
+                SwiftGodot.Vector2(x: +halfSize, y: -halfSize),
+                SwiftGodot.Vector2(x: +halfSize, y: +halfSize),
+                SwiftGodot.Vector2(x: -halfSize, y: +halfSize),
+            ]
+            swatch.polygon = PackedVector2Array(points)
+            swatch.visible = false
+            self.addChild(node: swatch)
+            self.colorSwatch = swatch
+        }
     }
    
     /// Set the label visibility according to the label visibility flags ``showsPrimaryLabel``
@@ -185,7 +201,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
     }
 
-    func updateContent(from block: Block) {
+    func updateContent(from block: Block, object: ObjectSnapshot, style: DiagramStyle) {
         _prepareChildren(for: block)
         
         // 1. Basics
@@ -253,6 +269,25 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
                 y: Float(mid.y) + labelOffset + SecondaryLabelOffset
             )
             label.setPosition(center)
+        }
+
+        if let colorSwatch {
+            if let label = self.primaryLabel {
+                let size = label.getSize()
+                let position = label.getPosition() + Vector2(x: -ColorSwatchSize, y: size.y / 2)
+                colorSwatch.position = position
+            }
+            else {
+                colorSwatch.position = Vector2(mid)
+            }
+            if let colorName = block.colorName {
+                colorSwatch.color = style.getAdaptableColor(name: colorName, defaultColor: Color.gray)
+                colorSwatch.show()
+            }
+            else {
+                colorSwatch.color = Color.gray
+                colorSwatch.hide()
+            }
         }
 
         self.updateVisuals()
