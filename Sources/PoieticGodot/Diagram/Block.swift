@@ -255,6 +255,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
                 y: Float(mid.y) + PrimaryLabelOffset
             )
             label.setPosition(center)
+            label.setSize(size)
             labelOffset = PrimaryLabelOffset + size.y
         }
 
@@ -269,6 +270,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
                 x: Float(mid.x) - size.x / 2.0,
                 y: Float(mid.y) + labelOffset + SecondaryLabelOffset
             )
+            label.setSize(size)
             label.setPosition(center)
         }
 
