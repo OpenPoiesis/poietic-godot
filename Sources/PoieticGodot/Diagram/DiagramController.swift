@@ -634,8 +634,12 @@ public class CanvasController: SwiftGodot.Node {
         let value = object[attribute]
         var position = canvas.promptPosition(for: rawObjectID)
         openInlinePopup(control: editor, position: position)
+        
+        var godotObject = PoieticObject()
+        godotObject.object = object
+        
         editor.call(method: "open",
-                    SwiftGodot.Variant(objectID.rawValue),
+                    SwiftGodot.Variant(godotObject),
                     SwiftGodot.Variant(attribute),
                     value?.asGodotVariant())
         self.inlinePopup = editor
@@ -707,7 +711,27 @@ public class CanvasController: SwiftGodot.Node {
         obj["formula"] = PoieticCore.Variant(newFormulaText)
         ctrl.accept(trans)
     }
-    
+   
+    @Callable(autoSnakeCase: true)
+    func commitGraphicalCurvesEdit(rawObjectID: EntityIDValue, points: PackedVector2Array, interpolationMethod: String) {
+        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
+        guard let ctrl = designController,
+              let object = ctrl.object(objectID) else { return }
+        let convertedPoints = points.map { Point($0) }
+        
+        if (object["graphical_function_points"] as? [Point]) == convertedPoints
+            && object["interpolation_method"] == interpolationMethod
+        {
+            return // Attribute not changed
+        }
+        
+        var trans = ctrl.newTransaction()
+        var obj = trans.mutate(objectID)
+        obj["graphical_function_points"] = PoieticCore.Variant(convertedPoints)
+        obj["interpolation_method"] = PoieticCore.Variant(interpolationMethod)
+        ctrl.accept(trans)
+    }
+
     @Callable(autoSnakeCase: true)
     func commitNumericAttributeEdit(rawObjectID: EntityIDValue, attribute: String, newTextValue: String) {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
