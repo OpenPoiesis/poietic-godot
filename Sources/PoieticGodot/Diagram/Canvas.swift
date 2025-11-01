@@ -11,6 +11,7 @@ import PoieticCore
 
 public let DiagramBlockNamePrefix: String = "block"
 public let DiagramConnectorNamePrefix: String = "connector"
+public let BackgroundZIndex: Int32 = -1000
 
 @Godot
 public class DiagramCanvas: SwiftGodot.Node2D {
@@ -24,9 +25,20 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Export var chartsVisible: Bool = false
     @Export var formulasVisible: Bool = false
     
+    @Export var backgroundColor: Color {
+        set(color) {
+            background?.color = color
+        }
+        get {
+            return background?.color ?? Color.white
+        }
+    }
+    
     /// Prototype node that will be cloned to create value indicators.
     /// 
     @Export var valueIndicatorPrototype: ValueIndicator?
+    
+    @Export var background: SwiftGodot.ColorRect?
     
     // TODO: Move represented* to diagram controller
     /// Blocks that represent design nodes.
@@ -47,6 +59,30 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Export var secondaryLabelSettings: SwiftGodot.LabelSettings?
     @Export var invalidLabelSettings: SwiftGodot.LabelSettings?
 
+    public override func _ready() {
+        if background == nil {
+            GD.print("--- Creating background")
+            let rect = ColorRect()
+            rect.color = Color(code: "F8F4E9")
+            rect.zIndex = BackgroundZIndex
+            rect.mouseFilter = .ignore
+            addChild(node: rect)
+            self.background = rect
+        }
+        updateBackground()
+        getViewport()?.sizeChanged.connect(self.updateBackground)
+    }
+
+    func updateBackground() {
+        GD.print("--? Update background?")
+        guard let viewport = getViewport(),
+              let background = self.background else { return }
+        let size = viewport.getVisibleRect().size
+        GD.print("--- Yes, update background: \(size). Zoom: \(zoomLevel) offset: \(canvasOffset)")
+        background.setSize(size / Double(zoomLevel))
+        background.setPosition(-canvasOffset / Double(zoomLevel))
+    }
+    
     // - MARK: Content
     /// Get IDs of design objects represented within the canvas.
     ///
@@ -177,12 +213,15 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
     @Callable(autoSnakeCase: true)
     public func updateCanvasView() {
+        print("--- Update canvas view")
         self.position = canvasOffset
         self.scale = Vector2(x: zoomLevel, y: zoomLevel)
         canvasViewChanged.emit(canvasOffset, zoomLevel)
         
         chartsVisible = zoomLevel > Self.ChartsVisibleZoomLevel
         formulasVisible = zoomLevel > Self.FormulasVisibleZoomLevel
+
+        updateBackground()
     }
         
     /// Get a target wrapping a canvas item at given hit position.

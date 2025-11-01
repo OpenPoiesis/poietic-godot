@@ -110,7 +110,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         Color.fromString(str: name, default: defaultColor)
     }
     // FIXME: [IMPORTANT] Move this to canvas controller.
-    func updateContent(connector: Connector) {
+    func updateContent(connector: Connector, style: CanvasStyle) {
         _prepareChildren()
         
         self.objectID = connector.objectID
@@ -119,10 +119,11 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.wire = PackedVector2Array(tessellatedPath.map { $0.asGodotVector2() })
         self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
 
-        self.fillColor = _coalescedColor(connector.shapeStyle.fillColor)
+        self.fillColor = style.defaultConnectorFillColor ?? _coalescedColor(connector.shapeStyle.fillColor)
         self.fillColor.alpha = DefaultFatConnectorFillAlpha
-        self.lineColor = _coalescedColor(connector.shapeStyle.lineColor)
-        self.lineWidth = connector.shapeStyle.lineWidth
+        self.lineColor = style.defaultConnectorColor ?? _coalescedColor(connector.shapeStyle.lineColor)
+        self.lineWidth = style.defaultConnectorLineWidth
+        //        self.lineWidth = connector.shapeStyle.lineWidth
         
         self.updateVisuals()
     }

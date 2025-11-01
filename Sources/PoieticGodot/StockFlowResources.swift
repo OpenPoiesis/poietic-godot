@@ -11,7 +11,6 @@ import Diagramming
 let StockFlowPictogramsPath: String = "res://resources/stock_flow_pictograms-jolly.json"
 
 // Pictogram icon rendering configuration
-nonisolated(unsafe) let PictogramIconColor: SwiftGodot.Color = .white  // TODO: Get from theme
 
 public let StockFlowConnectorStyles: [String:ConnectorStyle] = [
     "default": .thin(ThinConnectorStyle(

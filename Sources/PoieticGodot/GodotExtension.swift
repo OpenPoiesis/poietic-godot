@@ -37,7 +37,7 @@ import SwiftGodot
         Pictogram2D.self,
         ValueIndicator.self,
         SelectionOutline.self,
-        DiagramStyle.self,
+        CanvasStyle.self,
         
         CanvasHitTarget.self,
         CanvasHandle.self,

@@ -45,26 +45,26 @@ public class SelectionOutline: SwiftGodot.Node2D {
     
     @Callable(autoSnakeCase: true)
     func updateVisuals() {
-        let theme = ThemeDB.getProjectTheme()
-        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionOutlineColorKey),
-                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
-            self.outlineColor = color
-        }
-        else {
-            var color = Color.azure
-            color.alpha = 0.7
-            self.outlineColor = color
-        }
-
-        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionFillColorKey),
-                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
-            self.fillColor = color
-        }
-        else {
-            var color = Color.lightBlue
-            color.alpha = 0.3
-            self.fillColor = color
-        }
-        self.queueRedraw()
+//        let theme = ThemeDB.getProjectTheme()
+//        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionOutlineColorKey),
+//                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
+//            self.outlineColor = color
+//        }
+//        else {
+//            var color = Color.azure
+//            color.alpha = 0.7
+//            self.outlineColor = color
+//        }
+//
+//        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionFillColorKey),
+//                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
+//            self.fillColor = color
+//        }
+//        else {
+//            var color = Color.lightBlue
+//            color.alpha = 0.3
+//            self.fillColor = color
+//        }
+//        self.queueRedraw()
     }
 }

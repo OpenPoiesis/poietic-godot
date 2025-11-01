@@ -134,16 +134,7 @@ class PlaceTool: CanvasTool {
 
         let shadow = Pictogram2D()
 
-        let theme = ThemeDB.getProjectTheme()
-        if let color = theme?.getColor(name: SwiftGodot.StringName(ShadowColorKey),
-                                       themeType: SwiftGodot.StringName(CanvasThemeType))
-        {
-            shadow.color = color
-        }
-        else {
-            shadow.color = SwiftGodot.Color(r: 0.5, g: 0.5, b: 0.1, a: 0.8)
-        }
-
+        shadow.color = canvasController.style?.intentShadowColor ?? DefaultIntentShadowColor
         shadow.setPictogram(pictogram)
         shadow.position = canvasPosition
         shadow.name = "placement-intent-shadow"

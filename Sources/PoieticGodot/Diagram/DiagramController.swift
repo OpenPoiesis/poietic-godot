@@ -34,7 +34,7 @@ public class CanvasController: SwiftGodot.Node {
     var composer: DiagramComposer?
     
     // TODO: Update visuals on style change
-    @Export public var style: DiagramStyle?
+    @Export public var style: CanvasStyle?
     @Export public var contextMenu: SwiftGodot.Control?
     var inlineEditors: [String:SwiftGodot.Control] = [:]
     
@@ -226,7 +226,7 @@ public class CanvasController: SwiftGodot.Node {
     
     func syncDesignBlock(_ node: ObjectSnapshot) {
         // FIXME: Require style (this is just a quick hack to make swatches work)
-        let style = style ?? DiagramStyle()
+        let style = style ?? CanvasStyle()
         
         guard let canvas,
               let composer,
@@ -275,6 +275,8 @@ public class CanvasController: SwiftGodot.Node {
     ///
     /// Represented blocks the edge connects must exist in the canvas.
     func syncDesignConnector(_ edge: EdgeObject) {
+        let style = style ?? CanvasStyle()
+
         guard let canvas else { return }
         guard let composer else { return }
         guard let origin = canvas.representedBlock(id: edge.origin),
@@ -297,7 +299,7 @@ public class CanvasController: SwiftGodot.Node {
                                      edge: edge,
                                      origin: originBlock,
                                      target: targetBlock)
-            object.updateContent(connector: connector)
+            object.updateContent(connector: connector, style: style)
         }
         else {
             let object = DiagramCanvasConnector()
@@ -309,7 +311,7 @@ public class CanvasController: SwiftGodot.Node {
                                                      target: targetBlock)
             connector.shapeStyle = shapeStyle
             canvas.insertRepresentedConnector(object)
-            object.updateContent(connector: connector)
+            object.updateContent(connector: connector, style: style)
         }
     }
     /// Update connector during selection move session.

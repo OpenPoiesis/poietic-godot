@@ -201,7 +201,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
     }
 
-    func updateContent(from block: Block, object: ObjectSnapshot, style: DiagramStyle) {
+    func updateContent(from block: Block, object: ObjectSnapshot, style: CanvasStyle) {
         _prepareChildren(for: block)
         
         // 1. Basics
@@ -214,6 +214,8 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         if let pictogram = block.pictogram {
             self.pictogram?.setPictogram(pictogram)
             self.pictogram?.lineWidth = style.getLineWidth(object.type.name, defaultWidth: 1.0)
+            self.pictogram?.color = style.pictogramColor
+            
             // FIXME: Do not translate. Currently we must. See also: Shaodw
             let pictoCollision = pictogram.collisionShape
 
@@ -222,6 +224,8 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
                 let outlinePath = pictogram.mask
                 let curves = outlinePath.asGodotCurves()
                 selectionOutline.curves = TypedArray(curves)
+                selectionOutline.fillColor = style.selectionFillColor
+                selectionOutline.outlineColor = style.selectionOutlineColor
                 selectionOutline.updateVisuals()
                 selectionOutline.visible = self._isSelected
             }

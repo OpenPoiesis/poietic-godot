@@ -43,3 +43,5 @@ public let DefaultFatConnectorFillAlpha: Float = 0.6
 // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
 /// Scale used for pictograms during development/prototyping.
 let PrototypingPictogramAdjustmentScale: Double = 0.5
+nonisolated(unsafe) let PictogramIconColor: SwiftGodot.Color = .black
+
