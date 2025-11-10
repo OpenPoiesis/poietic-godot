@@ -23,115 +23,85 @@ import SwiftGodot
 import PoieticFlows
 import PoieticCore
 
-struct AutoConnectResult {
-    public struct ParameterInfo {
-        /// Name of the parameter
-        let parameterName: String?
-        /// ID of the parameter node
-        let parameterID: PoieticCore.ObjectID
-        /// Name of node using the parameter
-        let targetName: String?
-        /// ID of node using the parameter
-        let targetID: PoieticCore.ObjectID
-        /// ID of the edge from the parameter to the target
-        let edgeID: PoieticCore.ObjectID
-    }
-
-    let added: [ParameterInfo]
-    let removed: [ParameterInfo]
-    let unknown: [String]
+public struct ParameterInfo {
+    /// Name of the parameter
+    let parameterName: String?
+    /// ID of the parameter node
+    let parameterID: PoieticCore.ObjectID
+    /// Name of node using the parameter
+    let targetName: String?
+    /// ID of node using the parameter
+    let targetID: PoieticCore.ObjectID
+    /// ID of the edge from the parameter to the target
+    let edgeID: PoieticCore.ObjectID
 }
 
-// FIXME: Sync with poietic-tool and actually make cleaner, shared in PoieticFlows
 /// Automatically connect parameters in a frame.
 ///
-func resolveParameters(objects: [ObjectSnapshot], view: StockFlowView) -> [PoieticCore.ObjectID:ResolvedParameters] {
-    var result: [PoieticCore.ObjectID:ResolvedParameters] = [:]
-    let builtinNames = Set(BuiltinVariable.allCases.map { $0.name })
+
+func autoConnectParameters(_ objectIDs: Set<PoieticCore.ObjectID>,
+                           runtime: RuntimeFrame,
+                           trans: TransientFrame)
+-> (added: [ParameterInfo], removed: [ParameterInfo]) {
+    var added: [ParameterInfo] = []
+    var removed: [ParameterInfo] = []
+
+    guard let component = runtime.frameComponent(SimulationNameLookupComponent.self) else {
+        return (added: [], removed:[])
+    }
+
+    for id in objectIDs {
+        guard let object = runtime[id],
+              let comp: ResolvedParametersComponent = runtime.component(for: id)
+        else {
+            continue
+        }
+        let result = autoConnect(object,
+                                 missing: comp.missing,
+                                 unused: comp.unused,
+                                 nameLookup: component.namedObjects,
+                                 in: trans)
+        added += result.added
+        removed += result.removed
+    }
+    return (added: added, removed: removed)
+}
+func autoConnect(_ object: ObjectSnapshot,
+                 missing: [String],
+                 unused: [PoieticCore.ObjectID],
+                 nameLookup: [String:PoieticCore.ObjectID],
+                 in trans: TransientFrame)
+-> (added: [ParameterInfo], removed: [ParameterInfo]) {
+    var added: [ParameterInfo] = []
+    var removed: [ParameterInfo] = []
+
+    for edgeID in unused {
+        guard let edge = trans.edge(edgeID) else {continue}
+        trans.removeCascading(edge.key)
+        
+        let info = ParameterInfo(parameterName: edge.originObject.name,
+                                 parameterID: edge.origin,
+                                 targetName: edge.targetObject.name,
+                                 targetID: edge.target,
+                                 edgeID: edge.key)
+        removed.append(info)
+    }
     
-    for object in objects {
-        guard let formulaText = try? object["formula"]?.stringValue() else {
-            continue
-        }
-        let parser = ExpressionParser(string: formulaText)
-        guard let formula = try? parser.parse() else {
-            continue
-        }
-        let variables: Set<String> = Set(formula.allVariables)
-        let required = Array(variables.subtracting(builtinNames))
-        let resolved = view.resolveParameters(object.objectID, required: required)
-        result[object.objectID] = resolved
-    }
-    return result
-}
-
-/// Automatically connect parameters in a frame.
-///
-func autoConnectParameters(_ resolvedMap: [PoieticCore.ObjectID:ResolvedParameters], in frame: TransientFrame) {
-    for (id, resolved) in resolvedMap {
-        guard let object = frame[id] else { continue }
-
-        for name in resolved.missing {
-            guard let paramNode = frame.object(named: name) else {
-                continue
-            }
-            let edge = frame.createEdge(.Parameter, origin: paramNode.objectID, target: object.objectID)
-        }
-
-        for edge in resolved.unused {
-            let node = frame.object(edge.origin)
-            frame.removeCascading(edge.object.objectID)
-        }
-    }
-}
-
-struct ObjectDifference {
-    let added: [PoieticCore.ObjectID]
-    let removed: [PoieticCore.ObjectID]
-}
-
-/// Get difference between expected list of objects and current list of objects.
-///
-/// Returns a structure containing two lists:
-/// - `added`: Objects that are in current, not in expected.
-/// - `removed`: Objects that are in expected, not in current.
-///
-func difference(expected: [PoieticCore.ObjectID], current: [PoieticCore.ObjectID]) -> ObjectDifference {
-    var added: [PoieticCore.ObjectID] = []
-    var remaining = Set(expected)
-
-    for id in current {
-        if remaining.contains(id) {
-            remaining.remove(id)
-        }
+    for name in missing {
+        guard let parameterID = nameLookup[name],
+              let parameter = trans[parameterID]
         else {
-            added.append(id)
+            continue // gracefully
         }
+        let edge = trans.createEdge(.Parameter, origin: parameter.objectID, target: object.objectID)
+        let info = ParameterInfo(parameterName: name,
+                                 parameterID: parameterID,
+                                 targetName: object.name,
+                                 targetID: object.objectID,
+                                 edgeID: edge.objectID)
+        added.append(info)
     }
 
-    return ObjectDifference(added: added, removed: Array(remaining))
+    return (added: added, removed: removed)
 }
 
-struct ObjectDifference2 {
-    let added: [PoieticCore.ObjectID]
-    let removed: [PoieticCore.ObjectID]
-    let remaining: [PoieticCore.ObjectID]
-}
-func difference2(current: [PoieticCore.ObjectID], required: [PoieticCore.ObjectID])
--> ObjectDifference {
-    var current = Set(current)
-    var added: [PoieticCore.ObjectID] = []
-    var remaining: [PoieticCore.ObjectID] = []
-
-    for id in required {
-        if current.contains(id) {
-            current.remove(id)
-            remaining.append(id)
-        }
-        else {
-            added.append(id)
-        }
-    }
-
-    return ObjectDifference(added: added, removed: Array(remaining))
-}

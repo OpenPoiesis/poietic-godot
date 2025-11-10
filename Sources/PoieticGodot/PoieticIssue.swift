@@ -11,10 +11,10 @@ import PoieticCore
 // TODO: Make this just a dictionary [String:SwiftGodot.Variant]
 @Godot
 public class PoieticIssue: SwiftGodot.RefCounted {
-    var issue: DesignIssue! = nil
+    var issue: Issue! = nil
 
-    @Export var domain: String {
-        get { issue.domain.description}
+    @Export var system: String {
+        get { issue.system}
         set { readOnlyAttributeError() }
     }
     @Export var severity: String {
@@ -29,21 +29,27 @@ public class PoieticIssue: SwiftGodot.RefCounted {
         get { issue.message }
         set { readOnlyAttributeError() }
     }
-    @Export var hint: String? {
-        get { issue.hint }
+    @Export var hints: PackedStringArray {
+        get { PackedStringArray(issue.hints) }
         set { readOnlyAttributeError() }
     }
     @Export var attribute: String? {
         get { try? issue.details["attribute"]?.stringValue() }
         set { readOnlyAttributeError() }
     }
-    @Export var details: GDictionary {
+    @Export var details: TypedDictionary<String,SwiftGodot.Variant?> {
         get {
-            var dict = GDictionary()
+            var dict = TypedDictionary<String,SwiftGodot.Variant?>()
             for (key, value) in issue.details {
                 dict[key] = value.asGodotVariant()
             }
             return dict
+        }
+        set { readOnlyAttributeError() }
+    }
+    @Export var relatedObjects: PackedInt64Array {
+        get {
+            return PackedInt64Array(compactingValid: issue.relatedObjects)
         }
         set { readOnlyAttributeError() }
     }

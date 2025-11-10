@@ -19,6 +19,8 @@ import Diagramming
 public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
     
+    var systemGroup: SystemGroup
+    
     @Export var application: PoieticApplication?
     
     // TODO: Review where is the ctrl metamodel used
@@ -27,9 +29,8 @@ public class DesignController: SwiftGodot.Node {
     var design: Design
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
-    var issues: DesignIssueCollection? = nil
-    var validatedFrame: ValidatedFrame? = nil
-    var simulationPlan: SimulationPlan? = nil
+    var runtimeFrame: RuntimeFrame? = nil
+//    var simulationPlan: SimulationPlan? = nil
     var result: SimulationResult? = nil
 
     @Export var selectionManager: SelectionManager
@@ -44,6 +45,8 @@ public class DesignController: SwiftGodot.Node {
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
     
     required init(_ context: InitContext) {
+        self.systemGroup = SystemGroup(PoieticFlows.SimulationPresentationSystemGroup)
+        
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self.selectionManager = SelectionManager()
@@ -158,8 +161,13 @@ public class DesignController: SwiftGodot.Node {
     }
     @Callable
     func set_diagram_settings(settings: GDictionary) {
-        let original = design.frame(name: DesignController.DesignSettingsFrameName)
-        let trans = design.createFrame(deriving: original)
+        let trans: TransientFrame
+        if let original = design.frame(name: DesignController.DesignSettingsFrameName) {
+            trans = design.createFrame(deriving: original)
+        }
+        else {
+            trans = design.createFrame()
+        }
         let mut: TransientObject
         if let obj = trans.first(type: .DiagramSettings) {
             mut = trans.mutate(obj.objectID)
@@ -265,7 +273,6 @@ public class DesignController: SwiftGodot.Node {
     
     func accept(_ frame: TransientFrame) {
         guard frame.hasChanges else {
-            GD.print("Nothing to do with transient frame, discarding and moving on")
             design.discard(frame)
             return
         }
@@ -273,76 +280,50 @@ public class DesignController: SwiftGodot.Node {
             try design.accept(frame, appendHistory: true)
             GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
         }
-        catch /* StructuralIntegrityError */ {
-            GD.pushError("Structural integrity error")
+        catch  {
+            // This is not user's fault and never should be.
+            // The application failed to make sure structural integrity is assured
+            // TODO: Display alert panel.
+            GD.pushError("Frame validation error:", String(describing: error))
             return
         }
-        validateAndCompile()
+        updateSystemsAndSimulate()
     }
     /// Called when current frame has been changed.
     ///
     /// Must be called on accept, undo, redo.
     ///
-    func validateAndCompile() {
-        guard let currentFrame = design.currentFrame else {
-            GD.pushError("No current frame")
-            return
-        }
-        
-        // Reset the controller
-        self.issues = nil
-        self.validatedFrame = nil
-        self.simulationPlan = nil
+    func updateSystemsAndSimulate() {
+        guard let currentFrame = design.currentFrame else { return }
+        let runtimeFrame = RuntimeFrame(currentFrame)
+        self.runtimeFrame = runtimeFrame
         
         do {
-            self.validatedFrame = try design.validate(currentFrame)
+            try systemGroup.update(runtimeFrame)
         }
-        catch let error as FrameValidationError {
-            self.issues = error.asDesignIssueCollection()
-            debugPrintIssues(self.issues!)
-        }
-        
-        if let frame = self.validatedFrame {
-            // TODO: Sync with ToolEnviornment, make cleaner
-            let compiler = Compiler(frame: frame)
-            do {
-                self.simulationPlan = try compiler.compile()
-            }
-            catch {
-                switch error {
-                case .issues(let issues):
-                    self.issues = issues.asDesignIssueCollection()
-                    debugPrintIssues(self.issues!)
-                case .internalError(let error):
-                    self.application?.commandFailed.emit("internal-error:compiler", error.localizedDescription, SwiftGodot.VariantDictionary())
-                    GD.pushError("INTERNAL ERROR (compiler): \(error)")
-                }
-            }
+        catch {
+            GD.pushError("Internal system error:", String(describing: error))
         }
         
-        designChanged.emit(self.hasIssues())
+        designChanged.emit(runtimeFrame.hasIssues)
         
-        // TODO: Simulate only when there are simulation-related changes.
-        // Simulate
-        if self.simulationPlan != nil {
-            simulate()
-        }
+        simulate()
     }
     
     
     // MARK: - Issues
     @Callable(autoSnakeCase: true)
     func hasIssues() -> Bool {
-        guard let issues else { return false }
-        return !issues.isEmpty
+        guard let runtimeFrame else { return false }
+        return runtimeFrame.hasIssues
     }
     
     @Callable(autoSnakeCase: true)
     func issuesForObject(rawID: EntityIDValue) -> TypedArray<PoieticIssue?> {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
+        let objectID = PoieticCore.ObjectID(rawValue: rawID)
         // FIXME: Replace with runtime component
-        guard let issues,
-              let objectIssues = issues.objectIssues[id] else { return [] }
+        guard let runtimeFrame,
+              let objectIssues = runtimeFrame.objectIssues(objectID) else { return [] }
         
         let result =  objectIssues.map {
             let issue = PoieticIssue()
@@ -354,10 +335,9 @@ public class DesignController: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func objectHasIssues(rawID: EntityIDValue) -> Bool {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        guard let issues,
-              let objectIssues = issues[id] else { return false }
-        return !objectIssues.isEmpty
+        let objectID = PoieticCore.ObjectID(rawValue: rawID)
+        guard let runtimeFrame else { return false }
+        return runtimeFrame.objectHasIssues(objectID)
     }
     
     @Callable(autoSnakeCase: true)
@@ -421,42 +401,22 @@ public class DesignController: SwiftGodot.Node {
     }
     // MARK: - Design Graph Transformations
     
-    @Callable
-    func auto_connect_parameters(ids: PackedInt64Array) {
-        guard let validated = validatedFrame else {
-            GD.pushError("Using design without a frame")
-            return
-        }
+    @Callable(autoSnakeCase: true)
+    func autoConnectParameters(ids: PackedInt64Array) {
+        guard let runtime = runtimeFrame else { return }
+        let trans = self.newTransaction()
+        let ids = Set(self.selectionManager.selection)
         
-        let ids: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
-        let view = StockFlowView(validated)
-        let nodes: [ObjectSnapshot]
-        if ids.isEmpty {
-            nodes = view.simulationNodes
-        }
-        else {
-            nodes = ids.compactMap { validated[$0] }
-        }
-        let resolvedParams = resolveParameters(objects: nodes, view: view)
-        // TODO: Know whether there is anything to do at this point
-        
-        if resolvedParams.isEmpty {
+        let resolvedParams = try PoieticGodot.autoConnectParameters(ids, runtime: runtime, trans: trans)
+        let (added, removed) = resolvedParams
+        if removed.isEmpty && added.isEmpty {
+            self.design.discard(trans)
             GD.print("Nothing to auto-connect")
             return
         }
-        
-        let trans = design.createFrame(deriving: design.currentFrame)
-        let result = autoConnectParameters(resolvedParams, in: trans)
-        
-        GD.print("Auto-connected \(resolvedParams.count) objects")
-        
-        if trans.hasChanges {
-            accept(trans)
-        }
-        else {
-            GD.print("No changes applied.")
-            design.discard(trans)
-        }
+        GD.print("Auto-connected \(added.count) objects, removed \(removed.count) edges")
+
+        accept(trans)
     }
     
     // MARK: - File Actions
@@ -475,7 +435,7 @@ public class DesignController: SwiftGodot.Node {
             self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
         designReset.emit()
-        validateAndCompile()
+        updateSystemsAndSimulate()
     }
     
     @Callable
@@ -724,12 +684,10 @@ public class DesignController: SwiftGodot.Node {
             dict["frames"] = SwiftGodot.Variant(design.frames.count)
             dict["undo_frames"] = SwiftGodot.Variant(design.undoList.count)
             dict["redo_frames"] = SwiftGodot.Variant(design.redoList.count)
-            if let issues {
-                dict["design_issues"] = SwiftGodot.Variant(issues.designIssues.count)
-                dict["object_issues"] = SwiftGodot.Variant(issues.objectIssues.count)
+            if let runtimeFrame {
+                dict["object_issues"] = SwiftGodot.Variant(runtimeFrame.issues.count)
             }
             else {
-                dict["design_issues"] = SwiftGodot.Variant(0)
                 dict["object_issues"] = SwiftGodot.Variant(0)
             }
             return dict
@@ -754,8 +712,9 @@ public class DesignController: SwiftGodot.Node {
 
     // MARK: - Simulation Result
     func simulate() {
-        guard let simulationPlan else {
-            GD.pushError("Trying to simulate without a plan")
+        guard let runtimeFrame,
+              let simulationPlan = runtimeFrame.frameComponent(SimulationPlan.self)
+        else {
             return
         }
         
