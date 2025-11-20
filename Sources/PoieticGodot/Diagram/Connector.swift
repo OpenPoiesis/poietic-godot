@@ -14,35 +14,11 @@ let InitiatingMidpointHandleTag: Int = -1
 
 @Godot
 public class DiagramCanvasConnector: DiagramCanvasObject {
-    var connector: Diagramming.Connector?
-   
     var midpointHandles: [CanvasHandle] = []
-   
-    @Export var handlesVisible: Bool = false {
-        didSet {
-            for handle in midpointHandles {
-                handle.visible = self.handlesVisible
-            }
-        }
-    }
-
-    /// ID of the origin object if the origin represents a design object.
-    ///
-    /// It is recommended to set the ID for connectors that are used in interactive
-    /// user interfaces.
-    ///
-    public var originID: PoieticCore.ObjectID?
-
-    /// ID of the target object if the target represents a design object.
-    ///
-    /// It is recommended to set the ID for connectors that are used in interactive
-    /// user interfaces.
-    ///
-    public var targetID: PoieticCore.ObjectID?
-
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]
+
     @Export var fillColor: SwiftGodot.Color
     @Export var lineColor: SwiftGodot.Color
     @Export var lineWidth: Double = 1.0
@@ -50,11 +26,6 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     /// Connector's centre curve tessellated to a poly-line. Used for connector touch detection.
     ///
     @Export var wire: PackedVector2Array
-    
-    @Callable
-    override func getHandles() -> [CanvasHandle] {
-        return midpointHandles
-    }
     
     required init(_ context: InitContext) {
         self.openCurves = []
@@ -64,21 +35,6 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         self.fillColor.alpha = 0.5
         self.wire = PackedVector2Array()
         super.init(context)
-    }
-    
-    public override func _process(delta: Double) {
-        if isDirty {
-            updateVisuals()
-        }
-    }
-
-    /// Sets the object as needing to update visuals.
-    ///
-    /// - SeeAlso: ``updateVisuals()``
-    ///
-    @Callable(autoSnakeCase: true)
-    public func setDirty() {
-        self.isDirty = true
     }
     
     public override func _draw() {
@@ -109,144 +65,8 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
     func _coalescedColor(_ name: String, default defaultColor: Color = .white) -> Color {
         Color.fromString(str: name, default: defaultColor)
     }
-    // FIXME: [IMPORTANT] Move this to canvas controller.
-    func updateContent(connector: Connector, style: CanvasStyle) {
-        _prepareChildren()
-        
-        self.objectID = connector.objectID
-        self.connector = connector
-        let tessellatedPath = connector.wirePath().tessellate()
-        self.wire = PackedVector2Array(tessellatedPath.map { $0.asGodotVector2() })
-        self.name = StringName(connector.godotName(prefix: DiagramConnectorNamePrefix))
-
-        self.fillColor = style.defaultConnectorFillColor ?? _coalescedColor(connector.shapeStyle.fillColor)
-        self.fillColor.alpha = DefaultFatConnectorFillAlpha
-        self.lineColor = style.defaultConnectorColor ?? _coalescedColor(connector.shapeStyle.lineColor)
-        self.lineWidth = style.defaultConnectorLineWidth
-        //        self.lineWidth = connector.shapeStyle.lineWidth
-        
-        self.updateVisuals()
-    }
-    
-    /// Update the visual representation of the Godot node from underlying block data.
-    ///
-    /// Called on ``_process()`` when ``isDirty`` flag is set.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func updateVisuals() {
-        guard let connector else { return }
-        let curves = connector.paths().flatMap { $0.asGodotCurves() }
-        switch connector.style {
-        case .fat(let style):
-            self.openCurves = []
-            self.filledCurves = curves
-        case .thin(let style):
-            self.openCurves = curves
-            self.filledCurves = []
-        }
-        updateSelectionOutline()
-        updateHandles()
-        self.isDirty = false
-        self.queueRedraw()
-    }
-    
-    public func updateSelectionOutline2() {
-        guard let connector,
-              let selectionOutline else { return }
-        let curves = connector.paths().flatMap {
-            $0.inflated(by: SelectionMargin).asGodotCurves()
-        }
-        selectionOutline.curves = TypedArray(curves)
-    }
-    
-    public func updateSelectionOutline() {
-        guard let connector,
-              let selectionOutline else { return }
-        let wire = connector.wirePath()
-        let inflated = wire.inflated(by: 10)
-        let curves = inflated.asGodotCurves()
-        selectionOutline.curves = TypedArray(curves)
-    }
-
-    
-    func updateHandles() {
-        guard let connector else { return }
-        
-        let existingCount = midpointHandles.count
-        let requiredCount = connector.midpoints.count
-        let removeCount: Int
-        
-        if requiredCount == 0 {
-            let segment = LineSegment(from: connector.originPoint, to: connector.targetPoint)
-            let handle: CanvasHandle
-            if existingCount == 0 {
-                handle = createMidpointHandle()
-                removeCount = 0
-            }
-            else {
-                handle = midpointHandles[0]
-                removeCount = existingCount - 1
-            }
-            
-            // Connector node position is always (0.0, 0.0). Midpoints are absolute, within diagram
-            // canvas. Diagram canvas coordinates are the same as connector node-relative
-            // coordinates.
-            handle.position = Vector2(segment.midpoint)
-            handle.tag = 0
-        }
-        else { // requiredCount > 0
-            for (index, midpoint) in connector.midpoints.enumerated() {
-                let handle: CanvasHandle
-                if index < existingCount {
-                    handle = midpointHandles[index]
-                }
-                else {
-                    handle = createMidpointHandle()
-                }
-                handle.tag = index
-                handle.position = Vector2(midpoint)
-            }
-            removeCount = existingCount - requiredCount
-        }
-
-        if removeCount > 0 {
-            for _ in 0..<removeCount {
-                let handle = midpointHandles.removeLast()
-                handle.queueFree()
-            }
-        }
-        
-        for handle in midpointHandles {
-            handle.visible = self.handlesVisible
-        }
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func moveMidpoint(tag: Int, canvasDelta: Vector2) {
-        guard let connector else {
-            GD.pushError("Canvas connector has no diagram connector")
-            return
-        }
-        guard tag >= 0 && tag < midpointHandles.count else {
-            GD.pushError("Invalid midpoint handle tag \(tag)")
-            return
-        }
-        let handle = midpointHandles[tag]
-        let newPosition = handle.position + canvasDelta
-        
-        if tag == 0 {
-            let midpoint = Vector2D(handle.position + canvasDelta)
-            connector.midpoints = [Vector2D(newPosition)]
-        }
-        else if tag > 0 && tag < connector.midpoints.count {
-            connector.midpoints[tag] = Vector2D(newPosition)
-        }
-        else {
-            GD.pushError("Trying to set out-of-bounds midpoint")
-        }
-        isDirty = true
-    }
-
+   
+#if false
     @Callable(autoSnakeCase: true)
     func setMidpoint(tag: Int, canvasPosition: Vector2) {
         guard let connector else { return }
@@ -285,7 +105,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         midpointHandles.append(handle)
         return handle
     }
-    
+#endif
     override public func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {
         guard wire.count >= 2 else { return false }
         let touchPoint = toLocal(globalPoint: globalPoint)

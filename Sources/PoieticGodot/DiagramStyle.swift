@@ -48,7 +48,8 @@ public class CanvasStyle: SwiftGodot.Node {
         return adaptableColors?[name] ?? defaultColor
     }
     @Callable
-    func getLineWidth(_ name: String, defaultWidth: Double = 1.0) -> Double {
+    func getLineWidth(_ name: String? = nil, defaultWidth: Double = 1.0) -> Double {
+        guard let name else { return defaultWidth }
         return lineWidths[name] ?? defaultWidth
     }
 }

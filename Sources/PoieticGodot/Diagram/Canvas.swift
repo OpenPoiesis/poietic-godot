@@ -45,14 +45,14 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     /// Blocks representing design nodes have their `objectID` set to the object they represent.
     ///
-    public var representedBlocks: [DiagramCanvasBlock] { Array(_representedBlocks.values) }
-    private var _representedBlocks: [PoieticCore.ObjectID:DiagramCanvasBlock] = [:]
+    public var blocks: [DiagramCanvasBlock] { Array(_blocks.values) }
+    private var _blocks: [RuntimeEntityID:DiagramCanvasBlock] = [:]
     /// Connectors that represent design edges.
     ///
     /// Connectors representing design nodes have their `objectID` set to the object they represent.
     ///
-    public var representedConnectors: [DiagramCanvasConnector] { Array(_representedConnectors.values) }
-    private var _representedConnectors: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
+    public var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
+    private var _connectors: [RuntimeEntityID:DiagramCanvasConnector] = [:]
    
     // - MARK: - Styling
     @Export var primaryLabelSettings: SwiftGodot.LabelSettings?
@@ -88,14 +88,17 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     /// Example use case of this method is to provide IDs for the _"Select all"`_ command.
     ///
-    func representedObjectIDs() -> [PoieticCore.ObjectID] {
-        return Array(_representedBlocks.keys) + Array(_representedConnectors.keys)
+    func selectableObjectIDs() -> [PoieticCore.ObjectID] {
+        let blockIDs = _blocks.keys.compactMap { $0.objectID }
+        let connectorIDs = _connectors.keys.compactMap { $0.objectID }
+        return blockIDs + connectorIDs
     }
     
     /// Get IDs of objects represented in the canvas - blocks and connectors.
     @Callable(autoSnakeCase: false)
-    func get_represented_object_ids() -> PackedInt64Array {
-        return PackedInt64Array(representedObjectIDs().map {Int64($0.rawValue)})
+    func get_selectable_objects() -> PackedInt64Array {
+        let rawIDs = selectableObjectIDs().map { Int64($0.rawValue) }
+        return PackedInt64Array(rawIDs)
     }
     
     func currentTool() -> CanvasTool? {
@@ -111,27 +114,28 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             guard let child = child as? DiagramCanvasObject else { continue }
             child.queueFree()
         }
-        _representedBlocks.removeAll()
-        _representedConnectors.removeAll()
+        _blocks.removeAll()
+        _connectors.removeAll()
     }
 
     /// Add a block that represents a design node. The block must have `ObjectID` set to a non-nil
     /// value. Existing block with the same ID will be replaced.
     ///
-    public func insertRepresentedBlock(_ representedBlock: DiagramCanvasBlock) {
-        guard let id = representedBlock.objectID else { return }
+    public func insertBlock(_ block: DiagramCanvasBlock) {
+        guard let id = block.runtimeID else { return }
         
-        if let existing = _representedBlocks[id] {
+        if let existing = _blocks[id] {
             removeChild(node: existing)
         }
-        addChild(node: representedBlock)
-        _representedBlocks[id] = representedBlock
+        addChild(node: block)
+        _blocks[id] = block
     }
-    public func removeRepresentedBlock(_ id: PoieticCore.ObjectID) {
-        guard let object = _representedBlocks.removeValue(forKey: id) else {
+
+    public func removeBlock(_ id: RuntimeEntityID) {
+        guard let node = _blocks.removeValue(forKey: id) else {
             return
         }
-        object.queueFree()
+        node.queueFree()
     }
     
     /// Get a block that represents a design object with given ID (typically a node).
@@ -139,26 +143,26 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such block exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
-    public func representedBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        return _representedBlocks[id]
+    public func getBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
+        let runtimeID: RuntimeEntityID = .object(PoieticCore.ObjectID(rawValue: rawID))
+        return _blocks[runtimeID]
     }
     
-    public func representedBlock(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
-        return _representedBlocks[id]
+    public func block(id: RuntimeEntityID) -> DiagramCanvasBlock? {
+        return _blocks[id]
     }
 
-    public func insertRepresentedConnector(_ representedConnector: DiagramCanvasConnector) {
-        guard let id = representedConnector.objectID else { return }
+    public func insertConnector(_ connector: DiagramCanvasConnector) {
+        guard let id = connector.runtimeID else { return }
         
-        if let existing = _representedConnectors[id] {
+        if let existing = _connectors[id] {
             removeChild(node: existing)
         }
-        addChild(node: representedConnector)
-        _representedConnectors[id] = representedConnector
+        addChild(node: connector)
+        _connectors[id] = connector
     }
-    public func removeRepresentedConnector(_ id: PoieticCore.ObjectID) {
-        guard let object = _representedConnectors.removeValue(forKey: id) else {
+    public func removeConnector(_ id: RuntimeEntityID) {
+        guard let object = _connectors.removeValue(forKey: id) else {
             return
         }
         object.queueFree()
@@ -169,12 +173,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such connector exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
-    public func representedConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        return _representedConnectors[id]
+    public func getConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
+        let id: RuntimeEntityID = .object(PoieticCore.ObjectID(rawValue: rawID))
+        return _connectors[id]
     }
-    public func representedConnector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
-        return _representedConnectors[id]
+    public func connector(id: RuntimeEntityID) -> DiagramCanvasConnector? {
+        return _connectors[id]
     }
 
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
@@ -312,10 +316,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Callable(autoSnakeCase: true)
     func promptPosition(for rawID: EntityIDValue) -> Vector2 {
         let nodeID = PoieticCore.ObjectID(rawValue: rawID)
-        guard let block = _representedBlocks[nodeID]
-        else {
-            return .zero
-        }
+        let runtimeID = RuntimeEntityID.object(nodeID)
+        guard let block = _blocks[runtimeID] else { return .zero }
 
         let position: Vector2
         if let primaryLabel = block.primaryLabel {
@@ -343,8 +345,9 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     @Callable(autoSnakeCase: true)
     public func defaultPopupPosition(rawID: EntityIDValue) -> Vector2 {
-        let objectID = PoieticCore.ObjectID(rawValue: rawID)
-        if let block = _representedBlocks[objectID] {
+        let nodeID = PoieticCore.ObjectID(rawValue: rawID)
+        let runtimeID = RuntimeEntityID.object(nodeID)
+        if let block = _blocks[runtimeID] {
             let y: Float
             if let label = block.primaryLabel {
                 y = label.getGlobalPosition().y
@@ -354,7 +357,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
             return Vector2(x: block.globalPosition.x,y: y)
         }
-        else if let connector = _representedConnectors[objectID] {
+        else if let connector = _connectors[runtimeID] {
             // TODO: Compute some sensible position
             return .zero
         }

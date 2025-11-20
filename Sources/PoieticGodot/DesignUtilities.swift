@@ -40,13 +40,13 @@ public struct ParameterInfo {
 ///
 
 func autoConnectParameters(_ objectIDs: Set<PoieticCore.ObjectID>,
-                           runtime: RuntimeFrame,
+                           runtime: AugmentedFrame,
                            trans: TransientFrame)
 -> (added: [ParameterInfo], removed: [ParameterInfo]) {
     var added: [ParameterInfo] = []
     var removed: [ParameterInfo] = []
 
-    guard let component = runtime.frameComponent(SimulationNameLookupComponent.self) else {
+    guard let component: SimulationNameLookupComponent = runtime.component(for: .Frame) else {
         return (added: [], removed:[])
     }
 

@@ -124,62 +124,93 @@ class SelectionTool: CanvasTool {
         return true
     }
     func moveSelection(byCanvasDelta canvasDelta: Vector2) {
-        guard let canvas else { return }
-        guard let ctrl = designController else { return }
-        guard let diagramCtrl = canvasController else { return }
+        guard let canvas,
+              let ctrl = designController,
+              let runtime = ctrl.runtimeFrame,
+              let diagramCtrl = canvasController else { return }
+
         let selection = ctrl.selectionManager.selection
         var dependentEdges: Set<PoieticCore.ObjectID> = Set()
         var designDelta = Vector2D(canvasDelta)
-        
-        let blocks: [DiagramCanvasBlock] = selection.compactMap {
-            canvas.representedBlock(id: $0)
-        }
-        let connectors: [DiagramCanvasConnector] = selection.compactMap {
-            canvas.representedConnector(id: $0)
-        }
-        for block in blocks {
-            block.block?.position += designDelta
-            block.setDirty()
-            if let objectID = block.objectID {
-                let deps = ctrl.currentFrame.dependentEdges(objectID)
-                dependentEdges.formUnion(deps)
+
+        for objectID in selection {
+            guard let block: DiagramBlock = runtime.component(for: objectID) else { continue }
+            var preview: BlockPreview
+            if let component: BlockPreview = runtime.component(for: objectID) {
+                preview = component
             }
+            else {
+                preview = BlockPreview(position: block.position)
+            }
+            preview.position += designDelta
+            runtime.setComponent(preview, for: .object(objectID))
+            
+            let deps = runtime.dependentEdges(objectID)
+            dependentEdges.formUnion(deps)
         }
 
-        for connector in connectors {
-            guard let diagramConnector = connector.connector else { continue }
-            guard !diagramConnector.midpoints.isEmpty else { continue }
-            let movedMidpoints = diagramConnector.midpoints.map {
-                $0 + designDelta
+        for objectID in selection {
+            guard let connector: DiagramConnector = runtime.component(for: objectID) else { continue }
+            guard !connector.midpoints.isEmpty else { continue }
+            var preview: ConnectorPreview
+            if let component: ConnectorPreview = runtime.component(for: objectID) {
+                preview = component
             }
-            connector.connector?.midpoints = movedMidpoints
-            diagramCtrl.updateConnectorPreview(connector)
-            connector.setDirty()
+            else {
+                preview = ConnectorPreview(midpoints: connector.midpoints)
+            }
+
+            preview.midpoints = preview.midpoints.map { $0 + designDelta }
+            runtime.setComponent(preview, for: .object(objectID))
         }
-        // TODO: Gather the mid-point changed connectors as well, not to have duplicate update
+
         for id in dependentEdges {
-            guard let connector = canvas.representedConnector(id: id) else { continue }
-            diagramCtrl.updateConnectorPreview(connector)
-            connector.setDirty()
+            guard runtime.hasComponent(DiagramConnector.self, for: .object(id)) else { continue }
+
+            runtime.setComponent(VisuallyDirty(), for: id)
         }
         
-        canvas.queueRedraw()
+        self.canvasController?.queueUpdatePreview()
     }
-    func dragHandle(byCanvasDelta canvasDelta: Vector2) {
-        guard let hitTarget else { return }
-        guard let canvas else { return }
-        guard let diagramCtrl = canvasController else { return }
 
-        if let object = hitTarget.object as? DiagramCanvasConnector {
-            guard let tag = hitTarget.tag else { return }
-            object.moveMidpoint(tag: tag, canvasDelta: canvasDelta)
-            diagramCtrl.updateConnectorPreview(object)
+    // Drag midpoint handle
+    func dragHandle(byCanvasDelta canvasDelta: Vector2) {
+        guard let hitTarget,
+              let tag = hitTarget.tag
+        else { return }
+
+        if let node = hitTarget.object as? DiagramCanvasConnector {
+            dragConnectorMidpoint(node: node, tag: tag, canvasDelta: canvasDelta)
+        }
+        
+        self.canvasController?.queueUpdatePreview()
+    }
+    
+    func dragConnectorMidpoint(node: DiagramCanvasConnector, tag: Int, canvasDelta: Vector2) {
+        guard let runtimeID = node.runtimeID,
+              let runtime = designController?.runtimeFrame,
+              let connector: DiagramConnector = runtime.component(for: runtimeID),
+              let runtime = designController?.runtimeFrame
+        else { return }
+        
+        var preview: ConnectorPreview = runtime.component(for: runtimeID)
+                                        ?? ConnectorPreview(midpoints: connector.midpoints)
+
+        
+        let handle = node.midpointHandles[tag]
+        if preview.midpoints.isEmpty && tag == 0 {
+            let newMidpoint = Vector2D(handle.position + canvasDelta)
+            preview.midpoints = [newMidpoint]
+        }
+        else if tag >= 0 && tag < connector.midpoints.count {
+            let newPosition = handle.position + canvasDelta
+            preview.midpoints[tag] = Vector2D(newPosition)
         }
         else {
-            GD.print("No proper parent")
+            GD.pushError("Trying to set out-of-bounds midpoint")
         }
 
-        canvas.queueRedraw()
+        runtime.setComponent(preview, for: runtimeID)
     }
 
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {

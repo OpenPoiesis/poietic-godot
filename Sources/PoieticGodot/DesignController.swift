@@ -29,7 +29,7 @@ public class DesignController: SwiftGodot.Node {
     var design: Design
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
-    var runtimeFrame: RuntimeFrame? = nil
+    var runtimeFrame: AugmentedFrame? = nil
 //    var simulationPlan: SimulationPlan? = nil
     var result: SimulationResult? = nil
 
@@ -39,13 +39,12 @@ public class DesignController: SwiftGodot.Node {
     @Signal var designReset: SimpleSignal
     /// Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
-    
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
     @Signal var simulationFinished: SignalWithArguments<PoieticResult>
     
     required init(_ context: InitContext) {
-        self.systemGroup = SystemGroup(PoieticFlows.SimulationPresentationSystemGroup)
+        self.systemGroup = SystemGroup(SystemConfiguration.DesignChange)
         
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
@@ -295,7 +294,7 @@ public class DesignController: SwiftGodot.Node {
     ///
     func updateSystemsAndSimulate() {
         guard let currentFrame = design.currentFrame else { return }
-        let runtimeFrame = RuntimeFrame(currentFrame)
+        let runtimeFrame = AugmentedFrame(currentFrame)
         self.runtimeFrame = runtimeFrame
         
         do {
@@ -713,7 +712,7 @@ public class DesignController: SwiftGodot.Node {
     // MARK: - Simulation Result
     func simulate() {
         guard let runtimeFrame,
-              let simulationPlan = runtimeFrame.frameComponent(SimulationPlan.self)
+              let simulationPlan: SimulationPlan = runtimeFrame.component(for: .Frame)
         else {
             return
         }

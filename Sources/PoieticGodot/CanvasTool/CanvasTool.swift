@@ -39,6 +39,7 @@ class CanvasTool: SwiftGodot.Node {
     @Callable
     func toolName() -> String { "default" }
     
+    // TODO: This feel dirty
     var application: PoieticApplication? {
         var parent: Node? = self.getParent()
         while parent != nil {
