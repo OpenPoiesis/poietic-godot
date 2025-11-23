@@ -40,7 +40,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     
     @Export var background: SwiftGodot.ColorRect?
     
-    // TODO: Move represented* to diagram controller
     /// Blocks that represent design nodes.
     ///
     /// Blocks representing design nodes have their `objectID` set to the object they represent.
@@ -54,11 +53,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     public var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
     private var _connectors: [RuntimeEntityID:DiagramCanvasConnector] = [:]
    
-    // - MARK: - Styling
-    @Export var primaryLabelSettings: SwiftGodot.LabelSettings?
-    @Export var secondaryLabelSettings: SwiftGodot.LabelSettings?
-    @Export var invalidLabelSettings: SwiftGodot.LabelSettings?
-
     public override func _ready() {
         if background == nil {
             GD.print("--- Creating background")
@@ -241,17 +235,10 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
-            guard let child = child as? DiagramCanvasObject else {
-                continue
-            }
-            
-            for handle in child.getHandles() where handle.visible {
-                if handle.containsPoint(globalPoint: globalPosition) {
-                    targets.append(CanvasHitTarget(object: child, type: .handle, tag: handle.tag))
-                }
-            }
-            
-            if let child = child as? DiagramCanvasBlock {
+            guard let child else { continue }
+            switch child {
+            case let child as DiagramCanvasBlock:
+                let localPosition = child.toLocal(globalPoint: globalPosition)
                 if let indicator = child.issueIndicator as? CanvasIssueIndicator,
                    indicator.visible,
                    indicator.containsPoint(globalPoint: globalPosition)
@@ -260,20 +247,35 @@ public class DiagramCanvas: SwiftGodot.Node2D {
                 }
                 if let label = child.primaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
+                   label.getRect().hasPoint(localPosition)
                 {
                     targets.append(CanvasHitTarget(object: child, type: .primaryLabel))
                 }
 
                 if let label = child.secondaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
+                   label.getRect().hasPoint(localPosition)
                 {
                     targets.append(CanvasHitTarget(object: child, type: .secondaryLabel))
                 }
+            // case let child as DiagramCanvasConnector: ...
+            default:
+                break
             }
-
-            if child.containsTouch(globalPoint: globalPosition) {
+            
+            for handle in child.findChildren(pattern: "*", type: "CanvasHandle") {
+                guard let handle = handle as? CanvasHandle else { continue }
+                if handle.containsPoint(globalPoint: globalPosition) {
+                    targets.append(CanvasHitTarget(object: child,
+                                                   type: .handle,
+                                                   tag: handle.tag,
+                                                   handle: handle))
+                }
+            }
+            
+            if let child = child as? DiagramCanvasObject,
+               child.containsTouch(globalPoint: globalPosition)
+            {
                 targets.append(CanvasHitTarget(object: child, type: .object))
             }
         }

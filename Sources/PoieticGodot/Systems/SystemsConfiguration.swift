@@ -9,6 +9,29 @@ import PoieticCore
 import PoieticFlows
 import Diagramming
 
+// FIXME: [REFACTORING] Rename to Phase
+
+enum RuntimePhase {
+    // Modeling
+
+    /// Systems run when design changed.
+    ///
+    /// The systems in this phase are run when a design is loaded, or when a transaction is
+    /// committed.
+    case designChange
+
+    /// Systems run during interactive editing such as selection movement or handle dragging.
+    ///
+    case preview
+    
+    // Simulation
+    // Run when the simulation plan is ready or when an experiment is requested.
+    // case simulationPrepare
+    // Run on simulation step.
+    // case simulationStep
+    // case simulationFinished
+}
+
 // FIXME: The SystemConfiguration is incubated idea.
 
 // Phases/events:
@@ -22,7 +45,8 @@ import Diagramming
 enum SystemConfiguration {
     /// Systems being run on each system change
     nonisolated(unsafe) static let DesignChange =
-        PoieticFlows.SimulationPresentationSystemGroup + [
+        PoieticFlows.SimulationPresentationSystemGroup
+        + [
             // From Diagramming
             BlockCreationSystem.self,
             TraitConnectorCreationSystem.self,
@@ -32,10 +56,12 @@ enum SystemConfiguration {
             ConnectorSyncSystem.self,
         ]
 
+    // TODO: Update only dirty connectors
     nonisolated(unsafe) static let DraggingPreview: [System.Type] = [
         // From Diagramming
         ConnectorGeometrySystem.self,
         // From PoieticGodot
         BlockSyncSystem.self,
+        ConnectorSyncSystem.self,
     ]
 }

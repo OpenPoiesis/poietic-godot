@@ -42,6 +42,11 @@ class SelectionManager: SwiftGodot.Node {
         return selection.first?.rawValue
     }
     
+    public func selectionOfOne() -> PoieticCore.ObjectID? {
+        guard selection.count == 1 else { return nil }
+        return selection.first
+    }
+
     @Callable
     func get_ids() -> PackedInt64Array {
         return PackedInt64Array(compactingValid: selection)

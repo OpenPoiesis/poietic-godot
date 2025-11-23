@@ -20,8 +20,9 @@ enum HitTargetType: Int, CaseIterable {
 
 @Godot
 public class CanvasHitTarget: SwiftGodot.Object {
-    @Export var object: Node2D?
+    @Export var object: Node?
     @Export var type: HitTargetType = .object
+    @Export var canvasHandle: CanvasHandle?
     /// Custom tag associated with hit target.
     ///
     /// For example, if the object is a connector. then the handle is a midpoint and
@@ -32,11 +33,12 @@ public class CanvasHitTarget: SwiftGodot.Object {
         super.init(context)
     }
     
-    convenience init(object: DiagramCanvasObject, type: HitTargetType, tag: Int? = nil) {
+    convenience init(object: Node, type: HitTargetType, tag: Int? = nil, handle: CanvasHandle? = nil) {
         self.init()
         self.object = object
         self.type = type
         self.tag = tag
+        self.canvasHandle = handle
     }
     
     public var debugDescription: String {

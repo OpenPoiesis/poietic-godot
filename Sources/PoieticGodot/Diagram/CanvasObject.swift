@@ -66,6 +66,16 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
         fatalError("Subclasses should override \(#function)")
     }
     
+    func handle(tag: Int) -> CanvasHandle? {
+        for child in self.findChildren(pattern: "*", type: "CanvasHandle") {
+            guard let child = child as? CanvasHandle else { continue }
+            if child.tag == tag {
+                return child
+            }
+        }
+        return nil
+    }
+    
     // FIXME: make explicit that this uses global point
     @Callable(autoSnakeCase: true)
     open func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {

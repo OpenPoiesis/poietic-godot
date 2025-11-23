@@ -14,7 +14,6 @@ let InitiatingMidpointHandleTag: Int = -1
 
 @Godot
 public class DiagramCanvasConnector: DiagramCanvasObject {
-    var midpointHandles: [CanvasHandle] = []
     // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]

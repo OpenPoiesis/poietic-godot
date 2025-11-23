@@ -27,6 +27,8 @@ public class DesignController: SwiftGodot.Node {
     // TODO: Remove this or rename to `metamodel`
     var _metamodel: Metamodel { design.metamodel }
     var design: Design
+    var notation: Notation?
+
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
     var runtimeFrame: AugmentedFrame? = nil
@@ -49,9 +51,10 @@ public class DesignController: SwiftGodot.Node {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self.selectionManager = SelectionManager()
-        
+
         super.init(context)
         
+        loadNotation(path: StockFlowPictogramsPath)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
     }
@@ -296,6 +299,11 @@ public class DesignController: SwiftGodot.Node {
         guard let currentFrame = design.currentFrame else { return }
         let runtimeFrame = AugmentedFrame(currentFrame)
         self.runtimeFrame = runtimeFrame
+       
+        // FIXME: [REFACTORING] Put this into some more prominent place, it is non-obvious being here
+        if let notation {
+            runtimeFrame.setComponent(notation, for: .Frame)
+        }
         
         do {
             try systemGroup.update(runtimeFrame)
@@ -452,16 +460,29 @@ public class DesignController: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func exportSVGDiagram(path: String, canvasController: CanvasController) {
-        // TODO: Make composer configurable
-        guard let composer = canvasController.composer else {
-            GD.pushError("No composer")
+        guard let runtimeFrame else {
+            GD.pushError("No runtime frame")
             return
         }
-        let diagram = composer.createDiagram(from: currentFrame)
-        // TODO: Configure SVG export style
+
+        // FIXME: [REFACTORING] Move this into controller initialisation/application
+        let diagramComposition = SystemGroup(
+            BlockCreationSystem.self,
+            TraitConnectorCreationSystem.self,
+            ConnectorGeometrySystem.self
+        )
+        
+        do {
+            try diagramComposition.update(runtimeFrame)
+        }
+        catch {
+            GD.pushError("Export to SVG failed:", error)
+            return
+        }
+        
         let exporter = SVGDiagramExporter()
         do {
-            try exporter.export(diagram: diagram, to: path)
+            try exporter.export(frame: runtimeFrame, to: path)
         }
         catch {
             GD.pushError("Export to SVG failed:", error.localizedDescription)
@@ -817,5 +838,41 @@ public class DesignController: SwiftGodot.Node {
             trans.removeCascading(id)
         }
         self.accept(trans)
+    }
+    
+    // MARK: - Notation and Pictograms
+    @Callable(autoSnakeCase: true)
+    func loadNotation(path: String) {
+        // TODO: Use Godot resource loading mechanism here
+        let gData: PackedByteArray = FileAccess.getFileAsBytes(path: path)
+        let data: Data = Data(gData)
+        let decoder = JSONDecoder()
+        let collection: PictogramCollection
+        
+        do {
+            collection = try decoder.decode(PictogramCollection.self, from: data)
+        }
+        catch {
+            GD.pushError("Unable to load pictograms from: \(StockFlowPictogramsPath). Reason: \(error)")
+            collection = PictogramCollection()
+        }
+        if collection.pictograms.isEmpty {
+            GD.pushWarning("No pictograms found (empty collection)")
+        }
+        else {
+            let names = collection.pictograms.map { $0.name }.joined(separator: ",")
+        }
+        
+        // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
+        let scaled = collection.pictograms.map { $0.scaled(PrototypingPictogramAdjustmentScale) }
+        
+        self.notation = Diagramming.Notation(
+            pictograms: scaled,
+            defaultPictogramName: "Unknown",
+            connectorGlyphs: DefaultStockFlowConnectorGlyphs,
+            defaultConnectorGlyphName: "default"
+        )
+        // FIXME: [REFACTORING] Create "visual changed" signal
+        self.designChanged.emit(self.hasIssues())
     }
 }

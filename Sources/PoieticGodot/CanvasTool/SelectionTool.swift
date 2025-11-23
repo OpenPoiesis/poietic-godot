@@ -5,6 +5,10 @@
 //  Created by Stefan Urbanek on 28/08/2025.
 //
 
+// TODO: Rethink the selection tool to use runtime/augmented frame fully
+// NOTE: The new AugmentedFrame (runtime) is not very compatible with the original way of handling
+//       tools. This code might be a bit more convoluted than necessary.
+
 import SwiftGodot
 import Diagramming
 import PoieticCore
@@ -81,6 +85,12 @@ class SelectionTool: CanvasTool {
                 else {
                     selectionManager.replaceAll([objectID])
                 }
+            }
+            if let id: PoieticCore.ObjectID = selectionManager.selectionOfOne() {
+                createHandles(for: .object(id))
+            }
+            else {
+                removeHandles()
             }
             state = .objectHit
         case .handle:
@@ -173,44 +183,94 @@ class SelectionTool: CanvasTool {
         self.canvasController?.queueUpdatePreview()
     }
 
+    // MARK: - Handles
+    func createHandles(for runtimeID: RuntimeEntityID) {
+        // Currently the only nodes that have handles are connectors.
+        //
+        guard let connector = canvas?.connector(id: runtimeID) else { return }
+        createConnectorHandles(node: connector, runtimeID: runtimeID)
+        
+    }
+    
+    func createConnectorHandles(node: DiagramCanvasConnector, runtimeID: RuntimeEntityID) {
+        // Source of truth: DiagramConnector
+        guard let objectID = node.objectID,
+              let runtime = self.designController?.runtimeFrame,
+              let connector: DiagramConnector = runtime.component(for: runtimeID)
+        else { return }
+        
+        // Remove existing handles
+        for child in node.findChildren(pattern: "*", type: "CanvasHandle") {
+            child?.queueFree()
+        }
+        
+        let preview: ConnectorPreview? = runtime.component(for: runtimeID)
+        let midpoints = preview?.midpoints ?? connector.midpoints
+        
+        if midpoints.isEmpty {
+            guard let origin: DiagramBlock = runtime.component(for: connector.originID),
+                  let target: DiagramBlock = runtime.component(for: connector.targetID)
+            else { return }
+            let segment = LineSegment(from: origin.position, to: target.position)
+
+            let handle = CanvasHandle()
+            handle.tag = 0
+            handle.position = Vector2(segment.midpoint)
+            node.addChild(node: handle)
+        }
+        else {
+            for (index, point) in midpoints.enumerated() {
+                let handle = CanvasHandle()
+                handle.tag = index
+                handle.position = Vector2(point)
+                node.addChild(node: handle)
+            }
+        }
+    }
+    func removeHandles() {
+        guard let canvas else { return }
+        for child in canvas.findChildren(pattern: "*", type: "CanvasHandle", recursive: true) {
+            child?.queueFree()
+        }
+    }
     // Drag midpoint handle
     func dragHandle(byCanvasDelta canvasDelta: Vector2) {
         guard let hitTarget,
-              let tag = hitTarget.tag
+              let handle = hitTarget.canvasHandle
         else { return }
 
         if let node = hitTarget.object as? DiagramCanvasConnector {
-            dragConnectorMidpoint(node: node, tag: tag, canvasDelta: canvasDelta)
+            dragMidpointHandle(node: node, handle: handle, canvasDelta: canvasDelta)
         }
         
         self.canvasController?.queueUpdatePreview()
     }
     
-    func dragConnectorMidpoint(node: DiagramCanvasConnector, tag: Int, canvasDelta: Vector2) {
+    func dragMidpointHandle(node: DiagramCanvasConnector, handle: CanvasHandle, canvasDelta: Vector2) {
         guard let runtimeID = node.runtimeID,
               let runtime = designController?.runtimeFrame,
               let connector: DiagramConnector = runtime.component(for: runtimeID),
-              let runtime = designController?.runtimeFrame
+              let tag = handle.tag
         else { return }
         
-        var preview: ConnectorPreview = runtime.component(for: runtimeID)
-                                        ?? ConnectorPreview(midpoints: connector.midpoints)
-
+        let preview: ConnectorPreview? = runtime.component(for: runtimeID)
+        var midpoints = preview?.midpoints ?? connector.midpoints
         
-        let handle = node.midpointHandles[tag]
-        if preview.midpoints.isEmpty && tag == 0 {
+        if midpoints.isEmpty && tag == 0 {
             let newMidpoint = Vector2D(handle.position + canvasDelta)
-            preview.midpoints = [newMidpoint]
+            midpoints = [newMidpoint]
         }
         else if tag >= 0 && tag < connector.midpoints.count {
             let newPosition = handle.position + canvasDelta
-            preview.midpoints[tag] = Vector2D(newPosition)
+            midpoints[tag] = Vector2D(newPosition)
         }
         else {
             GD.pushError("Trying to set out-of-bounds midpoint")
         }
-
-        runtime.setComponent(preview, for: runtimeID)
+        let newPreview = ConnectorPreview(midpoints: midpoints)
+        runtime.setComponent(newPreview, for: runtimeID)
+        runtime.setComponent(VisuallyDirty(), for: runtimeID)
+        self.canvasController?.queueUpdatePreview()
     }
 
     override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
@@ -230,17 +290,7 @@ class SelectionTool: CanvasTool {
         case .objectMove:
             canvasController?.moveSelection(selection, by: designMoveDelta)
         case .handleMove:
-            // FIXME: Last position
-            guard let hitTarget,
-                  let object = hitTarget.object as? DiagramCanvasConnector,
-                  let objectID = object.objectID,
-                  let connector = object.connector else
-            {
-                return false
-            }
-
-            canvasController?.setMidpoints(object: objectID,
-                                            midpoints: connector.midpoints)
+            self.finishDraggingHandle(globalPosition: globalPosition)
         case .empty: break
         case .handleHit: break
         case .objectHit: break
@@ -270,5 +320,39 @@ class SelectionTool: CanvasTool {
             }
         }
         return true
+    }
+    
+    func finishDraggingHandle(globalPosition: Vector2) {
+        guard let hitTarget,
+              let handle = hitTarget.canvasHandle
+        else { return }
+
+        if let node = hitTarget.object as? DiagramCanvasConnector {
+            finishDraggingMidpointHandle(node: node, handle: handle, globalPosition: globalPosition)
+        }
+    }
+    
+    func finishDraggingMidpointHandle(node: DiagramCanvasConnector,
+                                      handle: CanvasHandle,
+                                      globalPosition: Vector2)
+    {
+        guard let runtimeID = node.runtimeID,
+              let objectID = runtimeID.objectID,
+              let runtime = designController?.runtimeFrame,
+              let preview: ConnectorPreview = runtime.component(for: runtimeID),
+              let tag = handle.tag
+        else { return }
+        
+        guard let ctrl = designController else { return }
+        let trans = ctrl.newTransaction()
+        
+        guard trans.contains(objectID) else {
+            GD.pushWarning("Unknown ID: \(objectID)")
+            ctrl.discard(trans)
+            return
+        }
+        let object = trans.mutate(objectID)
+        object["midpoints"] = PoieticCore.Variant(preview.midpoints)
+        ctrl.accept(trans)
     }
 }

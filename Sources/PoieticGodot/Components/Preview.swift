@@ -20,7 +20,6 @@ public struct DraggedDiagramConnector: Component {
         self.midpoints = midpoints
     }
     
-    public let representedObjectID: ObjectID?
     /// Name of connector style.
     ///
     /// Refers to a style defined in ``DiagramStyle/connectorStyles``.

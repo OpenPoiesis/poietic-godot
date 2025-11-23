@@ -48,14 +48,6 @@ public struct BlockSyncSystem: System {
         let style = canvasComponent.canvasStyle
         let canvas = canvasComponent.canvas
         
-        let hasIssues: Bool
-        if let objectID = runtimeID.objectID {
-            hasIssues = frame.objectHasIssues(objectID)
-        }
-        else {
-            hasIssues = false
-        }
-
         let sceneNode: DiagramCanvasBlock
         if let node = canvas.block(id: runtimeID) {
             sceneNode = node
@@ -66,6 +58,9 @@ public struct BlockSyncSystem: System {
             canvas.insertBlock(sceneNode)
             
         }
+        sceneNode._prepareChildren()
+        sceneNode.name = StringName(DiagramBlockNamePrefix + runtimeID.godotNodeName)
+
         if let objectID = runtimeID.objectID,
            let object = frame[objectID] {
             sceneNode.hasValueIndicator = object.type.hasTrait(.NumericIndicator)
@@ -73,37 +68,45 @@ public struct BlockSyncSystem: System {
         else {
             sceneNode.hasValueIndicator = false
         }
-        sceneNode.hasIssues = hasIssues
-        self.updateBlockContent(sceneNode,
-                                runtimeID: runtimeID,
-                                block: block,
-                                style: style)
+
+        if let objectID = runtimeID.objectID {
+            sceneNode.hasIssues = frame.objectHasIssues(objectID)
+        }
+        else {
+            sceneNode.hasIssues = false
+        }
+
+
+        let preview: BlockPreview? = frame.component(for: runtimeID)
+
+        updateContent(sceneNode, runtimeID: runtimeID, block: block, style: style)
+        updatePosition(sceneNode, block: block, preview: preview)
+        updateLabels(sceneNode, block: block, style: style)
+        updateBlockColorSwatch(sceneNode, colorName: block.accentColorName, style: style)
+        updateIndicators(sceneNode)
     }
 
-    func updateBlockContent(_ node: DiagramCanvasBlock,
-                            runtimeID: RuntimeEntityID,
-                            block: DiagramBlock,
-                            style: CanvasStyle)
+    func updateContent(_ node: DiagramCanvasBlock,
+                       runtimeID: RuntimeEntityID,
+                       block: DiagramBlock,
+                       style: CanvasStyle)
     {
-        node._prepareChildren()
-        
-        // 1. Basics
-        node.name = StringName(DiagramBlockNamePrefix + runtimeID.godotNodeName)
-        
-        // 2. Pictogram and shape
         if let pictogram = block.pictogram {
-            updateBlockPictogram(node,
-                                 pictogram: pictogram,
-                                 style: style)
+            updateBlockPictogram(node, pictogram: pictogram, style: style)
             node.pictogramBox = pictogram.pathBoundingBox
         }
         else {
             node.pictogram?.curves = TypedArray()
             node.pictogramBox = Rect2D()
         }
-        
-        updateBlockIndicators(node)
-        // 3. Labels
+    }
+    func updatePosition(_ node: DiagramCanvasBlock, block: DiagramBlock, preview: BlockPreview?) {
+        let position = preview?.position ?? block.position
+        node.position = Vector2(position)
+    }
+    
+    func updateLabels(_ node: DiagramCanvasBlock, block: DiagramBlock, style: CanvasStyle)
+    {
         // FIXME: Flipped y coords
         let bottom = LineSegment(from: node.pictogramBox.topLeft, to: node.pictogramBox.topRight)
         let mid = bottom.midpoint
@@ -139,8 +142,6 @@ public struct BlockSyncSystem: System {
             label.setSize(size)
             label.setPosition(center)
         }
-
-        updateBlockColorSwatch(node, colorName: block.accentColorName, style: style)
     }
     
     /// Requires pictogram box to be computed first. See ``updateBlockPictogram(...)``.
@@ -188,13 +189,13 @@ public struct BlockSyncSystem: System {
             selectionOutline.curves = TypedArray(curves)
             selectionOutline.fillColor = style.selectionFillColor
             selectionOutline.outlineColor = style.selectionOutlineColor
-            selectionOutline.updateVisuals()
+            selectionOutline.queueRedraw()
             selectionOutline.visible = node._isSelected
         }
     }
     
     /// Update issue and value indicator based on pictogram bounding box.
-    func updateBlockIndicators(_ node: DiagramCanvasBlock)
+    func updateIndicators(_ node: DiagramCanvasBlock)
     {
         let box = node.pictogramBox
         if let indicator = node.issueIndicator {

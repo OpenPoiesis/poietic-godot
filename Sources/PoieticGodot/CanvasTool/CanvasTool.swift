@@ -6,6 +6,7 @@
 //
 
 import SwiftGodot
+import PoieticCore
 
 // TODO: Implement "tool locking": When tool is clicked/selected twice, it is locked. Otherwise it returns to selection tool.
 
@@ -16,11 +17,10 @@ class CanvasTool: SwiftGodot.Node {
     @Export var canvas: DiagramCanvas?
     @Export var canvasController: CanvasController?
     @Export var designController: DesignController?
-    /// Auxiliary palette that provides selection of tool items
-    /// such as placeable objects or possible connectors.
-//    @Export var palette: GridContainer?
-    
-    
+
+    /// Shortcut for current runtime frame from the associated design controller.
+    var runtimeFrame: AugmentedFrame? { designController?.runtimeFrame }
+
     /// Identifier of an item, selected in palette, to be placed.
     @Export var paletteItemIdentifier: String? {
         didSet { paletteItemChanged(paletteItemIdentifier) }

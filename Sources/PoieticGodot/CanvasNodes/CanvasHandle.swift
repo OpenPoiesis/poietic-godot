@@ -5,12 +5,18 @@
 //  Created by Stefan Urbanek on 19/11/2025.
 //
 
+import PoieticCore
 import SwiftGodot
 
 @Godot
 public class CanvasHandle: SwiftGodot.Node2D {
+    /// ID of the owning object. If nil then it is owned by canvas.
+    var runtimeIDs: RuntimeEntityID?
+    /// Custom tag that specifies the handle if multiple handles are present within the canvas or
+    /// within a canvas object.
+    @Export var tag: Int?
+
     var shape: CircleShape2D
-    var tag: Int?
     
     @Export var size: Double = DefaultHandleSize {
         didSet {

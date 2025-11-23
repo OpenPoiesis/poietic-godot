@@ -31,9 +31,7 @@ public class CanvasController: SwiftGodot.Node {
     @Export public var canvas: DiagramCanvas?
     /// Controller of a design that is composed as a diagram on canvas.
     @Export public var designController: DesignController?
-    var composer: DiagramComposer?
     
-    internal var notation: Notation?
     // TODO: Update visuals on style change
     @Export public var style: CanvasStyle?
     @Export public var contextMenu: SwiftGodot.Control?
@@ -45,8 +43,6 @@ public class CanvasController: SwiftGodot.Node {
     @Export var inlinePopup: SwiftGodot.Control?
     
     var pictograms: PictogramCollection?
-
-    var visualsUpdateSystems: SystemGroup
 
     let previewPipeline: SystemGroup
     var requireUpdatePreview: Bool = false
@@ -78,51 +74,10 @@ public class CanvasController: SwiftGodot.Node {
         self.designController = designController
         self.canvas = canvas
         
-        loadPictograms(path: StockFlowPictogramsPath)
-        
         designController.designChanged.connect(self.on_design_changed)
         designController.selectionManager.selectionChanged.connect(self.on_selection_changed)
     }
     
-    @Callable(autoSnakeCase: true)
-    func loadPictograms(path: String) {
-        // TODO: Use Godot resource loading mechanism here
-        let gData: PackedByteArray = FileAccess.getFileAsBytes(path: path)
-        let data: Data = Data(gData)
-        let decoder = JSONDecoder()
-        let collection: PictogramCollection
-        
-        do {
-            collection = try decoder.decode(PictogramCollection.self, from: data)
-        }
-        catch {
-            GD.pushError("Unable to load pictograms from: \(StockFlowPictogramsPath). Reason: \(error)")
-            collection = PictogramCollection()
-        }
-        if collection.pictograms.isEmpty {
-            GD.pushWarning("No pictograms found (empty collection)")
-        }
-        else {
-            let names = collection.pictograms.map { $0.name }.joined(separator: ",")
-        }
-        
-        // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
-        let scaled = collection.pictograms.map { $0.scaled(PrototypingPictogramAdjustmentScale) }
-        
-        let notation = Diagramming.Notation(
-            pictograms: scaled,
-            defaultPictogramName: "Unknown",
-            connectorGlyphs: DefaultStockFlowConnectorGlyphs,
-            defaultConnectorGlyphName: "default"
-        )
-        setNotation(notation)
-    }
-    
-    func setNotation(_ notation: Notation) {
-        guard let runtime = designController?.runtimeFrame else { return }
-        runtime.setComponent(notation, for: .Frame)
-        self.queueUpdatePreview()
-    }
     
     // MARK: - Signal Handling
     @Callable
@@ -191,9 +146,9 @@ public class CanvasController: SwiftGodot.Node {
                   let objectID = child.objectID else { continue }
             let isSelected = selected.contains(objectID)
             child.isSelected = isSelected
-            if let child = child as? DiagramCanvasConnector {
-                child.handlesVisible = isSelected
-            }
+//            if let child = child as? DiagramCanvasConnector {
+//                child.handlesVisible = isSelected
+//            }
         }
     }
     
@@ -340,21 +295,6 @@ public class CanvasController: SwiftGodot.Node {
         }
     }
     
-    public func setMidpoints(object id: PoieticCore.ObjectID, midpoints: [Vector2D]) {
-        guard let ctrl = designController else { return }
-        let trans = ctrl.newTransaction()
-        
-        guard trans.contains(id) else {
-            GD.pushWarning("Unknown ID: \(id)")
-            ctrl.discard(trans)
-            return
-        }
-        let object = trans.mutate(id)
-        object["midpoints"] = PoieticCore.Variant(midpoints)
-        
-        ctrl.accept(trans)
-    }
-    
     // MARK: - Inline Editors and Pop-ups
     //
     @Callable(autoSnakeCase: true)
@@ -402,7 +342,8 @@ public class CanvasController: SwiftGodot.Node {
         guard let designController,
               let issuesPopup,
               let canvas,
-              let block = canvas.representedBlock(rawID: rawObjectID)
+              // FIXME: [REFACTORING] This is too long
+              let block = canvas.block(id: .object(ObjectID(rawValue: rawObjectID)))
         else { return }
         guard issuesPopup.hasMethod("set_issues") else {
             GD.pushError("Invalid issues popup node: set_issues method missing")
@@ -482,26 +423,31 @@ public class CanvasController: SwiftGodot.Node {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let ctrl = designController,
               let canvas,
-              let object = canvas.representedBlock(id: objectID),
-              let block = object.block else { return }
+              // FIXME: [REFACTORING] This is too long
+              let block = canvas.block(id: .object(ObjectID(rawValue: rawObjectID)))
+        else { return }
         
-        object.finishLabelEdit()
-        
+        block.finishLabelEdit()
+#warning("REFACTORING: Implement this!")
+        #if false
         guard block.label != newValue else { return } // Nothing changed
         
         var trans = ctrl.newTransaction()
         var obj = trans.mutate(objectID)
         obj["name"] = PoieticCore.Variant(newValue)
         ctrl.accept(trans)
+        #endif
     }
     
     @Callable(autoSnakeCase: true)
     func cancelNameEdit(rawObjectID: EntityIDValue) {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
         guard let canvas,
-              let object = canvas.representedBlock(id: objectID),
-              let block = object.block else { return }
-        object.finishLabelEdit()
+              // FIXME: [REFACTORING] This is too long
+              let block = canvas.block(id: .object(ObjectID(rawValue: rawObjectID)))
+        else { return }
+#warning("REFACTORING: Implement this!")
+        block.finishLabelEdit()
     }
     
     @Callable(autoSnakeCase: true)
