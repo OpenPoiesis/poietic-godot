@@ -12,11 +12,13 @@ import PoieticCore
 
 /// Abstract class for tools operating on diagram canvas.
 ///
+/// Tool is an active object that can create transactions, update other nodes and run system
+/// updates.
+///
 @Godot
 class CanvasTool: SwiftGodot.Node {
-    @Export var canvas: DiagramCanvas?
-    @Export var canvasController: CanvasController?
     @Export var designController: DesignController?
+    @Export var canvas: DiagramCanvas?
 
     /// Shortcut for current runtime frame from the associated design controller.
     var runtimeFrame: AugmentedFrame? { designController?.runtimeFrame }
@@ -26,14 +28,20 @@ class CanvasTool: SwiftGodot.Node {
         didSet { paletteItemChanged(paletteItemIdentifier) }
     }
 
+    let previewSystemGroup: SystemGroup
+    
+    required init(_ context: InitContext) {
+        // FIXME: Use central registry of systems (not yet implemented)
+        let systems = RuntimePhase.interactivePreview.systems
+        self.previewSystemGroup = SystemGroup(systems, strict: false)
+        super.init(context)
+    }
+    
     /// Bind the tool to a diagram controller.
     @Callable
-    func bind(_ canvasController: CanvasController) {
-        self.canvasController = canvasController
-        self.canvas = canvasController.canvas
-        self.designController = canvasController.designController
-        
-        // FIXME: Missing object palette
+    func bind(designController: DesignController, canvas: DiagramCanvas) {
+        self.designController = designController
+        self.canvas = canvas
     }
     
     @Callable
@@ -134,4 +142,20 @@ class CanvasTool: SwiftGodot.Node {
     open func toolReleased() {
         // Do nothing
     }
+
+    func updateCanvasVisuals() {
+        guard let canvas,
+              let runtimeFrame
+        else { return }
+        
+        let component = CanvasComponent(canvas: canvas)
+        runtimeFrame.setComponent(component, for: .Frame)
+        do {
+            try previewSystemGroup.update(runtimeFrame)
+        }
+        catch {
+            GD.pushError("Systems failed: ", error.localizedDescription)
+        }
+    }
+    
 }

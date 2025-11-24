@@ -15,6 +15,8 @@ public let BackgroundZIndex: Int32 = -1000
 
 @Godot
 public class DiagramCanvas: SwiftGodot.Node2D {
+    @Export public var style: CanvasStyle?
+
     static let ChartsVisibleZoomLevel: Float = 2.0
     static let FormulasVisibleZoomLevel: Float = 1.0
     @Signal var canvasViewChanged: SignalWithArguments<SwiftGodot.Vector2, Float>
@@ -53,6 +55,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     public var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
     private var _connectors: [RuntimeEntityID:DiagramCanvasConnector] = [:]
    
+    required init(_ context: InitContext) {
+        self.style = CanvasStyle()
+        super.init(context)
+    }
+
     public override func _ready() {
         if background == nil {
             GD.print("--- Creating background")
@@ -369,17 +376,3 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
 
 }
-
-//struct DiagramBlockDisplayOptions: OptionSet {
-//    typealias RawValue = UInt32
-//    var rawValue: RawValue
-//    init(rawValue: RawValue) {
-//        self.rawValue = rawValue
-//    }
-//    
-//    static let showPrimaryLabel    = DiagramBlockDisplayOptions(rawValue: 1 << 0)
-//    static let showSecondaryLabel  = DiagramBlockDisplayOptions(rawValue: 1 << 1)
-//    static let showValueIndicator  = DiagramBlockDisplayOptions(rawValue: 1 << 2)
-//}
-
-

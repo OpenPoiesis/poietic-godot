@@ -13,6 +13,5 @@ public struct CanvasComponent: Component {
     /// Canvas scene node that the controller manages and synchronises diagrammatic representation
     /// of a design.
     public let canvas: DiagramCanvas
-    public let canvasStyle: CanvasStyle
 }
 

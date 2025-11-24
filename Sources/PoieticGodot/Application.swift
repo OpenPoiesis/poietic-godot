@@ -155,7 +155,8 @@ class PoieticApplication: SwiftGodot.Node {
     func undo() -> Bool {
         guard let ctrl = designController else { return false }
         guard ctrl.design.undo() else { return false }
-        ctrl.updateSystemsAndSimulate()
+        ctrl.updateSystems()
+        ctrl.simulate()
         return true
     }
     
@@ -165,7 +166,8 @@ class PoieticApplication: SwiftGodot.Node {
     func redo() -> Bool {
         guard let ctrl = designController else { return false }
         guard ctrl.design.redo() else { return false }
-        ctrl.updateSystemsAndSimulate()
+        ctrl.updateSystems()
+        ctrl.simulate()
         return true
     }
 

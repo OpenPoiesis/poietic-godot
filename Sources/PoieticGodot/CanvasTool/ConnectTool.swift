@@ -46,8 +46,7 @@ class ConnectTool: CanvasTool {
     }
 
     override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = canvasController,
-              let canvas,
+        guard let canvas,
               let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let originID = origin.runtimeID
         else { return true }
@@ -68,7 +67,6 @@ class ConnectTool: CanvasTool {
     }
     
     override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = canvasController else { return false }
         guard let canvas else { return false }
         guard state == .connect else { return true }
         guard let originID = originID,
@@ -197,7 +195,7 @@ extension ConnectTool {
         guard let frame = designController?.runtimeFrame,
               let block: DiagramBlock = frame.component(for:originID),
               let canvas,
-              let style = canvasController?.style
+              let style = canvas.style
         else { return nil }
         
         let notation: Notation = frame.component(for: .Frame) ?? Notation.DefaultNotation
@@ -244,7 +242,7 @@ extension ConnectTool {
               let frame = designController?.runtimeFrame,
               let block: DiagramBlock = frame.component(for:originID),
               let canvas,
-              let style = canvasController?.style
+              let style = canvas.style
         else { return }
         
         let originTouch = Geometry.touchPoint(shape: block.collisionShape.shape,

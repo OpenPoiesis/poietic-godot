@@ -11,7 +11,7 @@ import PoieticFlows
 import Diagramming
 import Foundation
 
-// FIXME: There is confusion between Diagramming.DiagramStyle and our DiagramStyle. Resolve that.
+// FIXME: [REFACTORING] Deprecated. Dissolve into canvas and other classes.
 
 /// Canvas Controller synchronises design with canvas.
 ///
@@ -34,13 +34,7 @@ public class CanvasController: SwiftGodot.Node {
     
     // TODO: Update visuals on style change
     @Export public var style: CanvasStyle?
-    @Export public var contextMenu: SwiftGodot.Control?
-    var inlineEditors: [String:SwiftGodot.Control] = [:]
     
-    @Export public var issuesPopup: SwiftGodot.Control?
-    
-    /// A control that is shown alongside a node, such as inline editor or issue list.
-    @Export var inlinePopup: SwiftGodot.Control?
     
     var pictograms: PictogramCollection?
 
@@ -50,7 +44,7 @@ public class CanvasController: SwiftGodot.Node {
     //
     required init(_ context: InitContext) {
         // TODO: Find a better place for this
-        self.previewPipeline = SystemGroup(SystemConfiguration.DraggingPreview)
+        self.previewPipeline = SystemGroup(SystemConfiguration.DraggingPreview, strict: false)
         super.init(context)
     }
     
@@ -264,159 +258,6 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     
-    public func moveSelection(_ selection: Selection, by designDelta: Vector2D) {
-        guard let ctrl = designController else { return }
-        let trans = ctrl.newTransaction()
-        
-        for id in selection {
-            guard trans.contains(id) else {
-                GD.pushWarning("Selection has unknown ID:", id)
-                continue
-            }
-            let object = trans.mutate(id)
-            _moveObject(object, by: designDelta)
-        }
-        
-        ctrl.accept(trans)
-    }
-    
-    public func _moveObject(_ object: TransientObject, by designDelta: Vector2D) {
-        if object.type.hasTrait(.DiagramBlock) {
-            object.position = (object.position ?? .zero) + designDelta
-        }
-        else if object.type.hasTrait(.DiagramConnector) {
-            guard let midpoints: [Point] = object["midpoints"] else { return }
-            guard !midpoints.isEmpty else { return }
-            
-            let movedMidpoints = midpoints.map {
-                $0 + designDelta
-            }
-            object["midpoints"] = PoieticCore.Variant(movedMidpoints)
-        }
-    }
-    
-    // MARK: - Inline Editors and Pop-ups
-    //
-    @Callable(autoSnakeCase: true)
-    func registerInlineEditor(name: String, editor: SwiftGodot.Control) {
-        guard inlineEditors[name] == nil else {
-            GD.pushError("Inline editor '\(name)' already registered")
-            return
-        }
-        // Check for pseudo-protocol conformance.
-        //
-        // This code is here because (to my knowledge) it is not possible to subclass extension
-        // class in Godot script.
-        //
-        guard editor.hasMethod("open"),
-              editor.hasMethod("close") else
-        {
-            GD.pushError("Can not register editor '\(name)': missing required methods")
-            return
-        }
-        
-        inlineEditors[name] = editor
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func inlineEditor(_ name: String) -> SwiftGodot.Control? {
-        guard let editor = inlineEditors[name] else {
-            GD.pushError("No inline editor '\(name)'")
-            return nil
-        }
-        return editor
-    }
-    @Callable(autoSnakeCase: true)
-    func openContextMenu(_ selection: PackedInt64Array, desiredGlobalPosition: Vector2) {
-        guard let contextMenu else { return }
-        // TODO: Context menu needs to be populated before we call open
-        contextMenu.call(method: "update", Variant(selection))
-        let halfWidth = contextMenu.getSize().x / 2.0
-        let position = Vector2(x: desiredGlobalPosition.x - halfWidth,
-                               y: desiredGlobalPosition.y)
-        openInlinePopup(control: contextMenu, position: position)
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func openIssuesPopup(_ rawObjectID: EntityIDValue) {
-        guard let designController,
-              let issuesPopup,
-              let canvas,
-              // FIXME: [REFACTORING] This is too long
-              let block = canvas.block(id: .object(ObjectID(rawValue: rawObjectID)))
-        else { return }
-        guard issuesPopup.hasMethod("set_issues") else {
-            GD.pushError("Invalid issues popup node: set_issues method missing")
-            return
-        }
-
-        let issues = designController.issuesForObject(rawID: rawObjectID)
-        issuesPopup.call(method: "set_issues",
-                         SwiftGodot.Variant(rawObjectID),
-                         SwiftGodot.Variant(issues))
-
-        let position: Vector2
-        if let indicator =  block.issueIndicator {
-            position = indicator.globalPosition
-        }
-        else {
-            position = canvas.promptPosition(for: rawObjectID)
-        }
-        openInlinePopup(control: issuesPopup, position: position)
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func openInlineEditor(_ editorName: String,
-                          rawObjectID: EntityIDValue,
-                          attribute: String) {
-        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
-        // TODO: Allow editing of not-yet-existing objects, such as freshly placed block
-        guard let canvas,
-              let designController,
-              let editor = inlineEditor(editorName)
-        else { return }
-        guard let object = designController.currentFrame[objectID] else
-        {
-            GD.pushError("No object '\(objectID)' for inline editor")
-            return
-        }
-        let value = object[attribute]
-        var position = canvas.promptPosition(for: rawObjectID)
-        openInlinePopup(control: editor, position: position)
-        
-        var godotObject = PoieticObject()
-        godotObject.object = object
-        
-        editor.call(method: "open",
-                    SwiftGodot.Variant(godotObject),
-                    SwiftGodot.Variant(attribute),
-                    value?.asGodotVariant())
-        self.inlinePopup = editor
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func openInlinePopup(control: SwiftGodot.Control, position: Vector2) {
-        if let inlinePopup {
-            closeInlinePopup()
-        }
-        let size = control.getSize()
-        let adjustedPosition = Vector2(x: position.x - size.x / 2.0, y: position.y)
-        control.setGlobalPosition(adjustedPosition)
-        control.setProcess(enable: true)
-        control.show()
-        self.inlinePopup = control
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func closeInlinePopup() {
-        guard let inlinePopup else { return }
-        if inlinePopup.hasMethod("close") {
-            inlinePopup.call(method: "close")
-        }
-        inlinePopup.hide()
-        inlinePopup.setProcess(enable: false)
-        self.inlinePopup = nil
-    }
     
     @Callable(autoSnakeCase: true)
     func commitNameEdit(rawObjectID: EntityIDValue, newValue: String) {

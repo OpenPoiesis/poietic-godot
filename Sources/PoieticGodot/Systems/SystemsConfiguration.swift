@@ -22,7 +22,8 @@ enum RuntimePhase {
 
     /// Systems run during interactive editing such as selection movement or handle dragging.
     ///
-    case preview
+    case interactivePreview
+    case sceneUpdate
     
     // Simulation
     // Run when the simulation plan is ready or when an experiment is requested.
@@ -30,6 +31,38 @@ enum RuntimePhase {
     // Run on simulation step.
     // case simulationStep
     // case simulationFinished
+    
+    var systems: [System.Type] {
+        switch self {
+        case .designChange:
+            PoieticFlows.SimulationPresentationSystemGroup
+            + [
+                // From Diagramming
+                BlockCreationSystem.self,
+                TraitConnectorCreationSystem.self,
+                ConnectorGeometrySystem.self,
+                // Scene Update - systems from us - Poietic Godot
+                BlockSyncSystem.self,
+                ConnectorSyncSystem.self,
+            ]
+        case .interactivePreview:
+            [
+                // From Diagramming
+                ConnectorGeometrySystem.self,
+                // Scene Update - systems from us - Poietic Godot
+                BlockSyncSystem.self,
+                ConnectorSyncSystem.self,
+
+            ]
+        case .sceneUpdate:
+            [
+                // Ours (Poietic Godot)
+                BlockSyncSystem.self,
+                ConnectorSyncSystem.self,
+            ]
+        }
+    }
+    
 }
 
 // FIXME: The SystemConfiguration is incubated idea.

@@ -57,14 +57,41 @@ public class DesignController: SwiftGodot.Node {
         loadNotation(path: StockFlowPictogramsPath)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
+        updateSystems()
     }
     
+    /// Called when current frame was changed.
+    ///
+    /// Must be called on accept, undo, redo.
+    ///
+    func updateSystems() {
+        guard let currentFrame = design.currentFrame else { return }
+        let runtimeFrame = AugmentedFrame(currentFrame)
+        self.runtimeFrame = runtimeFrame
+       
+        // FIXME: [REFACTORING] Put this into some more prominent place, it is non-obvious being here
+        if let notation {
+            runtimeFrame.setComponent(notation, for: .Frame)
+        }
+        
+        do {
+            GD.print("Running systems update.")
+            try systemGroup.update(runtimeFrame)
+        }
+        catch {
+            GD.pushError("Internal system error:", String(describing: error))
+        }
+        
+        designChanged.emit(runtimeFrame.hasIssues)
+    }
+
     @Callable(autoSnakeCase: true)
     func newDesign() {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
+        updateSystems()
         designChanged.emit(false)
     }
     
@@ -289,31 +316,7 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Frame validation error:", String(describing: error))
             return
         }
-        updateSystemsAndSimulate()
-    }
-    /// Called when current frame has been changed.
-    ///
-    /// Must be called on accept, undo, redo.
-    ///
-    func updateSystemsAndSimulate() {
-        guard let currentFrame = design.currentFrame else { return }
-        let runtimeFrame = AugmentedFrame(currentFrame)
-        self.runtimeFrame = runtimeFrame
-       
-        // FIXME: [REFACTORING] Put this into some more prominent place, it is non-obvious being here
-        if let notation {
-            runtimeFrame.setComponent(notation, for: .Frame)
-        }
-        
-        do {
-            try systemGroup.update(runtimeFrame)
-        }
-        catch {
-            GD.pushError("Internal system error:", String(describing: error))
-        }
-        
-        designChanged.emit(runtimeFrame.hasIssues)
-        
+        updateSystems()
         simulate()
     }
     
@@ -442,7 +445,8 @@ public class DesignController: SwiftGodot.Node {
             self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
         designReset.emit()
-        updateSystemsAndSimulate()
+        updateSystems()
+        simulate()
     }
     
     @Callable

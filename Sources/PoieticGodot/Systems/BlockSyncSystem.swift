@@ -19,7 +19,9 @@ public struct BlockSyncSystem: System {
     ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
+        GD.print("=== BlockSyncSystem Update")
         guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
+            GD.printErr("!-- No canvas component")
             return
         }
 
@@ -45,9 +47,9 @@ public struct BlockSyncSystem: System {
                      canvas canvasComponent: CanvasComponent,
                      frame: AugmentedFrame) {
         // FIXME: Require style (this is just a quick hack to make swatches work)
-        let style = canvasComponent.canvasStyle
         let canvas = canvasComponent.canvas
-        
+        let style = canvas.style ?? CanvasStyle()
+
         let sceneNode: DiagramCanvasBlock
         if let node = canvas.block(id: runtimeID) {
             sceneNode = node

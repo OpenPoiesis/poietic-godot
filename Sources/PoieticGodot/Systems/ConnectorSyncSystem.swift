@@ -21,11 +21,15 @@ public struct ConnectorSyncSystem: System {
     ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
+        GD.print("=== BlockSyncSystem Update")
         guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
+            GD.printErr("!-- No canvas component")
             return
         }
         
         let canvas = canvasComponent.canvas
+        let style = canvas.style ?? CanvasStyle()
+
         var remaining = Set(canvas.connectors.compactMap { $0.runtimeID })
         var updated: [DiagramCanvasBlock] = []
         
@@ -36,7 +40,7 @@ public struct ConnectorSyncSystem: System {
                  geometry: geometry,
                  id: id,
                  canvas: canvasComponent.canvas,
-                 style: canvasComponent.canvasStyle,
+                 style: style,
                  frame: frame)
             
             remaining.remove(id)

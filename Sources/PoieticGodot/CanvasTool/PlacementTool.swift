@@ -120,21 +120,21 @@ class PlaceTool: CanvasTool {
     
     func createIntentShadow(typeName: String, canvasPosition: Vector2) {
         guard let canvas,
-              let canvasController else { return }
+              let designController else { return }
 
         if let intentShadow {
             intentShadow.queueFree()
             self.intentShadow = nil
         }
         // FIXME: Use block library for pictograms
-        guard let pictogram = canvasController.pictograms?.pictogram(typeName) else {
+        guard let pictogram = designController.notation?.pictogram(typeName) else {
             GD.pushError("No pictogram for type '\(typeName)'")
             return
         }
 
         let shadow = Pictogram2D()
 
-        shadow.color = canvasController.style?.intentShadowColor ?? DefaultIntentShadowColor
+        shadow.color = canvas.style?.intentShadowColor ?? DefaultIntentShadowColor
         shadow.setPictogram(pictogram)
         shadow.position = canvasPosition
         shadow.name = "placement-intent-shadow"
