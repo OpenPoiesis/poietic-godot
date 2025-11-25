@@ -45,9 +45,8 @@ class ConnectTool: CanvasTool {
         }
     }
 
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let originID = origin.runtimeID
         else { return true }
 
@@ -56,7 +55,8 @@ class ConnectTool: CanvasTool {
         
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let targetPoint = Vector2D(canvasPosition)
-        self.createDragConnector(type: typeName,
+        self.createDragConnector(canvas: canvas,
+                                 type: typeName,
                                  origin: originID,
                                  targetPoint: targetPoint)
         self.originID = originID
@@ -66,8 +66,7 @@ class ConnectTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas else { return false }
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard state == .connect else { return true }
         guard let originID = originID,
               let draggingConnector
@@ -75,7 +74,7 @@ class ConnectTool: CanvasTool {
 
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let targetPoint = Vector2D(canvasPosition)
-        self.updateDragConnector(targetPoint: targetPoint)
+        self.updateDragConnector(canvas: canvas, targetPoint: targetPoint)
 
         let canvasPoint = canvas.fromDesign(targetPoint)
         guard let target = canvas.hitObject(globalPosition: globalPosition),
@@ -118,7 +117,7 @@ class ConnectTool: CanvasTool {
         return flag
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         defer {
             Input.setDefaultCursorShape(.arrow)
             cancelConnectSession()
@@ -126,7 +125,7 @@ class ConnectTool: CanvasTool {
 
         guard state == .connect else { return false }
         guard let originObjectID = originID?.objectID,
-              let target = canvas?.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
+              let target = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let targetID = target.objectID else
         {
             // TODO: Do some puff animation here
@@ -189,12 +188,12 @@ extension ConnectTool {
     ///
     /// - SeeAlso: ``updateDragConnector(connector:origin:targetPoint:)``
     ///
-    public func createDragConnector(type: String,
+    public func createDragConnector(canvas: DiagramCanvas,
+                                    type: String,
                                     origin originID: RuntimeEntityID,
                                     targetPoint: Vector2D) -> DiagramCanvasConnector? {
         guard let frame = designController?.runtimeFrame,
               let block: DiagramBlock = frame.component(for:originID),
-              let canvas,
               let style = canvas.style
         else { return nil }
         
@@ -234,14 +233,13 @@ extension ConnectTool {
     ///
     /// - SeeAlso: ``createDragConnector(type:origin:targetPoint:)``
     ///
-    public func updateDragConnector(targetPoint: Vector2D)
+    public func updateDragConnector(canvas: DiagramCanvas, targetPoint: Vector2D)
     {
         guard let drag = draggingConnector,
               let originID,
               let glyph = draggingGlyph,
               let frame = designController?.runtimeFrame,
               let block: DiagramBlock = frame.component(for:originID),
-              let canvas,
               let style = canvas.style
         else { return }
         

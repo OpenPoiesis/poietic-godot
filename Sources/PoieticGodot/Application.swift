@@ -125,8 +125,8 @@ class PoieticApplication: SwiftGodot.Node {
         previousTool = currentTool
         currentTool = tool
                 
-        if let canvasController {
-            tool.bind(canvasController)
+        if let designController {
+            tool.bind(designController)
         }
         else {
             GD.pushWarning("Unable to bind canvas tool: No diagram controller")

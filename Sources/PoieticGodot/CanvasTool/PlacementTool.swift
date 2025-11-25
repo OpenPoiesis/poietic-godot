@@ -44,16 +44,14 @@ class PlaceTool: CanvasTool {
             removeIntentShadow()
         }
         guard let identifier else { return }
-
-        createIntentShadow(typeName: identifier, canvasPosition: Vector2.zero)
     }
     
         
-    func placeObject(typeName: String, globalPosition: Vector2) {
+    func placeObject(canvas: DiagramCanvas, typeName: String, globalPosition: Vector2) {
         // TODO: Make this a Command
         // FIXME: Bind type directly to the template block
-        guard let ctrl = designController,
-              let canvas else {
+        guard let ctrl = designController
+        else {
             GD.pushError("PlaceTool is not set up properly")
             return
         }
@@ -75,8 +73,7 @@ class PlaceTool: CanvasTool {
         // TODO: Select currently created node
     }
     
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas else { return false }
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         // TODO: Add shadow (also on input moved)
         // open_panel(pointer_position)
         // Global.set_modal(palette)
@@ -85,16 +82,15 @@ class PlaceTool: CanvasTool {
             return true
         }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-        createIntentShadow(typeName: identifier, canvasPosition: canvasPosition)
+        createIntentShadow(canvas: canvas, typeName: identifier, canvasPosition: canvasPosition)
         return true
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas else { return false }
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let paletteItemIdentifier else {
             return true
         }
-        placeObject(typeName: paletteItemIdentifier, globalPosition: globalPosition)
+        placeObject(canvas: canvas, typeName: paletteItemIdentifier, globalPosition: globalPosition)
         // TODO: Implement "tool locking"
         if let app = self.application {
             app.switchTool(app.selectionTool)
@@ -102,25 +98,23 @@ class PlaceTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let intentShadow else { return true }
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        
+        guard let intentShadow else { return true }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         intentShadow.position = canvasPosition
         return true
     }
     
-    override func inputHover(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let intentShadow else { return false }
+    override func inputHover(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let intentShadow else { return false }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         intentShadow.position = canvasPosition
         return true
     }
     
-    func createIntentShadow(typeName: String, canvasPosition: Vector2) {
-        guard let canvas,
-              let designController else { return }
+    func createIntentShadow(canvas: DiagramCanvas, typeName: String, canvasPosition: Vector2) {
+        guard let designController else { return }
 
         if let intentShadow {
             intentShadow.queueFree()

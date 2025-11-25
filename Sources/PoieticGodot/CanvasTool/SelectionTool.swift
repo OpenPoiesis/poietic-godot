@@ -51,10 +51,9 @@ class SelectionTool: CanvasTool {
     
     override func toolName() -> String { "select" }
     
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         // TODO: Move this to tool
         guard let event = event as? InputEventWithModifiers,
-              let canvas,
               let selectionManager = designController?.selectionManager
         else { return false }
         
@@ -89,10 +88,10 @@ class SelectionTool: CanvasTool {
                 }
             }
             if let id: PoieticCore.ObjectID = selectionManager.selectionOfOne() {
-                createHandles(for: .object(id))
+                createHandles(canvas: canvas, for: .object(id))
             }
             else {
-                removeHandles()
+                removeHandles(canvas: canvas)
             }
             state = .objectHit
         case .handle:
@@ -108,9 +107,8 @@ class SelectionTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let event = event as? InputEventMouse else { return false }
-        guard let canvas else { return false }
         popupManager?.closeInlinePopup()
         
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
@@ -125,19 +123,18 @@ class SelectionTool: CanvasTool {
         case .objectSelect: break
         case .objectHit, .objectMove, .childHit:
             Input.setDefaultCursorShape(.drag)
-            previewSelectionMove(byCanvasDelta: delta)
+            previewSelectionMove(canvas: canvas, byCanvasDelta: delta)
             state = .objectMove
             
         case .handleHit, .handleMove:
             Input.setDefaultCursorShape(.drag)
-            dragHandle(byCanvasDelta: delta)
+            dragHandle(canvas: canvas, byCanvasDelta: delta)
             state = .handleMove
         }
         return true
     }
-    func previewSelectionMove(byCanvasDelta canvasDelta: Vector2) {
-        guard let canvas,
-              let ctrl = designController,
+    func previewSelectionMove(canvas: DiagramCanvas, byCanvasDelta canvasDelta: Vector2) {
+        guard let ctrl = designController,
               let runtime = ctrl.runtimeFrame
         else { return }
         
@@ -182,14 +179,14 @@ class SelectionTool: CanvasTool {
             runtime.setComponent(VisuallyDirty(), for: id)
         }
         
-        self.canvasController?.queueUpdatePreview()
+        self.updatePreview(canvas: canvas)
     }
     
     // MARK: - Handles
-    func createHandles(for runtimeID: RuntimeEntityID) {
+    func createHandles(canvas: DiagramCanvas, for runtimeID: RuntimeEntityID) {
         // Currently the only nodes that have handles are connectors.
         //
-        guard let connector = canvas?.connector(id: runtimeID) else { return }
+        guard let connector = canvas.connector(id: runtimeID) else { return }
         createConnectorHandles(node: connector, runtimeID: runtimeID)
         
     }
@@ -229,26 +226,25 @@ class SelectionTool: CanvasTool {
             }
         }
     }
-    func removeHandles() {
-        guard let canvas else { return }
+    func removeHandles(canvas: DiagramCanvas) {
         for child in canvas.findChildren(pattern: "*", type: "CanvasHandle", recursive: true) {
             child?.queueFree()
         }
     }
     // Drag midpoint handle
-    func dragHandle(byCanvasDelta canvasDelta: Vector2) {
+    func dragHandle(canvas: DiagramCanvas, byCanvasDelta canvasDelta: Vector2) {
         guard let hitTarget,
               let handle = hitTarget.canvasHandle
         else { return }
         
         if let node = hitTarget.object as? DiagramCanvasConnector {
-            dragMidpointHandle(node: node, handle: handle, canvasDelta: canvasDelta)
+            dragMidpointHandle(canvas: canvas, node: node, handle: handle, canvasDelta: canvasDelta)
         }
         
-        self.canvasController?.queueUpdatePreview()
+        self.updatePreview(canvas: canvas)
     }
     
-    func dragMidpointHandle(node: DiagramCanvasConnector, handle: CanvasHandle, canvasDelta: Vector2) {
+    func dragMidpointHandle(canvas: DiagramCanvas, node: DiagramCanvasConnector, handle: CanvasHandle, canvasDelta: Vector2) {
         guard let runtimeID = node.runtimeID,
               let runtime = designController?.runtimeFrame,
               let connector: DiagramConnector = runtime.component(for: runtimeID),
@@ -272,16 +268,15 @@ class SelectionTool: CanvasTool {
         let newPreview = ConnectorPreview(midpoints: midpoints)
         runtime.setComponent(newPreview, for: runtimeID)
         runtime.setComponent(VisuallyDirty(), for: runtimeID)
-        self.canvasController?.queueUpdatePreview()
+        self.updatePreview(canvas: canvas)
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         defer {
             state = .empty
             hitTarget = nil
         }
-        guard let canvas,
-              let designController else { return false }
+        guard let designController else { return false }
         let selection = designController.selectionManager.selection
         Input.setDefaultCursorShape(.arrow)
         

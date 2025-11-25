@@ -195,9 +195,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             self.getViewport()?.setInputAsHandled()
         default:
             guard let tool = currentTool() else { break }
-            // FIXME: Pass canvas as handle input parameter
-            tool.canvas = self
-            if tool.handleInput(event: event) {
+            if tool.handleInput(canvas: self, event: event) {
                 self.getViewport()?.setInputAsHandled()
             }
         }

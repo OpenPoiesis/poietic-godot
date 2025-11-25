@@ -30,7 +30,21 @@ enum RuntimePhase {
     // case simulationPrepare
     // Run on simulation step.
     // case simulationStep
-    // case simulationFinished
+    /// Systems run when simulation is finished.
+    ///
+    /// Example use-case:
+    /// - Update value indicators
+    /// - Update charts
+    ///
+    case simulationFinished
+
+    /// Systems run when simulation is finished.
+    ///
+    /// Example use-case:
+    /// - Update value indicators
+    /// - Update time indicator
+    ///
+    case simulationPlayerStep
     
     var systems: [System.Type] {
         switch self {
@@ -52,13 +66,23 @@ enum RuntimePhase {
                 // Scene Update - systems from us - Poietic Godot
                 BlockSyncSystem.self,
                 ConnectorSyncSystem.self,
-
             ]
+        /// Refresh scene visuals.
         case .sceneUpdate:
             [
-                // Ours (Poietic Godot)
                 BlockSyncSystem.self,
                 ConnectorSyncSystem.self,
+            ]
+        case .simulationFinished:
+            [
+                SimulationObjectsResultsSystem.self,
+                IndicatorRangeConfigurationSystem.self,
+                IndicatorValueUpdateSystem.self,
+            ]
+        /// Run on each simulation player step, when player is running.
+        case .simulationPlayerStep:
+            [
+                IndicatorValueUpdateSystem.self,
             ]
         }
     }

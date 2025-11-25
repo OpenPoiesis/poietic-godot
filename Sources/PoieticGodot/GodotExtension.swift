@@ -29,6 +29,8 @@ import SwiftGodot
         PanTool.self,
 
         // Diagram Canvas
+        InlineEditorManager.self,
+        // FIXME: Remove this
         CanvasController.self,
         DiagramCanvas.self,
         DiagramCanvasObject.self,

@@ -18,7 +18,6 @@ import PoieticCore
 @Godot
 class CanvasTool: SwiftGodot.Node {
     @Export var designController: DesignController?
-    @Export var canvas: DiagramCanvas?
 
     /// Shortcut for current runtime frame from the associated design controller.
     var runtimeFrame: AugmentedFrame? { designController?.runtimeFrame }
@@ -39,9 +38,8 @@ class CanvasTool: SwiftGodot.Node {
     
     /// Bind the tool to a diagram controller.
     @Callable
-    func bind(designController: DesignController, canvas: DiagramCanvas) {
+    func bind(_ designController: DesignController) {
         self.designController = designController
-        self.canvas = canvas
     }
     
     @Callable
@@ -75,28 +73,26 @@ class CanvasTool: SwiftGodot.Node {
     }
     
     @Callable
-    open func handleInput(event: InputEvent) -> Bool {
-        guard let canvas else { return false }
-        
+    open func handleInput(canvas: DiagramCanvas, event: InputEvent) -> Bool {
         var isConsumed: Bool = false
         switch event {
         case let event as InputEventMouseButton:
             if event.isPressed() {
-                isConsumed = inputBegan(event: event, globalPosition: event.globalPosition)
+                isConsumed = inputBegan(canvas: canvas, event: event, globalPosition: event.globalPosition)
             }
             else if event.isReleased() {
-                isConsumed = inputEnded(event: event, globalPosition: event.globalPosition)
+                isConsumed = inputEnded(canvas: canvas, event: event, globalPosition: event.globalPosition)
             }
         case let event as InputEventMouseMotion:
             if event.buttonMask == .left {
-                isConsumed = inputMoved(event: event, globalPosition: event.globalPosition)
+                isConsumed = inputMoved(canvas: canvas, event: event, globalPosition: event.globalPosition)
             }
             else {
-                isConsumed = inputHover(event: event, globalPosition: event.globalPosition)
+                isConsumed = inputHover(canvas: canvas, event: event, globalPosition: event.globalPosition)
             }
         default:
             if event.isCanceled() {
-                isConsumed = inputCancelled(event: event)
+                isConsumed = inputCancelled(canvas: canvas, event: event)
             }
         }
         return isConsumed
@@ -108,29 +104,29 @@ class CanvasTool: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    open func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
+    open func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         let callable = Callable(object: self, method: "_input_began")
         
         return false
     }
     
     @Callable
-    open func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+    open func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     
     @Callable
-    open func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
+    open func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     
     @Callable
-    open func inputCancelled(event: InputEvent) -> Bool  {
+    open func inputCancelled(canvas: DiagramCanvas, event: InputEvent) -> Bool  {
         return false
     }
     
     @Callable
-    open func inputHover(event: InputEvent, globalPosition: Vector2) -> Bool {
+    open func inputHover(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         return false
     }
     
@@ -143,9 +139,8 @@ class CanvasTool: SwiftGodot.Node {
         // Do nothing
     }
 
-    func updateCanvasVisuals() {
-        guard let canvas,
-              let runtimeFrame
+    func updatePreview(canvas: DiagramCanvas) {
+        guard let runtimeFrame
         else { return }
         
         let component = CanvasComponent(canvas: canvas)
