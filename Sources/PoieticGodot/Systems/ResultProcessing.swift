@@ -8,14 +8,6 @@
 import PoieticCore
 import PoieticFlows
 
-struct ResultReplayState: Component {
-    let isRunning: Bool = false
-    let isLooping: Bool = true
-    let timeToStep: Double = 0
-    let stepDuration: Double = 0.1
-    let currentStep: Int = 0
-}
-
 /// System that associates objects with time value series.
 ///
 /// - **Dependency:** ...

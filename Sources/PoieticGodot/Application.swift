@@ -39,10 +39,8 @@ class PoieticApplication: SwiftGodot.Node {
     @Export var connectTool: ConnectTool
     @Export var panTool: PanTool
 
-    // MARK: - Controllers
-    // TODO: Not sure whether this should be here, but keeping it for now
+    // TODO: Allow more designs per application.
     @Export var designController: DesignController?
-    @Export var canvasController: CanvasController?
     var currentDesign: Design? { designController?.design }
     
     @Export var currentSelection: PackedInt64Array? {

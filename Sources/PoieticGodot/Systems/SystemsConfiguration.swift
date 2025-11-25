@@ -44,7 +44,7 @@ enum RuntimePhase {
     /// - Update value indicators
     /// - Update time indicator
     ///
-    case simulationPlayerStep
+    case simulationReplayStep
     
     var systems: [System.Type] {
         switch self {
@@ -80,7 +80,7 @@ enum RuntimePhase {
                 IndicatorValueUpdateSystem.self,
             ]
         /// Run on each simulation player step, when player is running.
-        case .simulationPlayerStep:
+        case .simulationReplayStep:
             [
                 IndicatorValueUpdateSystem.self,
             ]

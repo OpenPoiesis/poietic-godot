@@ -8,6 +8,13 @@
 import PoieticCore
 import PoieticFlows
 
+/// Synchronize indicators based on a simulation result.
+///
+/// The method sets initial value of indicators and sets indicator range from the
+/// simulation result time series.
+///
+/// This method is typically called on design change.
+///
 /// - **Dependency:** No strict dependencies.
 /// - **Input:** Objects with ``PoieticFlows/SimulationResult``.
 /// - **Output:** Updates value indicator ranges in a canvas referenced in ``CanvasComponent``.
@@ -98,8 +105,8 @@ struct IndicatorValueUpdateSystem: System {
         }
 
         // Do not fail if there is no result player
-        let replayState: ResultReplayState? = frame.component(for: .Frame)
-        let currentStep = replayState?.currentStep ?? 0
+        let time: ReplayTime? = frame.component(for: .Frame)
+        let currentStep = time?.step ?? 0
 
         guard currentStep >= 0 && currentStep < series.data.count else {
             valueIndicator.value = nil

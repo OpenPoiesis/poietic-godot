@@ -9,55 +9,106 @@ import SwiftGodot
 import PoieticCore
 import PoieticFlows
 
-// FIXME: [PORTING] Review this
+struct ReplayTime: Component {
+    let step: Int
+    let time: Double
+}
+
+/// Object coordinating Godot runtime with Poietic runtime to replay simulation results.
+///
 @Godot
 class ResultPlayer: SwiftGodot.Node {
+    let systems: SystemGroup
+    
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
     @Signal var simulationPlayerStep: SimpleSignal
     
-    @Export var result: PoieticResult?
+    var runtime: AugmentedFrame?
     @Export var isRunning: Bool = false
     @Export var isLooping: Bool = true
+
+    /// Initial simulation time.
+    @Export var initialTime: Double = 0.0   // From result
+    /// Time delta of simulation time.
+    @Export var timeDelta: Double = 1.0     // From result
+    /// Number of steps.
+    @Export var lastStep: Int = 0           // From result
+    
+    /// Remaining real time to next step.
     @Export var timeToStep: Double = 0
+    /// Real-time duration of a step in seconds.
     @Export var stepDuration: Double = 0.1
+    
+    /// Number of currently replayed simulation step.
     @Export var currentStep: Int = 0
-    @Export var currentTime: Double? {
+    /// Current simulation time.
+    @Export var currentTime: Double {
         get {
-            guard let result = result?.result else { return nil }
-            return result.initialTime + Double(currentStep) * result.timeDelta
+            return initialTime + Double(currentStep) * timeDelta
         }
         set(value) {
             GD.pushError("Trying to set read-only attribute")
         }
     }
 
+    required override init(_ context: InitContext) {
+        self.systems = SystemGroup(RuntimePhase.simulationReplayStep.systems, strict: false)
+        super.init(context)
+    }
+    
+    func setRuntime(_ frame: AugmentedFrame) {
+        self.runtime = frame
+        if let result: SimulationResult = frame.component(for: .Frame) {
+            self.initialTime = result.initialTime
+            self.timeDelta = result.timeDelta
+            self.lastStep = result.count - 1
+            coordinate()
+        }
+    }
+    
+    /// Run the systems for player step and then notify Godot through a signal.
+    ///
+    func coordinate() {
+        guard let runtime else { return }
+        let component = ReplayTime(step: currentStep, time: currentTime)
+        runtime.setComponent(component, for: .Frame)
+
+        do {
+            try systems.update(runtime)
+        }
+        catch {
+            GD.pushError("Player step systems update failed:", error.localizedDescription)
+            return
+        }
+        simulationPlayerStep.emit()
+    }
+    
     /// Rewind the player to the first simulation step.
     @Callable(autoSnakeCase: true)
     func toFirstStep() {
         currentStep = 0
-        simulationPlayerStep.emit()
+        coordinate()
     }
     
     /// Forward the player to the last simulation step.
     @Callable(autoSnakeCase: true)
     func toLastStep() {
-        guard let result = result?.result  else { return }
-        currentStep = result.count - 1
-        simulationPlayerStep.emit()
+        currentStep = lastStep
+        coordinate()
     }
 
     @Callable
     public func run() {
         self.isRunning = true
-        simulationPlayerStarted.emit()
+        coordinate()
     }
 
     @Callable
     public func stop() {
         guard isRunning else { return }
         self.isRunning = false
-        simulationPlayerStopped.emit()
+        coordinate()
     }
     
     @Callable
@@ -75,45 +126,35 @@ class ResultPlayer: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func toStep(_ step: Int) {
-        guard let result = result?.result  else { return }
-        let adjustedStep: Int
-        if result.count == 0 {
-            adjustedStep = 0
-        }
-        else {
-            adjustedStep = min(max(step, 0), result.count - 1)
-        }
+        let adjustedStep: Int = min(max(step, 0), lastStep)
         guard adjustedStep != currentStep else { return }
         currentStep = adjustedStep
-        simulationPlayerStep.emit()
+        coordinate()
     }
 
     @Callable(autoSnakeCase: true)
     func toTime(_ time: Double) {
-        guard let result = result?.result  else { return }
-        let distance = time - result.initialTime
-        let step = Int((distance / result.timeDelta).rounded())
+        let distance = time - initialTime
+        let step = Int((distance / timeDelta).rounded())
         toStep(step)
     }
 
     @Callable(autoSnakeCase: true)
     func nextStep() {
-        guard let result = result?.result  else { return }
-        if currentStep >= result.count {
+        if currentStep > lastStep {
             guard isLooping else {
                 stop()
                 return
             }
             currentStep = 0
         }
-        simulationPlayerStep.emit()
+        coordinate()
         currentStep += 1
     }
 
     @Callable(autoSnakeCase: true)
     func previousStep() {
         guard currentStep > 0 else { return }
-        guard let result = result?.result  else { return }
         currentStep -= 1
         if currentStep <= 0 {
             guard isLooping else {
@@ -121,26 +162,8 @@ class ResultPlayer: SwiftGodot.Node {
                 stop()
                 return
             }
-            currentStep = result.count - 1
+            currentStep = lastStep
         }
-        simulationPlayerStep.emit()
-    }
-
-    /// Get a numeric value of computed object with given ID at the current step.
-    @Callable(autoSnakeCase: true)
-    public func numericValue(rawObjectID: EntityIDValue) -> Double? {
-        guard let wrappedResult = result?.result,
-              let plan = result?.plan,
-              let state = wrappedResult[currentStep]
-        else {
-            return nil
-        }
-
-        let id = PoieticCore.ObjectID(rawValue: rawObjectID)
-        guard let index = plan.variableIndex(of: id) else {
-            return nil
-        }
-        
-        return try? state[index].doubleValue()
+        coordinate()
     }
 }

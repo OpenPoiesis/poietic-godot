@@ -162,23 +162,6 @@ public class CanvasController: SwiftGodot.Node {
     }
     
    // MARK: - Value Indicators
-    // Update indicators from the player.
-    //
-    // This method is typically called on simulation player step.
-    @Callable(autoSnakeCase: true)
-    func updateIndicatorValues(player: ResultPlayer) {
-        // FIXME: [PORTING] Requires attention after porting from Godot
-        guard let designController,
-              let canvas
-        else { return }
-        
-        for block in canvas.blocks {
-            guard let id = block.objectID?.rawValue else { continue }
-            guard let value = player.numericValue(rawObjectID: id) else { continue }
-            block.displayValue = value
-        }
-    }
-
     // Remove values from indicators
     //
     // This method is called when design fails validation or when the simulation fails.
@@ -193,72 +176,6 @@ public class CanvasController: SwiftGodot.Node {
         }
     }
 
-    // Synchronize indicators based on a simulation result.
-    //
-    // The method sets initial value of indicators and sets indicator range from the
-    // simulation result (time series).
-    //
-    // This method is typically called on design change.
-    //
-    @Callable(autoSnakeCase: true)
-    func syncIndicators(result: PoieticResult) {
-        // FIXME: [PORTING] Requires attention after porting from Godot
-        guard let canvas,
-              let designController else { return }
-        
-        for block in canvas.blocks {
-            guard block.hasValueIndicator, // Whether we *should* have the indicator
-                  let valueIndicator = block.valueIndicator, // Whether we actually have it
-                  let id = block.objectID,
-                  let object = designController.currentFrame[id]
-            else { continue }
-
-            guard let series = result.timeSeries(id: id.rawValue) else {
-                continue
-            }
-            let autoscaleFlag: Bool? = object["display_value_auto_scale"]
-
-            // TODO: Rename to display_value_min, max, baseline (see poietic-flows metamodel)
-            let rangeMin: Double? = object["indicator_min_value"]
-            let rangeMax: Double? = object["indicator_max_value"]
-            let baseline: Double? = object["indicator_mid_value"]
-
-            let coalescedMin = coalesceRangeValue(requestedValue: rangeMin,
-                                                  autoValue: series.data_min,
-                                                  defaultValue: ValueIndicatorRangeMinDefault,
-                                                  autoScale: autoscaleFlag)
-            let coalescedMax = coalesceRangeValue(requestedValue: rangeMax,
-                                                  autoValue: series.data_max,
-                                                  defaultValue: ValueIndicatorRangeMaxDefault,
-                                                  autoScale: autoscaleFlag)
-            valueIndicator.baseline = coalesceRangeValue(requestedValue: baseline,
-                                                         autoValue: series.data_min,
-                                                         defaultValue: coalescedMin,
-                                                         autoScale: autoscaleFlag)
-
-            // Safety range bounds swap
-            valueIndicator.rangeMin = min(coalescedMin, coalescedMax)
-            valueIndicator.rangeMax = max(coalescedMin, coalescedMax)
-            // Clamp baseline within bounds
-            valueIndicator.baseline = max(min(valueIndicator.baseline, valueIndicator.rangeMax), valueIndicator.rangeMin)
-            
-            block.displayValue = series.first
-        }
-    }
-
-    func coalesceRangeValue(requestedValue: Double?, autoValue: Double, defaultValue: Double, autoScale: Bool?) -> Double {
-        switch (requestedValue, autoScale) {
-        case (.none,            .none):        defaultValue
-        case (.none,            .some(false)): defaultValue
-        case (.none,            .some(true)):  autoValue
-        case (.some(let value), .none):        value
-        case (.some(let value), .some(false)): value
-        case (.some(_),         .some(true)):  autoValue
-        }
-    }
-    
-    
-    
     @Callable(autoSnakeCase: true)
     func commitNameEdit(rawObjectID: EntityIDValue, newValue: String) {
         let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)

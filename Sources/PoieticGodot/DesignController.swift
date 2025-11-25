@@ -32,8 +32,7 @@ public class DesignController: SwiftGodot.Node {
     var checker: ConstraintChecker
     var currentFrame: DesignFrame { self.design.currentFrame! }
     var runtimeFrame: AugmentedFrame? = nil
-//    var simulationPlan: SimulationPlan? = nil
-    var result: SimulationResult? = nil
+//    var result: SimulationResult? = nil
 
     @Export var selectionManager: SelectionManager
 
@@ -736,13 +735,14 @@ public class DesignController: SwiftGodot.Node {
 
     // MARK: - Simulation Result
     func simulate() {
+        // TODO: Change to a system
         guard let runtimeFrame,
               let simulationPlan: SimulationPlan = runtimeFrame.component(for: .Frame)
         else {
             return
         }
         
-        self.result = nil
+        runtimeFrame.removeComponent(SimulationResult.self, for: .Frame)
         
         let simulation = StockFlowSimulation(simulationPlan)
         let simulator = Simulator(simulation: simulation,
@@ -770,7 +770,7 @@ public class DesignController: SwiftGodot.Node {
             return
         }
         
-        self.result = simulator.result
+        runtimeFrame.setComponent(simulator.result, for: .Frame)
         let wrap = PoieticResult()
         wrap.set(plan: simulationPlan, result: simulator.result)
         simulationFinished.emit(wrap)
