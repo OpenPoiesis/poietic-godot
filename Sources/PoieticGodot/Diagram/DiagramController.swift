@@ -23,6 +23,7 @@ import Foundation
 /// - Facilitates inline editing.
 /// - (TODO) Manages selection
 ///
+@available(*, deprecated, message: "DO NOT USE, use runtime frame and friends")
 @Godot
 public class CanvasController: SwiftGodot.Node {
     // TODO: Move selection management here
@@ -269,53 +270,4 @@ public class CanvasController: SwiftGodot.Node {
     // MARK: - Pictogram UI Support
     //
     
-    /// Get a Pictogram2D node for UI display (toolbar buttons, palettes).
-    ///
-    /// This method creates a `Pictogram2D` node that can be added as a child to UI controls
-    /// like buttons. The node will be properly scaled and positioned to fit the specified size.
-    ///
-    /// - Parameters:
-    ///   - typeName: Name of the object type whose pictogram to create
-    ///   - size: Size to scale the pictogram to fit (default: 60)
-    ///   - color: Color to render the pictogram (default: white)
-    ///
-    /// - Returns: Configured `Pictogram2D` node, or `nil` if pictogram not found
-    ///
-    /// - Note: The returned node should be added to the scene tree. The caller is responsible
-    ///   for adding it as a child to an appropriate parent node.
-    ///
-    @Callable(autoSnakeCase: true)
-    func getPictogramNode(typeName: String,
-                          size: Int?,
-                          color: SwiftGodot.Color?) -> Pictogram2D? {
-        guard let pictogram = pictograms?.pictogram(typeName) else {
-            GD.pushWarning("No pictogram for type: \(typeName)")
-            return nil
-        }
-
-        let scaledPictogram: Pictogram
-        if let targetSize = size {
-            // Scale the curves to fit target size
-            let bounds = pictogram.pathBoundingBox
-            let maxDimension = max(bounds.width, bounds.height)
-            guard maxDimension > 0 else {
-                GD.pushWarning("Pictogram '\(typeName)' has zero size")
-                return nil
-            }
-
-            let scaleFactor = Double(targetSize) / maxDimension
-            scaledPictogram = pictogram.scaled(scaleFactor)
-        } else {
-            // Use original pictogram without scaling
-            scaledPictogram = pictogram
-        }
-
-        // Create and configure Pictogram2D node
-        let picto2d = Pictogram2D()
-        picto2d.setPictogram(scaledPictogram)
-        picto2d.color = color ?? PictogramIconColor
-        picto2d.lineWidth = 2.0
-
-        return picto2d
-    }
 }

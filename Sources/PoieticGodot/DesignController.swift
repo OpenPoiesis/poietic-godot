@@ -15,6 +15,15 @@ import Diagramming
 
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
+///
+/// Responsibilities:
+///
+/// - Current frame
+/// - Querying objects from current frame
+/// - Managing diagram settings (canvas view)
+/// - Manage transactions
+/// - Provide information about issues
+/// -
 @Godot
 public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
@@ -22,7 +31,17 @@ public class DesignController: SwiftGodot.Node {
     var systemGroup: SystemGroup
     
     @Export var application: PoieticApplication?
-    
+
+    // TODO: Allow multiple canvases.
+    /// Canvas the design is presented into.
+    ///
+    /// Currently only one canvas is managed per ``DesignController``. The canvas component
+    /// is associated with the frame (singleton). Other entities with this component are ignored.
+    ///
+    /// - SeeAlso: ``CanvasComponent``
+    ///
+    @Export var canvas: DiagramCanvas?
+
     // TODO: Review where is the ctrl metamodel used
     // TODO: Remove this or rename to `metamodel`
     var _metamodel: Metamodel { design.metamodel }
@@ -67,23 +86,37 @@ public class DesignController: SwiftGodot.Node {
         guard let currentFrame = design.currentFrame else { return }
         let runtimeFrame = AugmentedFrame(currentFrame)
         self.runtimeFrame = runtimeFrame
-       
+    
+        // 1. Augment the frame with some well-known objects and components
+        //
         // FIXME: [REFACTORING] Put this into some more prominent place, it is non-obvious being here
         if let notation {
             runtimeFrame.setComponent(notation, for: .Frame)
         }
+        if let canvas {
+            // TODO: Allow multiple canvases.
+            let component = CanvasComponent(canvas: canvas)
+            runtimeFrame.setComponent(component, for: .Frame)
+        }
         
+        // 2. Run the system group
+        //
         do {
             GD.print("Running systems update.")
             try systemGroup.update(runtimeFrame)
         }
         catch {
             GD.pushError("Internal system error:", String(describing: error))
+            // Let us not return here but try to continue. Systems are unlikely to modify
+            // user design or anything related to the persisted objects.
+            // We might re-consider this if the user experience will be really bad.
         }
         
+        // 3. Notify
+        //
         designChanged.emit(runtimeFrame.hasIssues)
     }
-
+    
     @Callable(autoSnakeCase: true)
     func newDesign() {
         self.design = Design(metamodel: StockFlowMetamodel)
@@ -462,7 +495,7 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func exportSVGDiagram(path: String, canvasController: CanvasController) {
+    func exportSVGDiagram(path: String) {
         guard let runtimeFrame else {
             GD.pushError("No runtime frame")
             return
@@ -734,6 +767,17 @@ public class DesignController: SwiftGodot.Node {
     }
 
     // MARK: - Simulation Result
+    
+    @Callable(autoSnakeCase: true)
+    func hasResult() -> Bool {
+        if let runtime = self.runtimeFrame {
+            return runtime.hasComponent(SimulationResult.self, for: .Frame)
+        }
+        else {
+            return false
+        }
+    }
+    
     func simulate() {
         // TODO: Change to a system
         guard let runtimeFrame,
@@ -879,4 +923,55 @@ public class DesignController: SwiftGodot.Node {
         // FIXME: [REFACTORING] Create "visual changed" signal
         self.designChanged.emit(self.hasIssues())
     }
+    
+    /// Get a Pictogram2D node for UI display (toolbar buttons, palettes).
+    ///
+    /// This method creates a `Pictogram2D` node that can be added as a child to UI controls
+    /// like buttons. The node will be properly scaled and positioned to fit the specified size.
+    ///
+    /// - Parameters:
+    ///   - typeName: Name of the object type whose pictogram to create
+    ///   - size: Size to scale the pictogram to fit (default: 60)
+    ///   - color: Color to render the pictogram (default: white)
+    ///
+    /// - Returns: Configured `Pictogram2D` node, or `nil` if pictogram not found
+    ///
+    /// - Note: The returned node should be added to the scene tree. The caller is responsible
+    ///   for adding it as a child to an appropriate parent node.
+    ///
+    @Callable(autoSnakeCase: true)
+    func createPictogramNode(typeName: String,
+                             size: Int?,
+                             color: SwiftGodot.Color?) -> Pictogram2D? {
+        guard let pictogram = notation?.pictogram(typeName) else {
+            GD.pushWarning("No pictogram for type: \(typeName)")
+            return nil
+        }
+
+        let scaledPictogram: Pictogram
+        if let targetSize = size {
+            // Scale the curves to fit target size
+            let bounds = pictogram.pathBoundingBox
+            let maxDimension = max(bounds.width, bounds.height)
+            guard maxDimension > 0 else {
+                GD.pushWarning("Pictogram '\(typeName)' has zero size")
+                return nil
+            }
+
+            let scaleFactor = Double(targetSize) / maxDimension
+            scaledPictogram = pictogram.scaled(scaleFactor)
+        } else {
+            // Use original pictogram without scaling
+            scaledPictogram = pictogram
+        }
+
+        // Create and configure Pictogram2D node
+        let picto2d = Pictogram2D()
+        picto2d.setPictogram(scaledPictogram)
+        picto2d.color = color ?? PictogramIconColor
+        picto2d.lineWidth = 2.0
+
+        return picto2d
+    }
+
 }
