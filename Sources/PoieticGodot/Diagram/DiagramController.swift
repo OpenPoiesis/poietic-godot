@@ -97,21 +97,6 @@ public class CanvasController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func deleteSelection() {
-        guard let ctrl = designController else { return }
-        let trans = ctrl.newTransaction()
-        
-        for id in ctrl.selectionManager.selection {
-            guard trans.contains(id) else {
-                GD.pushWarning("Selection has unknown ID:", id)
-                continue
-            }
-            trans.removeCascading(id)
-        }
-        ctrl.accept(trans)
-    }
-    
-    @Callable(autoSnakeCase: true)
     func removeMidpointsInSelection() {
         guard let ctrl = designController else { return }
         let trans = ctrl.newTransaction()

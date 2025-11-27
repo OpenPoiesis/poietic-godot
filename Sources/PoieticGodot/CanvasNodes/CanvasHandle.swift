@@ -8,10 +8,18 @@
 import PoieticCore
 import SwiftGodot
 
+enum HandleType: Int, CaseIterable {
+    case unspecified = 0
+    /// Connector midpoint handle
+    case midpoint = 1
+}
+
+
 @Godot
 public class CanvasHandle: SwiftGodot.Node2D {
     /// ID of the owning object. If nil then it is owned by canvas.
-    var runtimeIDs: RuntimeEntityID?
+    var runtimeID: RuntimeEntityID?
+    @Export var type: HandleType = .unspecified
     /// Custom tag that specifies the handle if multiple handles are present within the canvas or
     /// within a canvas object.
     @Export var tag: Int?

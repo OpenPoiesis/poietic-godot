@@ -54,6 +54,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     public var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
     private var _connectors: [RuntimeEntityID:DiagramCanvasConnector] = [:]
+    
+    public var handles: [CanvasHandle] = []
    
     required init(_ context: InitContext) {
         self.style = CanvasStyle()
@@ -81,6 +83,17 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         background.setPosition(-canvasOffset / Double(zoomLevel))
     }
     
+    // - MARK: Handles
+    func addHandle(_ handle: CanvasHandle) {
+        self.addChild(node: handle)
+        handles.append(handle)
+    }
+    func removeHandles() {
+        for handle in handles {
+            handle.queueFree()
+        }
+        handles.removeAll()
+    }
     // - MARK: Content
     /// Get IDs of design objects represented within the canvas.
     ///
@@ -234,6 +247,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
+        for handle in handles {
+            if handle.containsPoint(globalPoint: globalPosition) {
+                targets.append(CanvasHitTarget(object: handle, type: .handle))
+            }
+        }
+
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
@@ -263,16 +282,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             // case let child as DiagramCanvasConnector: ...
             default:
                 break
-            }
-            
-            for handle in child.findChildren(pattern: "*", type: "CanvasHandle") {
-                guard let handle = handle as? CanvasHandle else { continue }
-                if handle.containsPoint(globalPoint: globalPosition) {
-                    targets.append(CanvasHitTarget(object: child,
-                                                   type: .handle,
-                                                   tag: handle.tag,
-                                                   handle: handle))
-                }
             }
             
             if let child = child as? DiagramCanvasObject,
