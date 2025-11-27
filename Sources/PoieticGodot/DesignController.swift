@@ -458,6 +458,7 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Unable to open design: \(error)")
             self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
+        selectionManager.clear()
         designReset.emit()
         updateSystems(debugReason: "Load from path")
         simulate()

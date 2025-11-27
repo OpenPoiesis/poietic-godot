@@ -11,15 +11,8 @@ import Diagramming
 
 @Godot
 class PlaceTool: CanvasTool {
-    
-    // FIXME: This is a legacy binding to makeshift Godot implementation
-    /// Auxiliary node that contains a collection of objects to be placed.
-    ///
-    /// The palette is to be provided by Godot caller.
-    ///
-    @Export var objectPanel: SwiftGodot.PanelContainer?
-    
     var lastPointerPosition = Vector2()
+    /// Shadow rendering of a node that is intended to be placed.
     var intentShadow: Pictogram2D?
 
     required init(_ context: SwiftGodot.InitContext) {
@@ -46,10 +39,8 @@ class PlaceTool: CanvasTool {
         guard let identifier else { return }
     }
     
-        
     func placeObject(canvas: DiagramCanvas, typeName: String, globalPosition: Vector2) {
         // TODO: Make this a Command
-        // FIXME: Bind type directly to the template block
         guard let ctrl = designController
         else {
             GD.pushError("PlaceTool is not set up properly")
@@ -74,9 +65,6 @@ class PlaceTool: CanvasTool {
     }
     
     override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
-        // TODO: Add shadow (also on input moved)
-        // open_panel(pointer_position)
-        // Global.set_modal(palette)
         guard let identifier = paletteItemIdentifier else {
             GD.pushError("No selected item identifier for placement tool")
             return true
@@ -107,9 +95,13 @@ class PlaceTool: CanvasTool {
     }
     
     override func inputHover(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let intentShadow else { return false }
+        guard let identifier = paletteItemIdentifier else { return false }
+        if intentShadow == nil {
+            let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+            createIntentShadow(canvas: canvas, typeName: identifier, canvasPosition: canvasPosition)
+        }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-        intentShadow.position = canvasPosition
+        intentShadow?.position = canvasPosition
         return true
     }
     
