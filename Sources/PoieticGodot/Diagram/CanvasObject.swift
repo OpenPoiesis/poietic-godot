@@ -62,6 +62,12 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
         }
     }
 
+    /// Flag whether touch detection is ignored.
+    ///
+    /// Use this for non-selectable shadows, dragged items or other decorative diagram visuals.
+    ///
+    @Export var ignoreAsTarget: Bool = false
+    
     func update(from: ObjectSnapshot) {
         fatalError("Subclasses should override \(#function)")
     }

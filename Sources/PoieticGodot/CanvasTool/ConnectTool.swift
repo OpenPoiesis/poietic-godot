@@ -140,7 +140,6 @@ class ConnectTool: CanvasTool {
                 app.switchTool(app.selectionTool)
             }
         }
-        
         else {
             // TODO: Puff!
         }
@@ -196,11 +195,12 @@ extension ConnectTool {
               let block: DiagramBlock = frame.component(for:originID),
               let style = canvas.style
         else { return nil }
-        
+
         let notation: Notation = frame.component(for: .Frame) ?? Notation.DefaultNotation
         let rules: NotationRules = frame.component(for: .Frame) ?? NotationRules()
 
         let drag = DiagramCanvasConnector()
+        drag.ignoreAsTarget = true // This is just a decoration
         let originTouch = Geometry.touchPoint(shape: block.collisionShape.shape,
                                               position: block.position + block.collisionShape.position,
                                               from: targetPoint,
@@ -242,7 +242,7 @@ extension ConnectTool {
               let block: DiagramBlock = frame.component(for:originID),
               let style = canvas.style
         else { return }
-        
+
         let originTouch = Geometry.touchPoint(shape: block.collisionShape.shape,
                                               position: block.position + block.collisionShape.position,
                                               from: targetPoint,

@@ -285,6 +285,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
             
             if let child = child as? DiagramCanvasObject,
+               !child.ignoreAsTarget,
                child.containsTouch(globalPoint: globalPosition)
             {
                 targets.append(CanvasHitTarget(object: child, type: .object))
@@ -314,11 +315,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
-            guard let child = child as? DiagramCanvasObject else {
-                continue
-            }
+            guard let child = child as? DiagramCanvasObject else { continue }
             
-            if child.containsTouch(globalPoint: globalPosition) {
+            if !child.ignoreAsTarget
+                && child.containsTouch(globalPoint: globalPosition)
+            {
                 return child
             }
         }

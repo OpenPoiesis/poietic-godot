@@ -33,55 +33,12 @@ public class CanvasController: SwiftGodot.Node {
     /// Controller of a design that is composed as a diagram on canvas.
     @Export public var designController: DesignController?
     
-    // TODO: Update visuals on style change
-    @Export public var style: CanvasStyle?
-    
-    
-    var pictograms: PictogramCollection?
-
-    let previewPipeline: SystemGroup
-    var requireUpdatePreview: Bool = false
-    // MARK: - Initialisation
-    //
-    required init(_ context: InitContext) {
-        // TODO: Find a better place for this
-        self.previewPipeline = SystemGroup(SystemConfiguration.DraggingPreview)
-        super.init(context)
-    }
-    
-    override public func _process(delta: Double) {
-        guard let runtime = designController?.runtimeFrame else { return }
-        if requireUpdatePreview {
-            do {
-                try self.previewPipeline.update(runtime)
-            }
-            catch {
-                GD.pushError("Preview update failed: \(error)")
-            }
-            requireUpdatePreview = false
-        }
-    }
-    public func queueUpdatePreview() {
-        requireUpdatePreview = true
-    }
     @Callable
     func initialize(designController: DesignController, canvas: DiagramCanvas) {
         self.designController = designController
         self.canvas = canvas
         
-        designController.designChanged.connect(self.on_design_changed)
         designController.selectionManager.selectionChanged.connect(self.on_selection_changed)
-    }
-    
-    
-    // MARK: - Signal Handling
-    @Callable
-    func on_design_changed(hasIssued: Bool) {
-        guard let frame = designController?.currentFrame else {
-            GD.pushError("No current frame in design controller for diagram controller")
-            return
-        }
-        self.queueUpdatePreview()
     }
     
     // MARK: - Selection
