@@ -62,7 +62,6 @@ public class DiagramCanvas: SwiftGodot.Node2D {
 
     public override func _ready() {
         if background == nil {
-            GD.print("--- Creating background")
             let rect = ColorRect()
             rect.color = Color(code: "F8F4E9")
             rect.zIndex = BackgroundZIndex
@@ -75,11 +74,9 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
 
     func updateBackground() {
-        GD.print("--? Update background?")
         guard let viewport = getViewport(),
               let background = self.background else { return }
         let size = viewport.getVisibleRect().size
-        GD.print("--- Yes, update background: \(size). Zoom: \(zoomLevel) offset: \(canvasOffset)")
         background.setSize(size / Double(zoomLevel))
         background.setPosition(-canvasOffset / Double(zoomLevel))
     }

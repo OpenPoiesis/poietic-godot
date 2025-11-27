@@ -53,7 +53,7 @@ class ResultPlayer: SwiftGodot.Node {
     }
 
     required override init(_ context: InitContext) {
-        self.systems = SystemGroup(RuntimePhase.simulationReplayStep.systems, strict: false)
+        self.systems = SystemGroup(RuntimePhase.simulationReplayStep.systems)
         super.init(context)
     }
     

@@ -45,7 +45,7 @@ public class CanvasController: SwiftGodot.Node {
     //
     required init(_ context: InitContext) {
         // TODO: Find a better place for this
-        self.previewPipeline = SystemGroup(SystemConfiguration.DraggingPreview, strict: false)
+        self.previewPipeline = SystemGroup(SystemConfiguration.DraggingPreview)
         super.init(context)
     }
     

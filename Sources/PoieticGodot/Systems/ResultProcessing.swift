@@ -27,7 +27,7 @@ struct SimulationObjectsResultsSystem: System {
         for object in plan.simulationObjects {
             guard frame.contains(object.objectID)
             else { continue }
-            let series = result.unsafeTimeSeries(at: object.variableIndex)
+            let series: RegularTimeSeries = result.unsafeTimeSeries(at: object.variableIndex)
             frame.setComponent(series, for: object.objectID)
         }
     }

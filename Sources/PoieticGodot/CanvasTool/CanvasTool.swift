@@ -27,15 +27,6 @@ class CanvasTool: SwiftGodot.Node {
         didSet { paletteItemChanged(paletteItemIdentifier) }
     }
 
-    let previewSystemGroup: SystemGroup
-    
-    required init(_ context: InitContext) {
-        // FIXME: Use central registry of systems (not yet implemented)
-        let systems = RuntimePhase.interactivePreview.systems
-        self.previewSystemGroup = SystemGroup(systems, strict: false)
-        super.init(context)
-    }
-    
     /// Bind the tool to a diagram controller.
     @Callable
     func bind(_ designController: DesignController) {
@@ -145,12 +136,7 @@ class CanvasTool: SwiftGodot.Node {
         
         let component = CanvasComponent(canvas: canvas)
         runtimeFrame.setComponent(component, for: .Frame)
-        do {
-            try previewSystemGroup.update(runtimeFrame)
-        }
-        catch {
-            GD.pushError("Systems failed: ", error.localizedDescription)
-        }
+        
+        designController?.updatePreviewSystems()
     }
-    
 }

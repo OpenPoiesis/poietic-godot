@@ -19,9 +19,8 @@ public struct BlockSyncSystem: System {
     ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        GD.print("=== BlockSyncSystem Update")
         guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
-            GD.printErr("!-- No canvas component")
+            GD.printErr("No canvas component")
             return
         }
 

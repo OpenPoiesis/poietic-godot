@@ -34,27 +34,25 @@ class PoieticApplication: SwiftGodot.Node {
     @Signal var toolChanged: SignalWithArguments<CanvasTool>
 
     // TODO: Hide tools, use just their names
-    @Export var selectionTool: SelectionTool
-    @Export var placeTool: PlaceTool
-    @Export var connectTool: ConnectTool
-    @Export var panTool: PanTool
+    var selectionTool: SelectionTool
+    var placeTool: PlaceTool
+    var connectTool: ConnectTool
+    var panTool: PanTool
 
     // TODO: Allow more designs per application.
-    @Export var designController: DesignController?
-    var currentDesign: Design? { designController?.design }
+    @Export var designController: DesignController
+    var currentDesign: Design? { designController.design }
     
     @Export var currentSelection: PackedInt64Array? {
         get {
-            guard let ctrl = designController else { return nil }
-            return ctrl.selectionManager.get_ids()
+            return designController.selectionManager.get_ids()
         }
         set(values) {
-            guard let ctrl = designController else { return }
             if let values {
-                ctrl.selectionManager.replace(ids: values)
+                designController.selectionManager.replace(ids: values)
             }
             else {
-                ctrl.selectionManager.clear()
+                designController.selectionManager.clear()
             }
         }
     }
@@ -64,6 +62,7 @@ class PoieticApplication: SwiftGodot.Node {
     // MARK: - Methods
 
     required init(_ context: InitContext) {
+        GD.print("==> Initialising Poietic Application", context)
         designController = DesignController()
         
         selectionTool = SelectionTool()
@@ -74,12 +73,13 @@ class PoieticApplication: SwiftGodot.Node {
         currentTool = selectionTool
         previousTool = selectionTool
         
-        GD.print("Poietic Application initialised.")
         super.init(context)
-        designController?.application = self
+        designController.application = self
+        GD.print("<-- Poietic Application initialised.", self)
     }
 
     override func _ready() {
+        GD.print("--- Poietic Application Ready.", self, "Parent: ", self.getParent())
         self.addChild(node: selectionTool)
         self.addChild(node: placeTool)
         self.addChild(node: connectTool)
@@ -92,7 +92,7 @@ class PoieticApplication: SwiftGodot.Node {
         let ids: [PoieticCore.ObjectID] = rawIDs.asValidEntityIDs()
         switch actionName {
         case "delete_objects":
-            designController?.deleteObjects(ids)
+            designController.deleteObjects(ids)
         default:
             GD.pushError("Unknown application action: ", actionName)
         }
@@ -123,12 +123,7 @@ class PoieticApplication: SwiftGodot.Node {
         previousTool = currentTool
         currentTool = tool
                 
-        if let designController {
-            tool.bind(designController)
-        }
-        else {
-            GD.pushWarning("Unable to bind canvas tool: No diagram controller")
-        }
+        tool.bind(designController)
         tool.toolSelected()
         toolChanged.emit(tool)
     }
@@ -151,10 +146,9 @@ class PoieticApplication: SwiftGodot.Node {
     /// to undo.
     @Callable
     func undo() -> Bool {
-        guard let ctrl = designController else { return false }
-        guard ctrl.design.undo() else { return false }
-        ctrl.updateSystems()
-        ctrl.simulate()
+        guard designController.design.undo() else { return false }
+        designController.updateSystems(debugReason: "undo")
+        designController.simulate()
         return true
     }
     
@@ -162,10 +156,9 @@ class PoieticApplication: SwiftGodot.Node {
     /// to redo.
     @Callable
     func redo() -> Bool {
-        guard let ctrl = designController else { return false }
-        guard ctrl.design.redo() else { return false }
-        ctrl.updateSystems()
-        ctrl.simulate()
+        guard designController.design.redo() else { return false }
+        designController.updateSystems(debugReason: "redo")
+        designController.simulate()
         return true
     }
 

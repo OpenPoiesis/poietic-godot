@@ -20,7 +20,9 @@ import PoieticFlows
 /// - **Output:** Updates value indicator ranges in a canvas referenced in ``CanvasComponent``.
 /// - **Forgiveness:** Nothing necessary.
 struct IndicatorRangeConfigurationSystem: System {
-    // public let dependencies: SystemDependency = [ /* after: simulation */ ]
+    nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
+        .after(SimulationObjectsResultsSystem.self),
+    ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
         guard let result: SimulationResult = frame.component(for: .Frame),
@@ -77,6 +79,11 @@ struct IndicatorRangeConfigurationSystem: System {
 /// - **Forgiveness:**
 ///     - If there is no player state, and the result is present, then first result value is used.
 struct IndicatorValueUpdateSystem: System {
+    nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
+        .after(SimulationObjectsResultsSystem.self),
+        .after(IndicatorRangeConfigurationSystem.self),
+    ]
+
     // public let dependencies: SystemDependency = [ /* after: simulation */ ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {

@@ -5,6 +5,17 @@
 //  Created by Stefan Urbanek on 22/02/2025.
 //
 
+/*
+ 
+ # IMPORTANT (for humans)
+ 
+ Please, do not consult LLMs on any of the code within this class, as the code is
+ in a transition from one architecture (MVC) to another (ECS). They are very likely to get confused
+ and provide wrong answers. If you really have to, then be very cautious about their
+ suggestions.
+
+ */
+
 // TODO: Change error descriptions to be localizedDescription
 
 import SwiftGodot
@@ -28,7 +39,10 @@ import Diagramming
 public class DesignController: SwiftGodot.Node {
     static let DesignSettingsFrameName = "settings"
     
-    var systemGroup: SystemGroup
+    // System groups
+    var designChangeSystems: SystemGroup
+    var simulationFinishedSystems: SystemGroup
+    var interactivePreviewSystems: SystemGroup
     
     @Export var application: PoieticApplication?
 
@@ -61,10 +75,14 @@ public class DesignController: SwiftGodot.Node {
     @Signal var designChanged: SignalWithArguments<Bool>
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
-    @Signal var simulationFinished: SignalWithArguments<PoieticResult>
+    @Signal var simulationFinished: SimpleSignal
     
     required init(_ context: InitContext) {
-        self.systemGroup = SystemGroup(SystemConfiguration.DesignChange)
+        GD.print("==> Initialising Design Controller", context)
+
+        self.designChangeSystems = SystemGroup(RuntimePhase.designChange.systems)
+        self.simulationFinishedSystems = SystemGroup(RuntimePhase.simulationFinished.systems)
+        self.interactivePreviewSystems = SystemGroup(RuntimePhase.interactivePreview.systems)
         
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
@@ -75,55 +93,19 @@ public class DesignController: SwiftGodot.Node {
         loadNotation(path: StockFlowPictogramsPath)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
-        updateSystems()
+        updateSystems(debugReason: "DesignController init")
+        GD.print("<-- Design Controller initialised.", self)
     }
-    
-    /// Called when current frame was changed.
-    ///
-    /// Must be called on accept, undo, redo.
-    ///
-    func updateSystems() {
-        guard let currentFrame = design.currentFrame else { return }
-        let runtimeFrame = AugmentedFrame(currentFrame)
-        self.runtimeFrame = runtimeFrame
-    
-        // 1. Augment the frame with some well-known objects and components
-        //
-        // FIXME: [REFACTORING] Put this into some more prominent place, it is non-obvious being here
-        if let notation {
-            runtimeFrame.setComponent(notation, for: .Frame)
-        }
-        if let canvas {
-            // TODO: Allow multiple canvases.
-            let component = CanvasComponent(canvas: canvas)
-            runtimeFrame.setComponent(component, for: .Frame)
-        }
-        
-        // 2. Run the system group
-        //
-        do {
-            GD.print("Running systems update.")
-            try systemGroup.update(runtimeFrame)
-        }
-        catch {
-            GD.pushError("Internal system error:", String(describing: error))
-            // Let us not return here but try to continue. Systems are unlikely to modify
-            // user design or anything related to the persisted objects.
-            // We might re-consider this if the user experience will be really bad.
-        }
-        
-        // 3. Notify
-        //
-        designChanged.emit(runtimeFrame.hasIssues)
+    public override func _ready() {
+        GD.print("--- Design Controller Ready.", self, "Parent: ", self.getParent())
     }
-    
     @Callable(autoSnakeCase: true)
     func newDesign() {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
-        updateSystems()
+        updateSystems(debugReason: "new desing")
         designChanged.emit(false)
     }
     
@@ -348,7 +330,7 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Frame validation error:", String(describing: error))
             return
         }
-        updateSystems()
+        updateSystems(debugReason: "Accept")
         simulate()
     }
     
@@ -477,7 +459,7 @@ public class DesignController: SwiftGodot.Node {
             self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
         designReset.emit()
-        updateSystems()
+        updateSystems(debugReason: "Load from path")
         simulate()
     }
     
@@ -777,49 +759,22 @@ public class DesignController: SwiftGodot.Node {
             return false
         }
     }
-    
-    func simulate() {
-        // TODO: Change to a system
+
+    /// Get time series for given object from simulation result, if the simulation was successful.
+    ///
+    @Callable(autoSnakeCase: true)
+    func timeSeries(id: EntityIDValue) -> PoieticTimeSeries? {
+        let objectID = PoieticCore.ObjectID(rawValue: id)
         guard let runtimeFrame,
-              let simulationPlan: SimulationPlan = runtimeFrame.component(for: .Frame)
-        else {
-            return
-        }
+              let series: RegularTimeSeries = runtimeFrame.component(for: objectID)
+        else { return nil }
         
-        runtimeFrame.removeComponent(SimulationResult.self, for: .Frame)
-        
-        let simulation = StockFlowSimulation(simulationPlan)
-        let simulator = Simulator(simulation: simulation,
-                                  parameters: simulationPlan.simulationParameters)
-        
-        simulationStarted.emit()
-        
-        do {
-            try simulator.initializeState()
-        }
-        catch {
-            GD.pushError("Simulation initialisation failed: \(error)")
-            simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation-init", error.localizedDescription, SwiftGodot.VariantDictionary())
-            return
-        }
-        
-        do {
-            try simulator.run()
-        }
-        catch {
-            GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
-            simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation", error.localizedDescription, SwiftGodot.VariantDictionary())
-            return
-        }
-        
-        runtimeFrame.setComponent(simulator.result, for: .Frame)
-        let wrap = PoieticResult()
-        wrap.set(plan: simulationPlan, result: simulator.result)
-        simulationFinished.emit(wrap)
+        let wrapped = PoieticTimeSeries()
+        wrapped._object_id = objectID
+        wrapped.series = series
+        return wrapped
     }
-    
+
     @Callable
     func write_to_csv(path: String, result: PoieticResult, ids: PackedInt64Array) {
         guard let plan = result.plan else {

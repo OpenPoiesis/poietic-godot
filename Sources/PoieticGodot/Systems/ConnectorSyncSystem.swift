@@ -18,12 +18,12 @@ public struct ConnectorSyncSystem: System {
     // TODO: Alternative names: DiagramSceneSystem
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(BlockCreationSystem.self),
+        .after(ConnectorGeometrySystem.self),
     ]
     public init() {}
     public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        GD.print("=== ConnectorSyncSystem Update")
         guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
-            GD.printErr("!-- No canvas component")
+            GD.printErr("No canvas component")
             return
         }
         
