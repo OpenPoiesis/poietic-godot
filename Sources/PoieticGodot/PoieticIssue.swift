@@ -49,7 +49,7 @@ public class PoieticIssue: SwiftGodot.RefCounted {
     }
     @Export var relatedObjects: PackedInt64Array {
         get {
-            return PackedInt64Array(compactingValid: issue.relatedObjects)
+            return PackedInt64Array(issue.relatedObjects)
         }
         set { readOnlyAttributeError() }
     }

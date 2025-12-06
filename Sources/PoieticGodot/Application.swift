@@ -89,6 +89,8 @@ class PoieticApplication: SwiftGodot.Node {
     }
 
     // MARK: - Actions and Action Dispatch
+    // TODO: Turn this into commands.
+    
     @Callable(autoSnakeCase: true)
     func performObjectsAction(_ actionName: String, rawIDs: PackedInt64Array) {
         let ids: [PoieticCore.ObjectID] = rawIDs.asValidEntityIDs()

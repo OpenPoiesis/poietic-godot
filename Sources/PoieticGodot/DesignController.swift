@@ -132,6 +132,7 @@ public class DesignController: SwiftGodot.Node {
     }
 
     // MARK: - Query
+    /// Get all object IDs from the design. Used only for debugging.
     @Callable
     func get_all_ids() -> PackedInt64Array {
         return PackedInt64Array(self.currentFrame.objectIDs.map { Int64($0.rawValue)} )
@@ -147,7 +148,7 @@ public class DesignController: SwiftGodot.Node {
         }
         let objects = currentFrame.filter { $0.type === type }
         let ids = objects.map { $0.objectID }
-        return PackedInt64Array(compactingValid: ids)
+        return PackedInt64Array(ids)
     }
     
     /// Order given IDs by the given attribute in ascending order.

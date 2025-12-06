@@ -28,7 +28,7 @@ class SelectionManager: SwiftGodot.Node {
 
             child.isSelected = selected.contains(objectID)
         }
-        let ids = PackedInt64Array(compactingValid: selection.ids)
+        let ids = PackedInt64Array(selection.ids)
         designController?.selectionChanged.emit(ids)
     }
     
@@ -51,7 +51,7 @@ class SelectionManager: SwiftGodot.Node {
 
     @Callable
     func get_ids() -> PackedInt64Array {
-        return PackedInt64Array(compactingValid: selection)
+        return PackedInt64Array(selection)
     }
     
     @Callable
