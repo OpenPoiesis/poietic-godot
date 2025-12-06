@@ -18,18 +18,21 @@ class SelectionManager: SwiftGodot.Node {
     var selection: Selection = Selection()
 
     private func update() {
-        guard let canvas else { return }
+        guard let canvas,
+              let designController
+        else { return }
 
         let selected = Set(selection.ids)
+        let contained = Set(designController.currentFrame.contained(selected))
         
         for child in canvas.getChildren() {
             guard var child = child as? DiagramCanvasObject,
                   let objectID = child.objectID else { continue }
 
-            child.isSelected = selected.contains(objectID)
+            child.isSelected = contained.contains(objectID)
         }
         let ids = PackedInt64Array(selection.ids)
-        designController?.selectionChanged.emit(ids)
+        designController.selectionChanged.emit(ids)
     }
     
     /// Get an ID of a selected object if only one object is selected. Otherwise
@@ -87,6 +90,12 @@ class SelectionManager: SwiftGodot.Node {
         update()
     }
 
+    @Callable(autoSnakeCase: true)
+    func selectAll() {
+        guard let canvas = self.canvas else { return }
+        self.replaceAll(canvas.selectableObjectIDs())
+    }
+    
     @Callable
     func replace(ids: PackedInt64Array) {
         var actualIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
