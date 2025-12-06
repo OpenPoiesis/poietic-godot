@@ -9,12 +9,13 @@ import PoieticFlows
 import PoieticCore
 
 extension PackedInt64Array {
+    // FIXME: [REFACTORING] no need for compactingValid, just remove it
     public convenience init<T>(compactingValid ids: some Collection<EntityID<T>>) {
-        let valid = ids.compactMap { Int64(exactly: $0.rawValue) }
+        let valid = ids.map { Int64(bitPattern: $0.rawValue) }
         self.init(valid)
     }
     public func asValidEntityIDs<T>() -> [EntityID<T>] {
-        let valid = self.compactMap { UInt64(exactly: $0) }
+        let valid = self.map { UInt64(bitPattern: $0) }
         return valid.map { EntityID<T>(rawValue: $0) }
     }
 }

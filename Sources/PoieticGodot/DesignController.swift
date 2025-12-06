@@ -15,8 +15,9 @@
  suggestions.
 
  */
-
+// FIXME: Extract currentFrame/runtimeFrame as CurrentWorld (interactive focus, operational view,...)
 // TODO: Change error descriptions to be localizedDescription
+// TODO: This is a God object, break it down
 
 import SwiftGodot
 import Foundation
@@ -37,6 +38,20 @@ import Diagramming
 /// -
 @Godot
 public class DesignController: SwiftGodot.Node {
+    // TODO: Alternative names: Workspace, DesignWorkspace
+
+    /// Owning application
+    @Export var application: PoieticApplication?
+
+    /// Called on: load from path
+    @Signal var designReset: SimpleSignal
+    /// Called on: accept, undo, redo
+    @Signal var designChanged: SignalWithArguments<Bool>
+    @Signal var simulationStarted: SimpleSignal
+    @Signal var simulationFailed: SimpleSignal
+    @Signal var simulationFinished: SimpleSignal
+    @Signal var selectionChanged: SignalWithArguments<PackedInt64Array>
+
     static let DesignSettingsFrameName = "settings"
     
     // System groups
@@ -44,8 +59,6 @@ public class DesignController: SwiftGodot.Node {
     var simulationFinishedSystems: SystemGroup
     var interactivePreviewSystems: SystemGroup
     
-    @Export var application: PoieticApplication?
-
     // TODO: Allow multiple canvases.
     /// Canvas the design is presented into.
     ///
@@ -69,14 +82,6 @@ public class DesignController: SwiftGodot.Node {
 
     @Export var selectionManager: SelectionManager
 
-    /// Called on: load from path
-    @Signal var designReset: SimpleSignal
-    /// Called on: accept, undo, redo
-    @Signal var designChanged: SignalWithArguments<Bool>
-    @Signal var simulationStarted: SimpleSignal
-    @Signal var simulationFailed: SimpleSignal
-    @Signal var simulationFinished: SimpleSignal
-    
     required init(_ context: InitContext) {
         GD.print("==> Initialising Design Controller", context)
 
@@ -86,10 +91,13 @@ public class DesignController: SwiftGodot.Node {
         
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
+        
         self.selectionManager = SelectionManager()
-
+        
         super.init(context)
         
+        self.selectionManager.designController = self
+
         loadNotation(path: StockFlowPictogramsPath)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
@@ -333,7 +341,6 @@ public class DesignController: SwiftGodot.Node {
         updateSystems(debugReason: "Accept")
         simulate()
     }
-    
     
     // MARK: - Issues
     @Callable(autoSnakeCase: true)
@@ -620,9 +627,8 @@ public class DesignController: SwiftGodot.Node {
     ///
     @Callable(autoSnakeCase: true)
     public func copySelectionAsText() -> String {
-        let ids = selectionManager.selection.ids
         let extractor = DesignExtractor()
-        let extract = extractor.extractPruning(objects: ids,
+        let extract = extractor.extractPruning(objects: selectionManager.selection.ids,
                                                frame: self.currentFrame)
         var rawDesign = RawDesign(metamodelName: design.metamodel.name,
                                   metamodelVersion: design.metamodel.version,
@@ -677,32 +683,6 @@ public class DesignController: SwiftGodot.Node {
         return true
     }
     
-    /// Delete selected objects and its dependents.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func deleteSelection() {
-        let ids = selectionManager.selection.ids
-        deleteObjects(ids)
-        selectionManager.clear()
-    }
-        
-    /// Delete selected objects and its dependents.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func removeConnectorMidpointsInSelection() {
-        // TODO: Make this a command
-        let trans = self.newTransaction()
-        let ids = selectionManager.selection.ids
-
-        for id in ids {
-            guard trans.contains(id) else { continue }
-            let obj = trans.mutate(id)
-            guard obj.type.hasTrait(.DiagramConnector) else { continue }
-            obj.removeAttribute(forKey: "midpoints")
-        }
-        self.accept(trans)
-        selectionManager.clear()
-    }
 
     @Export var debug_stats: GDictionary {
         get {
@@ -831,19 +811,6 @@ public class DesignController: SwiftGodot.Node {
         try writer.close()
     }
    
-    // MARK: - Actions
-    // TODO: Move towards this, review other methods
-    /// Delete objects in current frame.
-    ///
-    func deleteObjects(_ ids: [PoieticCore.ObjectID]) {
-        let trans = self.newTransaction()
-        let existing = trans.existing(from: ids)
-        for id in existing {
-            trans.removeCascading(id)
-        }
-        self.accept(trans)
-    }
-    
     // MARK: - Notation and Pictograms
     @Callable(autoSnakeCase: true)
     func loadNotation(path: String) {

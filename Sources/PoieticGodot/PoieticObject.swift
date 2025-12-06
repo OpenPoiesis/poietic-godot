@@ -9,6 +9,7 @@ import PoieticFlows
 import PoieticCore
 
 // TODO: Either rename to DesignObjectView or dissolve in runtime frame wrapper
+// TODO: Alternative name: DesignEntity
 /// Wrapper for the Design object.
 ///
 @Godot

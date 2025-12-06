@@ -43,19 +43,21 @@ class PoieticApplication: SwiftGodot.Node {
     @Export var designController: DesignController
     var currentDesign: Design? { designController.design }
     
-    @Export var currentSelection: PackedInt64Array? {
-        get {
-            return designController.selectionManager.get_ids()
-        }
-        set(values) {
-            if let values {
-                designController.selectionManager.replace(ids: values)
-            }
-            else {
-                designController.selectionManager.clear()
-            }
-        }
-    }
+//    @Export var currentSelection: PackedInt64Array? {
+//        get {
+//            let ids = designController.selection.ids
+//            return PackedInt64Array(compactingValid: ids)
+//        }
+//        set(values) {
+//            if let values {
+//                let ids: [PoieticCore.ObjectID] = values.asValidEntityIDs()
+//                designController.setSelection(ids)
+//            }
+//            else {
+//                designController.clearSelection()
+//            }
+//        }
+//    }
     
     
     // var panTool: PanTool
@@ -90,14 +92,30 @@ class PoieticApplication: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func performObjectsAction(_ actionName: String, rawIDs: PackedInt64Array) {
         let ids: [PoieticCore.ObjectID] = rawIDs.asValidEntityIDs()
+        performAction(actionName, ids: ids)
+    }
+
+    @Callable(autoSnakeCase: true)
+    func performSelectionAction(_ actionName: String) {
+        let ids = designController.selectionManager.selection.ids
+        guard !ids.isEmpty else {
+            GD.print("Selection is empty. Required for action: ", actionName)
+            return
+        }
+        performAction(actionName, ids: ids)
+    }
+
+    func performAction(_ actionName: String, ids: [PoieticCore.ObjectID]) {
         switch actionName {
         case "delete_objects":
             designController.deleteObjects(ids)
+        case "remove_midpoints":
+            designController.removeConnectorMidpoints(ids)
         default:
             GD.pushError("Unknown application action: ", actionName)
         }
     }
-    
+
     // MARK: - Tool
     
     @Callable(autoSnakeCase: true)

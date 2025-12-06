@@ -8,28 +8,30 @@
 import SwiftGodot
 import PoieticCore
 
-struct PoieticSelectionTypeInfo {
-    var distinct_types: [String]
-    var shared_traits: [String]
-    var count: Int
-    var has_issues: Bool
-    
-    func is_empty() -> Bool {
-        return count == 0
-    }
-    func matches(traits: [String], multiple: Bool, issues: Bool) -> Bool {
-        return false
-    }
-}
-
+/// Controller object that is maintaining a selection state.
+///
 @Godot
 class SelectionManager: SwiftGodot.Node {
-    // TODO: Consider removing this selection wrapper, just add get_ids() on Canvas
+    var designController: DesignController?
+    var canvas: DiagramCanvas? { designController?.canvas }
+
     var selection: Selection = Selection()
-   
-    @Signal var selectionChanged: SignalWithArguments<SelectionManager>
 
+    private func update() {
+        guard let canvas else { return }
 
+        let selected = Set(selection.ids)
+        
+        for child in canvas.getChildren() {
+            guard var child = child as? DiagramCanvasObject,
+                  let objectID = child.objectID else { continue }
+
+            child.isSelected = selected.contains(objectID)
+        }
+        let ids = PackedInt64Array(compactingValid: selection.ids)
+        designController?.selectionChanged.emit(ids)
+    }
+    
     /// Get an ID of a selected object if only one object is selected. Otherwise
     /// returns null.
     ///
@@ -54,18 +56,18 @@ class SelectionManager: SwiftGodot.Node {
     
     @Callable
     func is_empty() -> Bool {
-        return selection.isEmpty ?? true
+        return selection.isEmpty
     }
     
     @Callable
     func count() -> Int {
-        return selection.count ?? 0
+        return selection.count
     }
     
     @Callable
     func clear() {
         selection.removeAll()
-        selectionChanged.emit(self)
+        update()
     }
     
     @Callable
@@ -82,7 +84,7 @@ class SelectionManager: SwiftGodot.Node {
     func append(id: EntityIDValue) {
         let actual_id = ObjectID(rawValue: id)
         selection.append(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
 
     @Callable
@@ -93,29 +95,30 @@ class SelectionManager: SwiftGodot.Node {
             return
         }
         selection.replaceAll(actualIDs)
-        selectionChanged.emit(self)
+        update()
     }
     
     func replaceAll(_ ids: [PoieticCore.ObjectID]) {
         selection.replaceAll(ids)
-        selectionChanged.emit(self)
+        update()
     }
     
     @Callable
     func remove(id: EntityIDValue) {
         let actual_id = ObjectID(rawValue: id)
         selection.remove(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
 
     @Callable
     func toggle(id: EntityIDValue) {
         let actual_id = ObjectID(rawValue: id)
         selection.toggle(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
+    
     func toggle(_ id: PoieticCore.ObjectID) {
         selection.toggle(id)
-        selectionChanged.emit(self)
+        update()
     }
 }

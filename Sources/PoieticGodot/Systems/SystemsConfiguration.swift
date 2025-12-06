@@ -11,7 +11,7 @@ import Diagramming
 
 // FIXME: [REFACTORING] Rename to Phase
 
-enum RuntimePhase {
+enum RuntimePhase: Int, CaseIterable {
     // Modeling
 
     /// Systems run when design changed.

@@ -20,4 +20,3 @@ public struct CanvasComponent: Component {
     /// of a design.
     public let canvas: DiagramCanvas
 }
-

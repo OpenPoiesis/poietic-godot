@@ -147,7 +147,7 @@ extension DesignController {
         }
 
     }
-    
+   
     /// Run after simulation was successfully finished and before signal was emitted.
     ///
     /// Add simulation result to the runtime frame.
@@ -175,7 +175,6 @@ extension DesignController {
             // We might re-consider this if the user experience will be really bad.
         }
     }
-
 }
 
 extension SystemGroup {
