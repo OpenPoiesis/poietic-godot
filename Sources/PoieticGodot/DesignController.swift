@@ -14,6 +14,12 @@
  and provide wrong answers. If you really have to, then be very cautious about their
  suggestions.
 
+ TODO: Future directions (see below)
+ 
+ - Requirement: have runtime/world to be global (not per frame change)
+ - Allow multiple canvases and put them into the world
+ - Allow multiple players and put them into the world
+ 
  */
 // FIXME: Extract currentFrame/runtimeFrame as CurrentWorld (interactive focus, operational view,...)
 // TODO: Change error descriptions to be localizedDescription
@@ -38,6 +44,7 @@ import Diagramming
 /// -
 @Godot
 public class DesignController: SwiftGodot.Node {
+    // FIXME: Rename to WorldController
     // TODO: Alternative names: Workspace, DesignWorkspace
 
     /// Owning application
@@ -68,6 +75,9 @@ public class DesignController: SwiftGodot.Node {
     /// - SeeAlso: ``CanvasComponent``
     ///
     @Export var canvas: DiagramCanvas?
+    
+    // TODO: Allow multiple players
+    @Export var player: ResultPlayer?
 
     // TODO: Review where is the ctrl metamodel used
     // TODO: Remove this or rename to `metamodel`
@@ -81,6 +91,7 @@ public class DesignController: SwiftGodot.Node {
 //    var result: SimulationResult? = nil
 
     @Export var selectionManager: SelectionManager
+    // var panTool: PanTool
 
     required init(_ context: InitContext) {
         GD.print("==> Initialising Design Controller", context)

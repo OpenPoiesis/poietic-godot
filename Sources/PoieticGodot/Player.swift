@@ -14,7 +14,7 @@ struct ReplayTime: Component {
     let time: Double
 }
 
-/// Object coordinating Godot runtime with Poietic runtime to replay simulation results.
+/// Object that controls recurrent updates of visuals from simulation results.
 ///
 @Godot
 class ResultPlayer: SwiftGodot.Node {

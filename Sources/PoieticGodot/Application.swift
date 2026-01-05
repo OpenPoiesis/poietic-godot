@@ -43,24 +43,6 @@ class PoieticApplication: SwiftGodot.Node {
     @Export var designController: DesignController
     var currentDesign: Design? { designController.design }
     
-//    @Export var currentSelection: PackedInt64Array? {
-//        get {
-//            let ids = designController.selection.ids
-//            return PackedInt64Array(compactingValid: ids)
-//        }
-//        set(values) {
-//            if let values {
-//                let ids: [PoieticCore.ObjectID] = values.asValidEntityIDs()
-//                designController.setSelection(ids)
-//            }
-//            else {
-//                designController.clearSelection()
-//            }
-//        }
-//    }
-    
-    
-    // var panTool: PanTool
     // MARK: - Methods
 
     required init(_ context: InitContext) {
