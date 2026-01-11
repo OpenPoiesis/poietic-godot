@@ -12,27 +12,25 @@ import Diagramming
 /// - **Input:** ...
 /// - **Output:** ...
 /// - **Forgiveness:** ...
-public struct BlockSyncSystem: System {
-    // TODO: Alternative names: DiagramSceneSystem
+struct BlockSyncSystem: System {
+    // TODO: Alternative names: CanvasBlockSyncSystem
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(BlockCreationSystem.self),
     ]
     public init() {}
-    public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
-            GD.printErr("No canvas component")
+    public func update(_ world: World) throws (InternalSystemError) {
+        guard let frame = world.frame,
+              let canvasComponent: CanvasComponent = world.singleton()
+        else {
             return
         }
 
         let canvas = canvasComponent.canvas
-        var remaining = Set(canvas.blocks.compactMap { $0.runtimeID })
+        var remaining = Set(canvas.blocks.compactMap { $0.entityID })
         var updated: [DiagramCanvasBlock] = []
         
-        for (id, component) in frame.runtimeFilter(DiagramBlock.self) {
-            sync(block: component,
-                 id: id,
-                 canvas: canvasComponent,
-                 frame: frame)
+        for (id, component) in world.query(DiagramBlock.self) {
+            sync(block: component, id: id, canvas: canvasComponent, world: world, frame: frame)
             remaining.remove(id)
         }
         
@@ -42,45 +40,42 @@ public struct BlockSyncSystem: System {
     }
     
     public func sync(block: DiagramBlock,
-                     id runtimeID: RuntimeEntityID,
+                     id entityID: EphemeralID,
                      canvas canvasComponent: CanvasComponent,
-                     frame: AugmentedFrame) {
+                     world: World,
+                     frame: DesignFrame) {
         // FIXME: Require style (this is just a quick hack to make swatches work)
         let canvas = canvasComponent.canvas
         let style = canvas.style ?? CanvasStyle()
 
         let sceneNode: DiagramCanvasBlock
-        if let node = canvas.block(id: runtimeID) {
+        if let node = canvas.block(id: entityID) {
             sceneNode = node
         }
         else {
             sceneNode = DiagramCanvasBlock()
-            sceneNode.runtimeID = runtimeID
+            sceneNode.entityID = entityID
             canvas.insertBlock(sceneNode)
             
         }
         sceneNode._prepareChildren()
-        sceneNode.name = StringName(DiagramBlockNamePrefix + runtimeID.godotNodeName)
+        sceneNode.name = StringName(DiagramBlockNamePrefix + world.godotStringName(entityID))
 
-        if let objectID = runtimeID.objectID,
-           let object = frame[objectID] {
-            sceneNode.hasValueIndicator = object.type.hasTrait(.NumericIndicator)
-        }
-        else {
-            sceneNode.hasValueIndicator = false
-        }
+        if let objectID = world.entityToObject(entityID) {
+            if let object = frame[objectID] {
+                sceneNode.hasValueIndicator = object.type.hasTrait(.NumericIndicator)
+            }
+            else {
+                sceneNode.hasValueIndicator = false
+            }
 
-        if let objectID = runtimeID.objectID {
-            sceneNode.hasIssues = frame.objectHasIssues(objectID)
-        }
-        else {
-            sceneNode.hasIssues = false
+            sceneNode.hasIssues = world.objectHasIssues(objectID)
         }
 
 
-        let preview: BlockPreview? = frame.component(for: runtimeID)
+        let preview: BlockPreview? = world.component(for: entityID)
 
-        updateContent(sceneNode, runtimeID: runtimeID, block: block, style: style)
+        updateContent(sceneNode, block: block, style: style)
         updatePosition(sceneNode, block: block, preview: preview)
         updateLabels(sceneNode, block: block, style: style)
         updateBlockColorSwatch(sceneNode, colorName: block.accentColorName, style: style)
@@ -88,7 +83,6 @@ public struct BlockSyncSystem: System {
     }
 
     func updateContent(_ node: DiagramCanvasBlock,
-                       runtimeID: RuntimeEntityID,
                        block: DiagramBlock,
                        style: CanvasStyle)
     {

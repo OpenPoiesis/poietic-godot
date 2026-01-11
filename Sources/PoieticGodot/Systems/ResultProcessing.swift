@@ -19,16 +19,17 @@ struct SimulationObjectsResultsSystem: System {
     // public let dependencies: SystemDependency = [ /* after: simulation */ ]
     // TODO: Find a better name
     public init() {}
-    public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        guard let result: SimulationResult = frame.component(for: .Frame),
-              let plan: SimulationPlan = frame.component(for: .Frame)
+    public func update(_ world: World) throws (InternalSystemError) {
+        guard let result: SimulationResult = world.singleton(),
+              let plan: SimulationPlan = world.singleton(),
+              let frame = world.frame
         else { return }
         
         for object in plan.simulationObjects {
             guard frame.contains(object.objectID)
             else { continue }
             let series: RegularTimeSeries = result.unsafeTimeSeries(at: object.variableIndex)
-            frame.setComponent(series, for: object.objectID)
+            world.setComponent(series, for: object.objectID)
         }
     }
 }

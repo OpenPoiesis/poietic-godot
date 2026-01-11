@@ -18,7 +18,7 @@ struct ReplayTime: Component {
 ///
 @Godot
 class ResultPlayer: SwiftGodot.Node {
-    let systems: SystemGroup
+    let controller: DesignController
     
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
@@ -52,11 +52,6 @@ class ResultPlayer: SwiftGodot.Node {
         }
     }
 
-    required override init(_ context: InitContext) {
-        self.systems = SystemGroup(RuntimePhase.simulationReplayStep.systems)
-        super.init(context)
-    }
-    
     func setRuntime(_ frame: AugmentedFrame) {
         self.runtime = frame
         if let result: SimulationResult = frame.component(for: .Frame) {
@@ -73,14 +68,7 @@ class ResultPlayer: SwiftGodot.Node {
         guard let runtime else { return }
         let component = ReplayTime(step: currentStep, time: currentTime)
         runtime.setComponent(component, for: .Frame)
-
-        do {
-            try systems.update(runtime)
-        }
-        catch {
-            GD.pushError("Player step systems update failed:", error.localizedDescription)
-            return
-        }
+        guard controller.run(schedule: ReplayStepSchedule.self) else { return }
         simulationPlayerStep.emit()
     }
     

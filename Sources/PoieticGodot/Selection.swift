@@ -13,6 +13,7 @@ import PoieticCore
 @Godot
 class SelectionManager: SwiftGodot.Node {
     var designController: DesignController?
+    var world: World? { designController?.world }
     var canvas: DiagramCanvas? { designController?.canvas }
 
     var selection: Selection = Selection()
@@ -27,7 +28,9 @@ class SelectionManager: SwiftGodot.Node {
         
         for child in canvas.getChildren() {
             guard var child = child as? DiagramCanvasObject,
-                  let objectID = child.objectID else { continue }
+                  let entityID = child.entityID,
+                  let objectID = world?.entityToObject(entityID)
+            else { continue }
 
             child.isSelected = contained.contains(objectID)
         }
@@ -92,13 +95,25 @@ class SelectionManager: SwiftGodot.Node {
 
     @Callable(autoSnakeCase: true)
     func selectAll() {
-        guard let canvas = self.canvas else { return }
-        self.replaceAll(canvas.selectableObjectIDs())
+        guard let canvas = self.canvas,
+              let world
+        else { return }
+        
+        let blockIDs: [PoieticCore.ObjectID] = canvas.blocks.compactMap {
+            guard let entityID = $0.entityID else { return nil }
+            return world.entityToObject(entityID)
+        }
+        let connectorIDs: [PoieticCore.ObjectID] = canvas.connectors.compactMap {
+            guard let entityID = $0.entityID else { return nil }
+            return world.entityToObject(entityID)
+        }
+        let selectable = blockIDs + connectorIDs
+        self.replaceAll(selectable)
     }
     
     @Callable
     func replace(ids: PackedInt64Array) {
-        var actualIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
+        var actualIDs: [PoieticCore.ObjectID] = ids.asDesignEntityIDs()
         guard ids.count == actualIDs.count else {
             GD.pushError("Some IDs are invalid")
             return

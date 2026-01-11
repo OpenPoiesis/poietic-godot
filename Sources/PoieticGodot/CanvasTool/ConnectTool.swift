@@ -20,7 +20,7 @@ class ConnectTool: CanvasTool {
     // FIXME: Use real type, not just name
     
     @Export var lastPointerPosition = Vector2()
-    var originID: RuntimeEntityID?
+    var originID: EphemeralID?
     var draggingGlyph: ConnectorGlyph?
     @Export var draggingConnector: DiagramCanvasConnector?
     
@@ -47,7 +47,7 @@ class ConnectTool: CanvasTool {
 
     override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
-              let originID = origin.runtimeID
+              let originID = origin.entityID
         else { return true }
 
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
@@ -78,23 +78,18 @@ class ConnectTool: CanvasTool {
 
         let canvasPoint = canvas.fromDesign(targetPoint)
         guard let target = canvas.hitObject(globalPosition: globalPosition),
-              let targetID = target.objectID else
+              let targetID = target.entityID else
         {
             Input.setDefaultCursorShape(.drag)
             return true
         }
 
-        // We are done here if the target is not a design object.
-        guard let originObjectID = originID.objectID else {
-            return true
-        }
-        
-        guard targetID != originObjectID else {
+        guard targetID != originID else {
             Input.setDefaultCursorShape(.forbidden)
             return true
         }
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
-        if self.canConnect(typeName: typeName, from: originObjectID, to: targetID) {
+        if self.canConnect(typeName: typeName, from: originID, to: targetID) {
             Input.setDefaultCursorShape(.canDrop)
         }
         else {
@@ -104,15 +99,19 @@ class ConnectTool: CanvasTool {
         return true
     }
     
-    func canConnect(typeName: String, from originID: PoieticCore.ObjectID, to targetID: PoieticCore.ObjectID) -> Bool {
-        guard let ctrl = designController else { return false }
+    func canConnect(typeName: String, from originID: EphemeralID, to targetID: EphemeralID) -> Bool {
+        guard let ctrl = designController,
+              let originObjectID = ctrl.world.entityToObject(originID),
+              let targetObjectID = ctrl.world.entityToObject(targetID)
+        else { return false }
+
         guard let type = ctrl.design.metamodel.objectType(name: typeName) else {
             GD.pushError("Invalid connector type: \(typeName)")
             return false
         }
         let flag = ctrl.checker.canConnect(type: type,
-                                           from: originID,
-                                           to: targetID,
+                                           from: originObjectID,
+                                           to: targetObjectID,
                                            in: ctrl.currentFrame)
         return flag
     }
@@ -124,17 +123,20 @@ class ConnectTool: CanvasTool {
         }
 
         guard state == .connect else { return false }
-        guard let originObjectID = originID?.objectID,
+        guard let ctrl = designController,
               let target = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
-              let targetID = target.objectID else
-        {
+              let originID,
+              let targetID = target.entityID,
+              let originObjectID = ctrl.world.entityToObject(originID),
+              let targetObjectID = ctrl.world.entityToObject(targetID)
+        else {
             // TODO: Do some puff animation here
             return true
         }
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
 
-        if self.canConnect(typeName: typeName, from: originObjectID, to: targetID) {
-            createEdge(typeName: typeName, from: originObjectID, to: targetID)
+        if self.canConnect(typeName: typeName, from: originID, to: targetID) {
+            createEdge(typeName: typeName, from: originObjectID, to: targetObjectID)
             // TODO: Implement "tool locking"
             if let app = self.application {
                 app.switchTool(app.selectionTool)
@@ -189,15 +191,15 @@ extension ConnectTool {
     ///
     public func createDragConnector(canvas: DiagramCanvas,
                                     type: String,
-                                    origin originID: RuntimeEntityID,
+                                    origin originID: EphemeralID,
                                     targetPoint: Vector2D) -> DiagramCanvasConnector? {
-        guard let frame = designController?.runtimeFrame,
-              let block: DiagramBlock = frame.component(for:originID),
+        guard let world = designController?.world,
+              let block: DiagramBlock = world.component(for:originID),
               let style = canvas.style
         else { return nil }
 
-        let notation: Notation = frame.component(for: .Frame) ?? Notation.DefaultNotation
-        let rules: NotationRules = frame.component(for: .Frame) ?? NotationRules()
+        let notation: Notation = world.singleton() ?? Notation.DefaultNotation
+        let rules: NotationRules = world.singleton() ?? NotationRules()
 
         let drag = DiagramCanvasConnector()
         drag.ignoreAsTarget = true // This is just a decoration
@@ -238,8 +240,8 @@ extension ConnectTool {
         guard let drag = draggingConnector,
               let originID,
               let glyph = draggingGlyph,
-              let frame = designController?.runtimeFrame,
-              let block: DiagramBlock = frame.component(for:originID),
+              let world = designController?.world,
+              let block: DiagramBlock = world.component(for:originID),
               let style = canvas.style
         else { return }
 

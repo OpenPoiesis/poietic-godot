@@ -70,7 +70,10 @@ class SelectionTool: CanvasTool {
         switch target.type {
         case .object:
             // TODO: Defer opening of context menu on inputEnded
-            guard let object = target.object as? DiagramCanvasObject, let objectID = object.objectID else {
+            guard let object = target.object as? DiagramCanvasObject,
+                  let entityID = object.entityID,
+                  let objectID = world?.entityToObject(entityID)
+            else {
                 GD.pushWarning("Hit object is not a diagram canvas object")
                 return false
             }
@@ -87,8 +90,9 @@ class SelectionTool: CanvasTool {
                     selectionManager.replaceAll([objectID])
                 }
             }
-            if let id: PoieticCore.ObjectID = selectionManager.selectionOfOne() {
-                createHandles(canvas: canvas, for: .object(id))
+            if let objectID: PoieticCore.ObjectID = selectionManager.selectionOfOne(),
+               let entityID = world?.objectToEntity(objectID) {
+                createHandles(canvas: canvas, for: entityID)
             }
             state = .objectHit
         case .handle:
@@ -132,35 +136,34 @@ class SelectionTool: CanvasTool {
         return true
     }
     func previewSelectionMove(canvas: DiagramCanvas, byCanvasDelta canvasDelta: Vector2) {
-        guard let ctrl = designController,
-              let runtime = ctrl.runtimeFrame
-        else { return }
-        
+        guard let ctrl = designController else { return }
+        let world = ctrl.world
+
         let selection = ctrl.selectionManager.selection
         var dependentEdges: Set<PoieticCore.ObjectID> = Set()
         var designDelta = Vector2D(canvasDelta)
         
         for objectID in selection {
-            guard let block: DiagramBlock = runtime.component(for: objectID) else { continue }
+            guard let block: DiagramBlock = world.component(for: objectID) else { continue }
             var preview: BlockPreview
-            if let component: BlockPreview = runtime.component(for: objectID) {
+            if let component: BlockPreview = world.component(for: objectID) {
                 preview = component
             }
             else {
                 preview = BlockPreview(position: block.position)
             }
             preview.position += designDelta
-            runtime.setComponent(preview, for: .object(objectID))
+            world.setComponent(preview, for: objectID)
             
-            let deps = runtime.dependentEdges(objectID)
+            let deps = ctrl.currentFrame.dependentEdges(objectID)
             dependentEdges.formUnion(deps)
         }
         
         for objectID in selection {
-            guard let connector: DiagramConnector = runtime.component(for: objectID) else { continue }
+            guard let connector: DiagramConnector = world.component(for: objectID) else { continue }
             guard !connector.midpoints.isEmpty else { continue }
             var preview: ConnectorPreview
-            if let component: ConnectorPreview = runtime.component(for: objectID) {
+            if let component: ConnectorPreview = world.component(for: objectID) {
                 preview = component
             }
             else {
@@ -168,48 +171,48 @@ class SelectionTool: CanvasTool {
             }
             
             preview.midpoints = preview.midpoints.map { $0 + designDelta }
-            runtime.setComponent(preview, for: .object(objectID))
+            world.setComponent(preview, for: objectID)
         }
         
         for id in dependentEdges {
-            guard runtime.hasComponent(DiagramConnector.self, for: .object(id)) else { continue }
+            guard let entID = world.objectToEntity(id) else { continue }
+            guard world.hasComponent(DiagramConnector.self, for: entID) else { continue }
             
-            runtime.setComponent(VisuallyDirty(), for: id)
+            world.setComponent(VisuallyDirty(), for: entID)
         }
         
         self.updatePreview(canvas: canvas)
     }
     
     // MARK: - Handles
-    func createHandles(canvas: DiagramCanvas, for runtimeID: RuntimeEntityID) {
+    func createHandles(canvas: DiagramCanvas, for entityID: EphemeralID) {
         // Currently the only nodes that have handles are connectors.
         //
-        guard let connector = canvas.connector(id: runtimeID) else { return }
-        createConnectorHandles(canvas: canvas, node: connector, runtimeID: runtimeID)
+        guard let connector = canvas.connector(id: entityID) else { return }
+        createConnectorHandles(canvas: canvas, node: connector, entityID: entityID)
         
     }
     
-    func createConnectorHandles(canvas: DiagramCanvas, node: DiagramCanvasConnector, runtimeID: RuntimeEntityID) {
+    func createConnectorHandles(canvas: DiagramCanvas, node: DiagramCanvasConnector, entityID: EphemeralID) {
         // Source of truth: DiagramConnector
-        guard let objectID = node.objectID,
-              let runtime = self.designController?.runtimeFrame,
-              let connector: DiagramConnector = runtime.component(for: runtimeID)
+        guard let world = self.designController?.world,
+              let connector: DiagramConnector = world.component(for: entityID)
         else { return }
         
         canvas.removeHandles()
         
-        let preview: ConnectorPreview? = runtime.component(for: runtimeID)
+        let preview: ConnectorPreview? = world.component(for: entityID)
         let midpoints = preview?.midpoints ?? connector.midpoints
         
         if midpoints.isEmpty {
-            guard let origin: DiagramBlock = runtime.component(for: connector.originID),
-                  let target: DiagramBlock = runtime.component(for: connector.targetID)
+            guard let origin: DiagramBlock = world.component(for: connector.originID),
+                  let target: DiagramBlock = world.component(for: connector.targetID)
             else { return }
             let segment = LineSegment(from: origin.position, to: target.position)
             
             let handle = CanvasHandle()
             handle.type = .midpoint
-            handle.runtimeID = runtimeID
+            handle.entityID = entityID
             handle.tag = 0
             handle.position = Vector2(segment.midpoint)
             canvas.addHandle(handle)
@@ -218,7 +221,7 @@ class SelectionTool: CanvasTool {
             for (index, point) in midpoints.enumerated() {
                 let handle = CanvasHandle()
                 handle.type = .midpoint
-                handle.runtimeID = runtimeID
+                handle.entityID = entityID
                 handle.tag = index
                 handle.position = Vector2(point)
                 canvas.addHandle(handle)
@@ -230,8 +233,7 @@ class SelectionTool: CanvasTool {
     func dragHandle(canvas: DiagramCanvas, byCanvasDelta canvasDelta: Vector2) {
         GD.print("Drag handle: ", hitTarget?.object)
         guard let hitTarget,
-              let handle = hitTarget.object as? CanvasHandle,
-              let runtimeID = handle.runtimeID
+              let handle = hitTarget.object as? CanvasHandle
         else { return }
         
         switch handle.type {
@@ -245,13 +247,13 @@ class SelectionTool: CanvasTool {
     }
     
     func dragMidpointHandle(handle: CanvasHandle, canvas: DiagramCanvas, canvasDelta: Vector2) {
-        guard let runtimeID = handle.runtimeID,
-              let runtime = designController?.runtimeFrame,
-              let connector: DiagramConnector = runtime.component(for: runtimeID),
+        guard let entityID = handle.entityID,
+              let world = self.world,
+              let connector: DiagramConnector = world.component(for: entityID),
               let tag = handle.tag
         else { return }
         
-        let preview: ConnectorPreview? = runtime.component(for: runtimeID)
+        let preview: ConnectorPreview? = world.component(for: entityID)
         var midpoints = preview?.midpoints ?? connector.midpoints
         
         if midpoints.isEmpty && tag == 0 {
@@ -267,8 +269,8 @@ class SelectionTool: CanvasTool {
         }
         handle.position += canvasDelta
         let newPreview = ConnectorPreview(midpoints: midpoints)
-        runtime.setComponent(newPreview, for: runtimeID)
-        runtime.setComponent(VisuallyDirty(), for: runtimeID)
+        world.setComponent(newPreview, for: entityID)
+        world.setComponent(VisuallyDirty(), for: entityID)
         self.updatePreview(canvas: canvas)
     }
     
@@ -297,7 +299,8 @@ class SelectionTool: CanvasTool {
         case .childHit:
             guard let hitTarget,
                   let block = hitTarget.object as? DiagramCanvasBlock,
-                  let id = block.objectID
+                  let entityID = block.entityID,
+                  let objectID = world?.entityToObject(entityID)
             else {
                 break
             }
@@ -305,17 +308,17 @@ class SelectionTool: CanvasTool {
 
             switch hitTarget.type {
             case .primaryLabel:
-                selectionManager.replaceAll([id])
-                popupManager?.openInlineEditor("name", rawObjectID: id.rawValue, attribute: "name")
+                selectionManager.replaceAll([objectID])
+                popupManager?.openInlineEditor("name", rawObjectID: objectID.rawValue, attribute: "name")
             case .secondaryLabel:
-                selectionManager.replaceAll([id])
-                popupManager?.openInlineEditor("formula", rawObjectID: id.rawValue, attribute: "formula")
+                selectionManager.replaceAll([objectID])
+                popupManager?.openInlineEditor("formula", rawObjectID: objectID.rawValue, attribute: "formula")
             case .errorIndicator:
-                selectionManager.replaceAll([id])
+                selectionManager.replaceAll([objectID])
                 // FIXME: Who has responsibility for filling in the popup info?
-                let issues = designController.issuesForObject(rawID: id.rawValue)
+                let issues = designController.issuesForObject(rawID: objectID.rawValue)
 
-                popupManager?.openIssuesPopup(id.rawValue, issues: issues)
+                popupManager?.openIssuesPopup(objectID.rawValue, issues: issues)
             case .object: break
             case .handle: break
             }
@@ -339,10 +342,10 @@ class SelectionTool: CanvasTool {
     func finishDraggingMidpointHandle(handle: CanvasHandle,
                                       globalPosition: Vector2)
     {
-        guard let runtimeID = handle.runtimeID,
-              let objectID = runtimeID.objectID,
-              let runtime = designController?.runtimeFrame,
-              let preview: ConnectorPreview = runtime.component(for: runtimeID),
+        guard let entityID = handle.entityID,
+              let world = designController?.world,
+              let objectID = world.entityToObject(entityID),
+              let preview: ConnectorPreview = world.component(for: entityID),
               let tag = handle.tag
         else { return }
         

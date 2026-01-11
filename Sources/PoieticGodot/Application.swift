@@ -75,7 +75,7 @@ class PoieticApplication: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func performObjectsAction(_ actionName: String, rawIDs: PackedInt64Array) {
-        let ids: [PoieticCore.ObjectID] = rawIDs.asValidEntityIDs()
+        let ids: [PoieticCore.ObjectID] = rawIDs.asDesignEntityIDs()
         performAction(actionName, ids: ids)
     }
 
@@ -149,7 +149,7 @@ class PoieticApplication: SwiftGodot.Node {
     @Callable
     func undo() -> Bool {
         guard designController.design.undo() else { return false }
-        designController.updateSystems(debugReason: "undo")
+        designController.run(schedule: FrameChangeSchedule.self)
         designController.simulate()
         return true
     }
@@ -159,7 +159,7 @@ class PoieticApplication: SwiftGodot.Node {
     @Callable
     func redo() -> Bool {
         guard designController.design.redo() else { return false }
-        designController.updateSystems(debugReason: "redo")
+        designController.run(schedule: FrameChangeSchedule.self)
         designController.simulate()
         return true
     }

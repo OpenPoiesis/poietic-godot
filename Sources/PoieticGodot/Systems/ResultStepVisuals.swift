@@ -23,24 +23,26 @@ struct IndicatorRangeConfigurationSystem: System {
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(SimulationObjectsResultsSystem.self),
     ]
-    public init() {}
-    public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        guard let result: SimulationResult = frame.component(for: .Frame),
-              let canvasComponent: CanvasComponent = frame.component(for: .Frame)
+    init() {}
+    func update(_ world: World) throws (InternalSystemError) {
+        guard let result: SimulationResult = world.singleton(),
+              let canvasComponent: CanvasComponent = world.singleton(),
+              let frame = world.frame
         else { return }
 
         let canvas = canvasComponent.canvas
         
         for block in canvas.blocks {
-            update(block: block, canvas: canvas, in: frame)
+            update(block: block, canvas: canvas, in: world, frame: frame)
         }
     }
-    public func update(block: DiagramCanvasBlock, canvas: DiagramCanvas, in frame: AugmentedFrame) {
+    public func update(block: DiagramCanvasBlock, canvas: DiagramCanvas, in world: World, frame: DesignFrame) {
         guard block.hasValueIndicator, // Whether we *should* have the indicator
               let valueIndicator = block.valueIndicator, // Whether we actually have it
-              let id = block.objectID,
-              let object = frame[id],
-              let series: RegularTimeSeries = frame.component(for: id)
+              let entityID = block.entityID,
+              let objectID = world.entityToObject(entityID),
+              let object = frame[objectID],
+              let series: RegularTimeSeries = world.component(for: entityID)
         else { return }
 
         let autoscaleFlag: Bool? = object["display_value_auto_scale"]
@@ -73,7 +75,7 @@ struct IndicatorRangeConfigurationSystem: System {
     
 }
 
-/// - **Dependency:** No strict dependencies.
+/// - **Dependency:** ``SimulationObjectsResultsSystem``, ``IndicatorRangeConfigurationSystem``
 /// - **Input:** ``PoieticFlows/SimulationResult`` singleton, ``ResultPlayerState`` singleton.
 /// - **Output:** Updates value indicators in ``DiagramCanvasBlock`` nodes.
 /// - **Forgiveness:**
@@ -84,35 +86,36 @@ struct IndicatorValueUpdateSystem: System {
         .after(IndicatorRangeConfigurationSystem.self),
     ]
 
-    // public let dependencies: SystemDependency = [ /* after: simulation */ ]
-    public init() {}
-    public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        guard let result: SimulationResult = frame.component(for: .Frame),
-              let canvasComponent: CanvasComponent = frame.component(for: .Frame)
+    init() {}
+    func update(_ world: World) throws (InternalSystemError) {
+        guard let result: SimulationResult = world.singleton(),
+              let canvasComponent: CanvasComponent = world.singleton(),
+              let frame = world.frame
         else { return }
 
         let canvas = canvasComponent.canvas
         
         for block in canvas.blocks {
-            update(block: block, canvas: canvas, in: frame)
+            update(block: block, canvas: canvas, in: world, frame: frame)
         }
     }
     
-    public func update(block: DiagramCanvasBlock, canvas: DiagramCanvas, in frame: AugmentedFrame) {
+    public func update(block: DiagramCanvasBlock, canvas: DiagramCanvas, in world: World, frame: DesignFrame) {
         guard block.hasValueIndicator, // Whether we *should* have the indicator
               let valueIndicator = block.valueIndicator // Whether we actually have it
         else { return }
 
-        guard let id = block.objectID,
-              let object = frame[id],
-              let series: RegularTimeSeries = frame.component(for: id)
+        guard let entityID = block.entityID,
+              let objectID = world.entityToObject(entityID),
+              let object = frame[objectID],
+              let series: RegularTimeSeries = world.component(for: entityID)
         else {
             valueIndicator.value = nil
             return
         }
 
         // Do not fail if there is no result player
-        let time: ReplayTime? = frame.component(for: .Frame)
+        let time: ReplayTime? = world.singleton()
         let currentStep = time?.step ?? 0
 
         guard currentStep >= 0 && currentStep < series.data.count else {

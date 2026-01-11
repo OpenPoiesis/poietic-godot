@@ -106,18 +106,17 @@ class PlaceTool: CanvasTool {
     }
     
     func createIntentShadow(canvas: DiagramCanvas, typeName: String, canvasPosition: Vector2) {
-        guard let designController else { return }
+        guard let world = designController?.world else { return }
+        guard let notation: Notation = world.singleton() else {
+            GD.pushError("Missing notation")
+            return
+        }
+        let pictogram = notation.pictogram(typeName)
 
         if let intentShadow {
             intentShadow.queueFree()
             self.intentShadow = nil
         }
-        // FIXME: Use block library for pictograms
-        guard let pictogram = designController.notation?.pictogram(typeName) else {
-            GD.pushError("No pictogram for type '\(typeName)'")
-            return
-        }
-
         let shadow = Pictogram2D()
 
         shadow.color = canvas.style?.intentShadowColor ?? DefaultIntentShadowColor

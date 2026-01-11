@@ -18,7 +18,7 @@ enum HandleType: Int, CaseIterable {
 @Godot
 public class CanvasHandle: SwiftGodot.Node2D {
     /// ID of the owning object. If nil then it is owned by canvas.
-    var runtimeID: RuntimeEntityID?
+    var entityID: EphemeralID?
     @Export var type: HandleType = .unspecified
     /// Custom tag that specifies the handle if multiple handles are present within the canvas or
     /// within a canvas object.

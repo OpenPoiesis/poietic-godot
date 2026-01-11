@@ -54,7 +54,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
 
     /// Canvas owning the block. Nil if the block is not under a canvas hierarchy.
     ///
-    public var canvas: DiagramCanvas? {
+    var canvas: DiagramCanvas? {
         var parent: Node? = self.getParent()
         while parent != nil {
             if let result = parent as? DiagramCanvas {
@@ -141,7 +141,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     /// - SeeAlso: ``hideLabels()``
     ///
     @Callable(autoSnakeCase: true)
-    public func resetLabelVisibility() {
+    func resetLabelVisibility() {
         if let primaryLabel {
             primaryLabel.visible = self.showsPrimaryLabel
         }
@@ -155,7 +155,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
     /// - SeeAlso: ``resetLabelVisibility()``
     ///
     @Callable(autoSnakeCase: true)
-    public func hideLabels() {
+    func hideLabels() {
         if let primaryLabel {
             primaryLabel.visible = false
         }

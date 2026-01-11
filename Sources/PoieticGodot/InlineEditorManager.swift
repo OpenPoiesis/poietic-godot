@@ -37,6 +37,7 @@ class InlineEditorManager: Node {
     @Export public var issuesPopup: SwiftGodot.Control?
     
     var designController: DesignController?
+    var world: World? { designController?.world }
     var canvas: DiagramCanvas?
     /// A control that is shown alongside a node, such as inline editor or issue list.
     @Export var currentPopup: SwiftGodot.Control?
@@ -103,10 +104,11 @@ class InlineEditorManager: Node {
     
     @Callable(autoSnakeCase: true)
     func openIssuesPopup(_ rawObjectID: EntityIDValue, issues: TypedArray<PoieticIssue?>) {
+        let objectID = ObjectID(rawValue: rawObjectID)
         guard let issuesPopup,
               let canvas,
-              // FIXME: [REFACTORING] This is too long
-              let block = canvas.block(id: .object(ObjectID(rawValue: rawObjectID)))
+              let entityID = world?.objectToEntity(objectID),
+              let block = canvas.block(id: entityID)
         else { return }
         guard issuesPopup.hasMethod("set_issues") else {
             GD.pushError("Invalid issues popup node: set_issues method missing")

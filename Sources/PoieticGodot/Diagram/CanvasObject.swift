@@ -28,18 +28,18 @@ protocol GodotConvertibleComponent {
 
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
-    var runtimeID: RuntimeEntityID? = nil
-    var objectID: PoieticCore.ObjectID? {
-        get { runtimeID?.objectID }
-        set(value) {
-            if let value {
-                runtimeID = .object(value)
-            }
-            else {
-                runtimeID = nil
-            }
-        }
-    }
+    var entityID: EphemeralID?
+//    var objectID: PoieticCore.ObjectID? {
+//        get { runtimeID?.objectID }
+//        set(value) {
+//            if let value {
+//                runtimeID = .object(value)
+//            }
+//            else {
+//                runtimeID = nil
+//            }
+//        }
+//    }
     @Export var hasIssues: Bool = false {
         didSet {
             if let issueIndicator {
@@ -67,7 +67,7 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     /// Use this for non-selectable shadows, dragged items or other decorative diagram visuals.
     ///
     @Export var ignoreAsTarget: Bool = false
-    
+
     func update(from: ObjectSnapshot) {
         fatalError("Subclasses should override \(#function)")
     }

@@ -9,13 +9,13 @@ import PoieticFlows
 import PoieticCore
 
 extension PackedInt64Array {
-    public convenience init<T>(_ ids: some Collection<EntityID<T>>) {
+    public convenience init(_ ids: some Collection<DesignEntityID>) {
         let valid = ids.map { Int64(bitPattern: $0.rawValue) }
         self.init(valid)
     }
-    public func asValidEntityIDs<T>() -> [EntityID<T>] {
+    public func asDesignEntityIDs() -> [DesignEntityID] {
         let valid = self.map { UInt64(bitPattern: $0) }
-        return valid.map { EntityID<T>(rawValue: $0) }
+        return valid.map { DesignEntityID(rawValue: $0) }
     }
 }
 

@@ -14,34 +14,33 @@ import Diagramming
 /// - **Output:** Creates or updates Godot nodes in a canvas referenced in ``CanvasComponent``.
 /// - **Forgiveness:**
 ///     - Connectors with missing geometry are ignored
-public struct ConnectorSyncSystem: System {
+struct ConnectorSyncSystem: System {
     // TODO: Alternative names: DiagramSceneSystem
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(BlockCreationSystem.self),
         .after(ConnectorGeometrySystem.self),
     ]
-    public init() {}
-    public func update(_ frame: AugmentedFrame) throws (InternalSystemError) {
-        guard let canvasComponent: CanvasComponent = frame.component(for: .Frame) else {
-            GD.printErr("No canvas component")
-            return
-        }
+    init() {}
+    func update(_ world: World) throws (InternalSystemError) {
+        guard let canvasComponent: CanvasComponent = world.singleton()
+        else { return }
         
         let canvas = canvasComponent.canvas
         let style = canvas.style ?? CanvasStyle()
 
-        var remaining = Set(canvas.connectors.compactMap { $0.runtimeID })
+        var remaining = Set(canvas.connectors.compactMap { $0.entityID })
         var updated: [DiagramCanvasBlock] = []
         
-        for (id, component) in frame.runtimeFilter(DiagramConnector.self) {
-            guard let geometry: DiagramConnectorGeometry = frame.component(for: id) else { continue }
+        for (id, component) in world.query(DiagramConnector.self) {
+            // TODO: Use multi-component query once available
+            guard let geometry: DiagramConnectorGeometry = world.component(for: id) else { continue }
 
             sync(connector: component,
                  geometry: geometry,
                  id: id,
                  canvas: canvasComponent.canvas,
                  style: style,
-                 frame: frame)
+                 world: world)
             
             remaining.remove(id)
         }
@@ -53,18 +52,18 @@ public struct ConnectorSyncSystem: System {
     
     public func sync(connector: DiagramConnector,
                      geometry: DiagramConnectorGeometry,
-                     id runtimeID: RuntimeEntityID,
+                     id entityID: EphemeralID,
                      canvas: DiagramCanvas,
                      style: CanvasStyle,
-                     frame: AugmentedFrame)
+                     world: World)
     {
         let sceneNode: DiagramCanvasConnector
-        if let node = canvas.connector(id: runtimeID) {
+        if let node = canvas.connector(id: entityID) {
             sceneNode = node
         }
         else {
             sceneNode = DiagramCanvasConnector()
-            sceneNode.runtimeID = runtimeID
+            sceneNode.entityID = entityID
             canvas.insertConnector(sceneNode)
         }
         

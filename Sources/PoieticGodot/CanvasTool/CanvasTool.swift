@@ -19,8 +19,7 @@ import PoieticCore
 class CanvasTool: SwiftGodot.Node {
     @Export var designController: DesignController?
 
-    /// Shortcut for current runtime frame from the associated design controller.
-    var runtimeFrame: AugmentedFrame? { designController?.runtimeFrame }
+    var world: World? { designController?.world }
 
     /// Identifier of an item, selected in palette, to be placed.
     @Export var paletteItemIdentifier: String? {
@@ -131,12 +130,11 @@ class CanvasTool: SwiftGodot.Node {
     }
 
     func updatePreview(canvas: DiagramCanvas) {
-        guard let runtimeFrame
-        else { return }
+        guard let world else { return }
         
         let component = CanvasComponent(canvas: canvas)
-        runtimeFrame.setComponent(component, for: .Frame)
+        world.setSingleton(component)
         
-        designController?.updatePreviewSystems()
+        designController?.run(schedule: InteractivePreviewSchedule.self)
     }
 }

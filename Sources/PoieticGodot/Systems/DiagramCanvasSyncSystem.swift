@@ -14,9 +14,9 @@ import Diagramming
 /// Currently only one canvas is managed per ``DesignController``. The canvas component
 /// is associated with the frame (singleton). Other entities with this component are ignored.
 ///
-public struct CanvasComponent: Component {
+struct CanvasComponent: Component {
     // See: DesignController.canvas.
     /// Canvas scene node that the controller manages and synchronises diagrammatic representation
     /// of a design.
-    public let canvas: DiagramCanvas
+    let canvas: DiagramCanvas
 }
