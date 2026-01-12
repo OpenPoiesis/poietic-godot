@@ -20,8 +20,11 @@ class ConnectTool: CanvasTool {
     // FIXME: Use real type, not just name
     
     @Export var lastPointerPosition = Vector2()
-    @Export var origin: DiagramCanvasBlock?
+    var originID: RuntimeEntityID?
+    var draggingGlyph: ConnectorGlyph?
     @Export var draggingConnector: DiagramCanvasConnector?
+    
+    
     
     override func toolName() -> String { "connect" }
     override func paletteName() -> String? { ConnectToolPaletteName }
@@ -30,19 +33,8 @@ class ConnectTool: CanvasTool {
         if paletteItemIdentifier == nil {
             paletteItemIdentifier = DefaultConnectorEdgeType
         }
-        // object_panel.load_connector_pictograms()
-        // object_panel.selection_changed.connect(_on_object_selection_changed)
-        //        if last_selected_object_identifier {
-        //            object_panel.selected_item = last_selected_object_identifier
-        //        }
-        //        else {
-        //            object_panel.selected_item = "Flow"
-        //        }
     }
-    override func toolReleased() {
-        // last_selected_object_identifier = object_panel.selected_item
-        // object_panel.selection_changed.disconnect(_on_object_selection_changed)
-    }
+    
     override func paletteItemChanged(_ identifier: String?) {
         guard let identifier else {
             return
@@ -53,10 +45,9 @@ class ConnectTool: CanvasTool {
         }
     }
 
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = canvasController else { return false }
-        guard let canvas else { return false }
-        guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
+              let originID = origin.runtimeID
         else { return true }
 
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
@@ -64,29 +55,26 @@ class ConnectTool: CanvasTool {
         
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let targetPoint = Vector2D(canvasPosition)
-        draggingConnector = ctrl.createDragConnector(type: typeName,
-                                                     origin: origin,
-                                                     targetPoint: targetPoint)
-        self.origin = origin
+        self.createDragConnector(canvas: canvas,
+                                 type: typeName,
+                                 origin: originID,
+                                 targetPoint: targetPoint)
+        self.originID = originID
+        
         state = .connect
         Input.setDefaultCursorShape(.drag)
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let ctrl = canvasController else { return false }
-        guard let canvas else { return false }
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard state == .connect else { return true }
-        guard let origin = self.origin,
-              let originID = origin.objectID else { GD.pushError("Invalid connect drag origin"); return false }
-        guard let draggingConnector,
-              let connector = draggingConnector.connector else { GD.pushError("No dragging connector") ; return false }
+        guard let originID = originID,
+              let draggingConnector
+        else { GD.pushError("Dragging connector not initialized") ; return false }
 
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         let targetPoint = Vector2D(canvasPosition)
-        ctrl.updateDragConnector(draggingConnector,
-                                 origin: origin,
-                                 targetPoint: targetPoint)
+        self.updateDragConnector(canvas: canvas, targetPoint: targetPoint)
 
         let canvasPoint = canvas.fromDesign(targetPoint)
         guard let target = canvas.hitObject(globalPosition: globalPosition),
@@ -95,12 +83,18 @@ class ConnectTool: CanvasTool {
             Input.setDefaultCursorShape(.drag)
             return true
         }
-        guard targetID != originID else {
+
+        // We are done here if the target is not a design object.
+        guard let originObjectID = originID.objectID else {
+            return true
+        }
+        
+        guard targetID != originObjectID else {
             Input.setDefaultCursorShape(.forbidden)
             return true
         }
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
-        if self.canConnect(typeName: typeName, from: originID, to: targetID) {
+        if self.canConnect(typeName: typeName, from: originObjectID, to: targetID) {
             Input.setDefaultCursorShape(.canDrop)
         }
         else {
@@ -109,6 +103,7 @@ class ConnectTool: CanvasTool {
 
         return true
     }
+    
     func canConnect(typeName: String, from originID: PoieticCore.ObjectID, to targetID: PoieticCore.ObjectID) -> Bool {
         guard let ctrl = designController else { return false }
         guard let type = ctrl.design.metamodel.objectType(name: typeName) else {
@@ -122,30 +117,29 @@ class ConnectTool: CanvasTool {
         return flag
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         defer {
             Input.setDefaultCursorShape(.arrow)
             cancelConnectSession()
         }
 
         guard state == .connect else { return false }
-        guard let originID = self.origin?.objectID else { GD.pushError("No origin ID for dragging connector"); return false }
-        guard let draggingConnector else { GD.pushError("No dragging connector") ; return false }
-        guard let target = canvas?.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
+        guard let originObjectID = originID?.objectID,
+              let target = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let targetID = target.objectID else
         {
             // TODO: Do some puff animation here
             return true
         }
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
-        if self.canConnect(typeName: typeName, from: originID, to: targetID) {
-            createEdge(typeName: typeName, from: originID, to: targetID)
+
+        if self.canConnect(typeName: typeName, from: originObjectID, to: targetID) {
+            createEdge(typeName: typeName, from: originObjectID, to: targetID)
             // TODO: Implement "tool locking"
             if let app = self.application {
                 app.switchTool(app.selectionTool)
             }
         }
-        
         else {
             // TODO: Puff!
         }
@@ -153,11 +147,10 @@ class ConnectTool: CanvasTool {
     }
     
     func cancelConnectSession() {
-        self.origin = nil
-        if let draggingConnector {
-            draggingConnector.queueFree()
-            self.draggingConnector = nil
-        }
+        self.originID = nil
+        self.draggingGlyph = nil
+        self.draggingConnector?.queueFree()
+        self.draggingConnector = nil
         state = .empty
     }
     
@@ -182,4 +175,89 @@ class ConnectTool: CanvasTool {
         let edge = trans.createEdge(type, origin: originID, target: targetID)
         ctrl.accept(trans)
     }
+}
+
+// MARK: - Drag Connector
+//
+extension ConnectTool {
+    /// Create a connector originating in a block and ending at a given point, typically
+    /// a mouse position.
+    ///
+    /// Use this to make a connector that is being created using a mouse pointer or by a touch.
+    ///
+    /// - SeeAlso: ``updateDragConnector(connector:origin:targetPoint:)``
+    ///
+    public func createDragConnector(canvas: DiagramCanvas,
+                                    type: String,
+                                    origin originID: RuntimeEntityID,
+                                    targetPoint: Vector2D) -> DiagramCanvasConnector? {
+        guard let frame = designController?.runtimeFrame,
+              let block: DiagramBlock = frame.component(for:originID),
+              let style = canvas.style
+        else { return nil }
+
+        let notation: Notation = frame.component(for: .Frame) ?? Notation.DefaultNotation
+        let rules: NotationRules = frame.component(for: .Frame) ?? NotationRules()
+
+        let drag = DiagramCanvasConnector()
+        drag.ignoreAsTarget = true // This is just a decoration
+        let originTouch = Geometry.touchPoint(shape: block.collisionShape.shape,
+                                              position: block.position + block.collisionShape.position,
+                                              from: targetPoint,
+                                              towards: block.position)
+        let glyph = notation.connectorGlyph(type)
+
+        let geometry = DiagramConnectorGeometry(originTouch: originTouch,
+                                                targetTouch: targetPoint,
+                                                glyph: glyph)
+
+        drag.updateGeometry(geometry)
+        drag.fillColor = style.defaultConnectorFillColor
+        drag.fillColor.alpha = DefaultFatConnectorFillAlpha
+        drag.lineColor = style.defaultConnectorColor
+        drag.lineWidth = style.defaultConnectorLineWidth
+        drag.queueRedraw()
+
+        canvas.addChild(node: drag)
+        self.draggingGlyph = glyph
+        self.originID = originID
+        self.draggingConnector = drag
+        return drag
+    }
+    
+    
+    /// Update a connector originating in a block and ending at a given point, typically
+    /// a mouse position.
+    ///
+    /// Use this to update a connector that is being created using a mouse pointer or by a touch.
+    ///
+    /// - SeeAlso: ``createDragConnector(type:origin:targetPoint:)``
+    ///
+    public func updateDragConnector(canvas: DiagramCanvas, targetPoint: Vector2D)
+    {
+        guard let drag = draggingConnector,
+              let originID,
+              let glyph = draggingGlyph,
+              let frame = designController?.runtimeFrame,
+              let block: DiagramBlock = frame.component(for:originID),
+              let style = canvas.style
+        else { return }
+
+        let originTouch = Geometry.touchPoint(shape: block.collisionShape.shape,
+                                              position: block.position + block.collisionShape.position,
+                                              from: targetPoint,
+                                              towards: block.position)
+        let geometry = DiagramConnectorGeometry(originTouch: originTouch,
+                                                targetTouch: targetPoint,
+                                                glyph: glyph)
+
+        drag.updateGeometry(geometry)
+        drag.fillColor = style.defaultConnectorFillColor
+        drag.fillColor.alpha = DefaultFatConnectorFillAlpha
+        drag.lineColor = style.defaultConnectorColor
+        drag.lineWidth = style.defaultConnectorLineWidth
+
+        drag.queueRedraw()
+    }
+
 }

@@ -68,7 +68,7 @@ class PoieticResult: SwiftGodot.Object {
             }
         }
         
-        return PackedInt64Array(compactingValid: ids)
+        return PackedInt64Array(ids)
     }
 
     @Callable(autoSnakeCase: true)

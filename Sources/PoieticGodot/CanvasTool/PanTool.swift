@@ -28,9 +28,8 @@ class PanTool: CanvasTool {
         Input.setDefaultCursorShape(.arrow)
     }
 
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let event = event as? InputEventMouseButton,
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let event = event as? InputEventMouseButton,
               event.buttonIndex == .left
         else { return false }
         
@@ -41,10 +40,8 @@ class PanTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard state == .panning,
-              let canvas
-        else { return false }
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard state == .panning else { return false }
         
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         canvas.canvasOffset += (canvasPosition - previousPosition) * Double(canvas.zoomLevel)
@@ -54,10 +51,8 @@ class PanTool: CanvasTool {
         return true
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard state == .panning,
-              let canvas
-        else { return false }
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard state == .panning else { return false }
         
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         canvas.canvasOffset += (canvasPosition - previousPosition) * Double(canvas.zoomLevel)
@@ -67,7 +62,7 @@ class PanTool: CanvasTool {
         return true
     }
     
-    override func inputCancelled(event: InputEvent) -> Bool  {
+    override func inputCancelled(canvas: DiagramCanvas, event: InputEvent) -> Bool  {
         Input.setDefaultCursorShape(.arrow)
         state = .idle
         return true

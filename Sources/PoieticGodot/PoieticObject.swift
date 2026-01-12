@@ -8,11 +8,14 @@ import SwiftGodot
 import PoieticFlows
 import PoieticCore
 
+// TODO: Either rename to DesignObjectView or dissolve in runtime frame wrapper
+// TODO: Alternative name: DesignEntity
 /// Wrapper for the Design object.
 ///
 @Godot
 class PoieticObject: SwiftGodot.RefCounted {
     var object: ObjectSnapshot?
+    var frame: AugmentedFrame?
     
     @Export var objectID: EntityIDValue? {
         get { object?.objectID.rawValue }

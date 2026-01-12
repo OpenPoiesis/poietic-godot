@@ -5,7 +5,25 @@
 //  Created by Stefan Urbanek on 22/02/2025.
 //
 
+/*
+ 
+ # IMPORTANT (for humans)
+ 
+ Please, do not consult LLMs on any of the code within this class, as the code is
+ in a transition from one architecture (MVC) to another (ECS). They are very likely to get confused
+ and provide wrong answers. If you really have to, then be very cautious about their
+ suggestions.
+
+ TODO: Future directions (see below)
+ 
+ - Requirement: have runtime/world to be global (not per frame change)
+ - Allow multiple canvases and put them into the world
+ - Allow multiple players and put them into the world
+ 
+ */
+// FIXME: Extract currentFrame/runtimeFrame as CurrentWorld (interactive focus, operational view,...)
 // TODO: Change error descriptions to be localizedDescription
+// TODO: This is a God object, break it down
 
 import SwiftGodot
 import Foundation
@@ -15,51 +33,98 @@ import Diagramming
 
 // Single-thread.
 /// Manages design context, typically for a canvas and an inspector.
+///
+/// Responsibilities:
+///
+/// - Current frame
+/// - Querying objects from current frame
+/// - Managing diagram settings (canvas view)
+/// - Manage transactions
+/// - Provide information about issues
+/// -
 @Godot
 public class DesignController: SwiftGodot.Node {
-    static let DesignSettingsFrameName = "settings"
-    
-    @Export var application: PoieticApplication?
-    
-    // TODO: Review where is the ctrl metamodel used
-    // TODO: Remove this or rename to `metamodel`
-    var _metamodel: Metamodel { design.metamodel }
-    var design: Design
-    var checker: ConstraintChecker
-    var currentFrame: DesignFrame { self.design.currentFrame! }
-    var issues: DesignIssueCollection? = nil
-    var validatedFrame: ValidatedFrame? = nil
-    var simulationPlan: SimulationPlan? = nil
-    var result: SimulationResult? = nil
+    // FIXME: Rename to WorldController
+    // TODO: Alternative names: Workspace, DesignWorkspace
 
-    @Export var selectionManager: SelectionManager
+    /// Owning application
+    @Export var application: PoieticApplication?
 
     /// Called on: load from path
     @Signal var designReset: SimpleSignal
     /// Called on: accept, undo, redo
     @Signal var designChanged: SignalWithArguments<Bool>
-    
     @Signal var simulationStarted: SimpleSignal
     @Signal var simulationFailed: SimpleSignal
-    @Signal var simulationFinished: SignalWithArguments<PoieticResult>
+    @Signal var simulationFinished: SimpleSignal
+    @Signal var selectionChanged: SignalWithArguments<PackedInt64Array>
+
+    static let DesignSettingsFrameName = "settings"
     
+    // System groups
+    var designChangeSystems: SystemGroup
+    var simulationFinishedSystems: SystemGroup
+    var interactivePreviewSystems: SystemGroup
+    
+    // TODO: Allow multiple canvases.
+    /// Canvas the design is presented into.
+    ///
+    /// Currently only one canvas is managed per ``DesignController``. The canvas component
+    /// is associated with the frame (singleton). Other entities with this component are ignored.
+    ///
+    /// - SeeAlso: ``CanvasComponent``
+    ///
+    @Export var canvas: DiagramCanvas?
+    
+    // TODO: Allow multiple players
+    @Export var player: ResultPlayer?
+
+    // TODO: Review where is the ctrl metamodel used
+    // TODO: Remove this or rename to `metamodel`
+    var _metamodel: Metamodel { design.metamodel }
+    var design: Design
+    var notation: Notation?
+
+    var checker: ConstraintChecker
+    var currentFrame: DesignFrame { self.design.currentFrame! }
+    var runtimeFrame: AugmentedFrame? = nil
+//    var result: SimulationResult? = nil
+
+    @Export var selectionManager: SelectionManager
+    // var panTool: PanTool
+
     required init(_ context: InitContext) {
+        GD.print("==> Initialising Design Controller", context)
+
+        self.designChangeSystems = SystemGroup(RuntimePhase.designChange.systems)
+        self.simulationFinishedSystems = SystemGroup(RuntimePhase.simulationFinished.systems)
+        self.interactivePreviewSystems = SystemGroup(RuntimePhase.interactivePreview.systems)
+        
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
+        
         self.selectionManager = SelectionManager()
         
         super.init(context)
         
+        self.selectionManager.designController = self
+
+        loadNotation(path: StockFlowPictogramsPath)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
+        updateSystems(debugReason: "DesignController init")
+        GD.print("<-- Design Controller initialised.", self)
     }
-    
+    public override func _ready() {
+        GD.print("--- Design Controller Ready.", self, "Parent: ", self.getParent())
+    }
     @Callable(autoSnakeCase: true)
     func newDesign() {
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         let frame = self.design.createFrame()
         try! self.design.accept(frame, appendHistory: true)
+        updateSystems(debugReason: "new desing")
         designChanged.emit(false)
     }
     
@@ -78,6 +143,7 @@ public class DesignController: SwiftGodot.Node {
     }
 
     // MARK: - Query
+    /// Get all object IDs from the design. Used only for debugging.
     @Callable
     func get_all_ids() -> PackedInt64Array {
         return PackedInt64Array(self.currentFrame.objectIDs.map { Int64($0.rawValue)} )
@@ -93,7 +159,7 @@ public class DesignController: SwiftGodot.Node {
         }
         let objects = currentFrame.filter { $0.type === type }
         let ids = objects.map { $0.objectID }
-        return PackedInt64Array(compactingValid: ids)
+        return PackedInt64Array(ids)
     }
     
     /// Order given IDs by the given attribute in ascending order.
@@ -158,8 +224,13 @@ public class DesignController: SwiftGodot.Node {
     }
     @Callable
     func set_diagram_settings(settings: GDictionary) {
-        let original = design.frame(name: DesignController.DesignSettingsFrameName)
-        let trans = design.createFrame(deriving: original)
+        let trans: TransientFrame
+        if let original = design.frame(name: DesignController.DesignSettingsFrameName) {
+            trans = design.createFrame(deriving: original)
+        }
+        else {
+            trans = design.createFrame()
+        }
         let mut: TransientObject
         if let obj = trans.first(type: .DiagramSettings) {
             mut = trans.mutate(obj.objectID)
@@ -221,6 +292,7 @@ public class DesignController: SwiftGodot.Node {
         return object
     }
     
+    
     // MARK: - Transaction -
     @Callable
     func new_transaction() -> PoieticTransaction {
@@ -265,7 +337,6 @@ public class DesignController: SwiftGodot.Node {
     
     func accept(_ frame: TransientFrame) {
         guard frame.hasChanges else {
-            GD.print("Nothing to do with transient frame, discarding and moving on")
             design.discard(frame)
             return
         }
@@ -273,76 +344,30 @@ public class DesignController: SwiftGodot.Node {
             try design.accept(frame, appendHistory: true)
             GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
         }
-        catch /* StructuralIntegrityError */ {
-            GD.pushError("Structural integrity error")
+        catch  {
+            // This is not user's fault and never should be.
+            // The application failed to make sure structural integrity is assured
+            // TODO: Display alert panel.
+            GD.pushError("Frame validation error:", String(describing: error))
             return
         }
-        validateAndCompile()
+        updateSystems(debugReason: "Accept")
+        simulate()
     }
-    /// Called when current frame has been changed.
-    ///
-    /// Must be called on accept, undo, redo.
-    ///
-    func validateAndCompile() {
-        guard let currentFrame = design.currentFrame else {
-            GD.pushError("No current frame")
-            return
-        }
-        
-        // Reset the controller
-        self.issues = nil
-        self.validatedFrame = nil
-        self.simulationPlan = nil
-        
-        do {
-            self.validatedFrame = try design.validate(currentFrame)
-        }
-        catch let error as FrameValidationError {
-            self.issues = error.asDesignIssueCollection()
-            debugPrintIssues(self.issues!)
-        }
-        
-        if let frame = self.validatedFrame {
-            // TODO: Sync with ToolEnviornment, make cleaner
-            let compiler = Compiler(frame: frame)
-            do {
-                self.simulationPlan = try compiler.compile()
-            }
-            catch {
-                switch error {
-                case .issues(let issues):
-                    self.issues = issues.asDesignIssueCollection()
-                    debugPrintIssues(self.issues!)
-                case .internalError(let error):
-                    self.application?.commandFailed.emit("internal-error:compiler", error.localizedDescription, SwiftGodot.VariantDictionary())
-                    GD.pushError("INTERNAL ERROR (compiler): \(error)")
-                }
-            }
-        }
-        
-        designChanged.emit(self.hasIssues())
-        
-        // TODO: Simulate only when there are simulation-related changes.
-        // Simulate
-        if self.simulationPlan != nil {
-            simulate()
-        }
-    }
-    
     
     // MARK: - Issues
     @Callable(autoSnakeCase: true)
     func hasIssues() -> Bool {
-        guard let issues else { return false }
-        return !issues.isEmpty
+        guard let runtimeFrame else { return false }
+        return runtimeFrame.hasIssues
     }
     
     @Callable(autoSnakeCase: true)
     func issuesForObject(rawID: EntityIDValue) -> TypedArray<PoieticIssue?> {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
+        let objectID = PoieticCore.ObjectID(rawValue: rawID)
         // FIXME: Replace with runtime component
-        guard let issues,
-              let objectIssues = issues.objectIssues[id] else { return [] }
+        guard let runtimeFrame,
+              let objectIssues = runtimeFrame.objectIssues(objectID) else { return [] }
         
         let result =  objectIssues.map {
             let issue = PoieticIssue()
@@ -354,10 +379,9 @@ public class DesignController: SwiftGodot.Node {
     
     @Callable(autoSnakeCase: true)
     func objectHasIssues(rawID: EntityIDValue) -> Bool {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        guard let issues,
-              let objectIssues = issues[id] else { return false }
-        return !objectIssues.isEmpty
+        let objectID = PoieticCore.ObjectID(rawValue: rawID)
+        guard let runtimeFrame else { return false }
+        return runtimeFrame.objectHasIssues(objectID)
     }
     
     @Callable(autoSnakeCase: true)
@@ -421,42 +445,22 @@ public class DesignController: SwiftGodot.Node {
     }
     // MARK: - Design Graph Transformations
     
-    @Callable
-    func auto_connect_parameters(ids: PackedInt64Array) {
-        guard let validated = validatedFrame else {
-            GD.pushError("Using design without a frame")
-            return
-        }
+    @Callable(autoSnakeCase: true)
+    func autoConnectParameters(ids: PackedInt64Array) {
+        guard let runtime = runtimeFrame else { return }
+        let trans = self.newTransaction()
+        let ids = Set(self.selectionManager.selection)
         
-        let ids: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
-        let view = StockFlowView(validated)
-        let nodes: [ObjectSnapshot]
-        if ids.isEmpty {
-            nodes = view.simulationNodes
-        }
-        else {
-            nodes = ids.compactMap { validated[$0] }
-        }
-        let resolvedParams = resolveParameters(objects: nodes, view: view)
-        // TODO: Know whether there is anything to do at this point
-        
-        if resolvedParams.isEmpty {
+        let resolvedParams = try PoieticGodot.autoConnectParameters(ids, runtime: runtime, trans: trans)
+        let (added, removed) = resolvedParams
+        if removed.isEmpty && added.isEmpty {
+            self.design.discard(trans)
             GD.print("Nothing to auto-connect")
             return
         }
-        
-        let trans = design.createFrame(deriving: design.currentFrame)
-        let result = autoConnectParameters(resolvedParams, in: trans)
-        
-        GD.print("Auto-connected \(resolvedParams.count) objects")
-        
-        if trans.hasChanges {
-            accept(trans)
-        }
-        else {
-            GD.print("No changes applied.")
-            design.discard(trans)
-        }
+        GD.print("Auto-connected \(added.count) objects, removed \(removed.count) edges")
+
+        accept(trans)
     }
     
     // MARK: - File Actions
@@ -474,8 +478,10 @@ public class DesignController: SwiftGodot.Node {
             GD.pushError("Unable to open design: \(error)")
             self.application?.commandFailed.emit("open", error.description, SwiftGodot.VariantDictionary())
         }
+        selectionManager.clear()
         designReset.emit()
-        validateAndCompile()
+        updateSystems(debugReason: "Load from path")
+        simulate()
     }
     
     @Callable
@@ -492,17 +498,30 @@ public class DesignController: SwiftGodot.Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func exportSVGDiagram(path: String, canvasController: CanvasController) {
-        // TODO: Make composer configurable
-        guard let composer = canvasController.composer else {
-            GD.pushError("No composer")
+    func exportSVGDiagram(path: String) {
+        guard let runtimeFrame else {
+            GD.pushError("No runtime frame")
             return
         }
-        let diagram = composer.createDiagram(from: currentFrame)
-        // TODO: Configure SVG export style
+
+        // FIXME: [REFACTORING] Move this into controller initialisation/application
+        let diagramComposition = SystemGroup(
+            BlockCreationSystem.self,
+            TraitConnectorCreationSystem.self,
+            ConnectorGeometrySystem.self
+        )
+        
+        do {
+            try diagramComposition.update(runtimeFrame)
+        }
+        catch {
+            GD.pushError("Export to SVG failed:", error)
+            return
+        }
+        
         let exporter = SVGDiagramExporter()
         do {
-            try exporter.export(diagram: diagram, to: path)
+            try exporter.export(frame: runtimeFrame, to: path)
         }
         catch {
             GD.pushError("Export to SVG failed:", error.localizedDescription)
@@ -621,9 +640,8 @@ public class DesignController: SwiftGodot.Node {
     ///
     @Callable(autoSnakeCase: true)
     public func copySelectionAsText() -> String {
-        let ids = selectionManager.selection.ids
         let extractor = DesignExtractor()
-        let extract = extractor.extractPruning(objects: ids,
+        let extract = extractor.extractPruning(objects: selectionManager.selection.ids,
                                                frame: self.currentFrame)
         var rawDesign = RawDesign(metamodelName: design.metamodel.name,
                                   metamodelVersion: design.metamodel.version,
@@ -678,32 +696,6 @@ public class DesignController: SwiftGodot.Node {
         return true
     }
     
-    /// Delete selected objects and its dependents.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func deleteSelection() {
-        let ids = selectionManager.selection.ids
-        deleteObjects(ids)
-        selectionManager.clear()
-    }
-        
-    /// Delete selected objects and its dependents.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func removeConnectorMidpointsInSelection() {
-        // TODO: Make this a command
-        let trans = self.newTransaction()
-        let ids = selectionManager.selection.ids
-
-        for id in ids {
-            guard trans.contains(id) else { continue }
-            let obj = trans.mutate(id)
-            guard obj.type.hasTrait(.DiagramConnector) else { continue }
-            obj.removeAttribute(forKey: "midpoints")
-        }
-        self.accept(trans)
-        selectionManager.clear()
-    }
 
     @Export var debug_stats: GDictionary {
         get {
@@ -724,12 +716,10 @@ public class DesignController: SwiftGodot.Node {
             dict["frames"] = SwiftGodot.Variant(design.frames.count)
             dict["undo_frames"] = SwiftGodot.Variant(design.undoList.count)
             dict["redo_frames"] = SwiftGodot.Variant(design.redoList.count)
-            if let issues {
-                dict["design_issues"] = SwiftGodot.Variant(issues.designIssues.count)
-                dict["object_issues"] = SwiftGodot.Variant(issues.objectIssues.count)
+            if let runtimeFrame {
+                dict["object_issues"] = SwiftGodot.Variant(runtimeFrame.issues.count)
             }
             else {
-                dict["design_issues"] = SwiftGodot.Variant(0)
                 dict["object_issues"] = SwiftGodot.Variant(0)
             }
             return dict
@@ -753,46 +743,32 @@ public class DesignController: SwiftGodot.Node {
     }
 
     // MARK: - Simulation Result
-    func simulate() {
-        guard let simulationPlan else {
-            GD.pushError("Trying to simulate without a plan")
-            return
-        }
-        
-        self.result = nil
-        
-        let simulation = StockFlowSimulation(simulationPlan)
-        let simulator = Simulator(simulation: simulation,
-                                  parameters: simulationPlan.simulationParameters)
-        
-        simulationStarted.emit()
-        
-        do {
-            try simulator.initializeState()
-        }
-        catch {
-            GD.pushError("Simulation initialisation failed: \(error)")
-            simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation-init", error.localizedDescription, SwiftGodot.VariantDictionary())
-            return
-        }
-        
-        do {
-            try simulator.run()
-        }
-        catch {
-            GD.pushError("Simulation failed at step \(simulator.currentStep): \(error)")
-            simulationFailed.emit()
-            self.application?.commandFailed.emit("simulation", error.localizedDescription, SwiftGodot.VariantDictionary())
-            return
-        }
-        
-        self.result = simulator.result
-        let wrap = PoieticResult()
-        wrap.set(plan: simulationPlan, result: simulator.result)
-        simulationFinished.emit(wrap)
-    }
     
+    @Callable(autoSnakeCase: true)
+    func hasResult() -> Bool {
+        if let runtime = self.runtimeFrame {
+            return runtime.hasComponent(SimulationResult.self, for: .Frame)
+        }
+        else {
+            return false
+        }
+    }
+
+    /// Get time series for given object from simulation result, if the simulation was successful.
+    ///
+    @Callable(autoSnakeCase: true)
+    func timeSeries(id: EntityIDValue) -> PoieticTimeSeries? {
+        let objectID = PoieticCore.ObjectID(rawValue: id)
+        guard let runtimeFrame,
+              let series: RegularTimeSeries = runtimeFrame.component(for: objectID)
+        else { return nil }
+        
+        let wrapped = PoieticTimeSeries()
+        wrapped._object_id = objectID
+        wrapped.series = series
+        return wrapped
+    }
+
     @Callable
     func write_to_csv(path: String, result: PoieticResult, ids: PackedInt64Array) {
         guard let plan = result.plan else {
@@ -848,16 +824,90 @@ public class DesignController: SwiftGodot.Node {
         try writer.close()
     }
    
-    // MARK: - Actions
-    // TODO: Move towards this, review other methods
-    /// Delete objects in current frame.
-    ///
-    func deleteObjects(_ ids: [PoieticCore.ObjectID]) {
-        let trans = self.newTransaction()
-        let existing = trans.existing(from: ids)
-        for id in existing {
-            trans.removeCascading(id)
+    // MARK: - Notation and Pictograms
+    @Callable(autoSnakeCase: true)
+    func loadNotation(path: String) {
+        // TODO: Use Godot resource loading mechanism here
+        let gData: PackedByteArray = FileAccess.getFileAsBytes(path: path)
+        let data: Data = Data(gData)
+        let decoder = JSONDecoder()
+        let collection: PictogramCollection
+        
+        do {
+            collection = try decoder.decode(PictogramCollection.self, from: data)
         }
-        self.accept(trans)
+        catch {
+            GD.pushError("Unable to load pictograms from: \(StockFlowPictogramsPath). Reason: \(error)")
+            collection = PictogramCollection()
+        }
+        if collection.pictograms.isEmpty {
+            GD.pushWarning("No pictograms found (empty collection)")
+        }
+        else {
+            let names = collection.pictograms.map { $0.name }.joined(separator: ",")
+        }
+        
+        // FIXME: Remove once happy with the whole pictogram and diagram composition pipeline
+        let scaled = collection.pictograms.map { $0.scaled(PrototypingPictogramAdjustmentScale) }
+        
+        self.notation = Diagramming.Notation(
+            pictograms: scaled,
+            defaultPictogramName: "Unknown",
+            connectorGlyphs: DefaultStockFlowConnectorGlyphs,
+            defaultConnectorGlyphName: "default"
+        )
+        // FIXME: [REFACTORING] Create "visual changed" signal
+        self.designChanged.emit(self.hasIssues())
     }
+    
+    /// Get a Pictogram2D node for UI display (toolbar buttons, palettes).
+    ///
+    /// This method creates a `Pictogram2D` node that can be added as a child to UI controls
+    /// like buttons. The node will be properly scaled and positioned to fit the specified size.
+    ///
+    /// - Parameters:
+    ///   - typeName: Name of the object type whose pictogram to create
+    ///   - size: Size to scale the pictogram to fit (default: 60)
+    ///   - color: Color to render the pictogram (default: white)
+    ///
+    /// - Returns: Configured `Pictogram2D` node, or `nil` if pictogram not found
+    ///
+    /// - Note: The returned node should be added to the scene tree. The caller is responsible
+    ///   for adding it as a child to an appropriate parent node.
+    ///
+    @Callable(autoSnakeCase: true)
+    func createPictogramNode(typeName: String,
+                             size: Int?,
+                             color: SwiftGodot.Color?) -> Pictogram2D? {
+        guard let pictogram = notation?.pictogram(typeName) else {
+            GD.pushWarning("No pictogram for type: \(typeName)")
+            return nil
+        }
+
+        let scaledPictogram: Pictogram
+        if let targetSize = size {
+            // Scale the curves to fit target size
+            let bounds = pictogram.pathBoundingBox
+            let maxDimension = max(bounds.width, bounds.height)
+            guard maxDimension > 0 else {
+                GD.pushWarning("Pictogram '\(typeName)' has zero size")
+                return nil
+            }
+
+            let scaleFactor = Double(targetSize) / maxDimension
+            scaledPictogram = pictogram.scaled(scaleFactor)
+        } else {
+            // Use original pictogram without scaling
+            scaledPictogram = pictogram
+        }
+
+        // Create and configure Pictogram2D node
+        let picto2d = Pictogram2D()
+        picto2d.setPictogram(scaledPictogram)
+        picto2d.color = color ?? PictogramIconColor
+        picto2d.lineWidth = 2.0
+
+        return picto2d
+    }
+
 }

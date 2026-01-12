@@ -12,16 +12,17 @@ import PoieticCore
 /// Offset of value indicator from the top of the pictogram
 public let ValueIndicatorVerticalOffset: Double = 4.0
 
+// FIXME: Rename to just "CanvasBlock"
 @Godot
 public class DiagramCanvasBlock: DiagramCanvasObject {
-    // TODO: Remove inner Block, use something like DiagramBlock protocol with the composer
-    var block: Block?
-
     @Export var pictogram: Pictogram2D?
     @Export var collisionShape: SwiftGodot.CollisionShape2D?
     @Export var colorSwatch: SwiftGodot.Polygon2D?
 
-    // TODO: Review necessity of has*Label
+    var pictogramBox: Rect2D = Rect2D()
+    
+    // TODO: Remove show*Label
+    // Discussion: We need "has*" so we know whether we can show it or not. Show* is redundant here.
     @Export var hasPrimaryLabel: Bool = true
     /// Primary label of a block, typically a block name.
     @Export var primaryLabel: SwiftGodot.Label?
@@ -64,22 +65,7 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         return nil
     }
     
-    public override func _process(delta: Double) {
-        if isDirty {
-            updateVisuals()
-        }
-    }
-    
-    /// Sets the object as needing to update visuals.
-    ///
-    /// - SeeAlso: ``updateVisuals()``
-    ///
-    @Callable(autoSnakeCase: true)
-    public func setDirty() {
-        self.isDirty = true
-    }
-
-    func _prepareChildren(for block: Block) {
+    func _prepareChildren() {
         if self.issueIndicator == nil {
             let issueIndicator = CanvasIssueIndicator()
             issueIndicator.visible = hasIssues
@@ -201,128 +187,6 @@ public class DiagramCanvasBlock: DiagramCanvasObject {
         }
     }
 
-    func updateContent(from block: Block, object: ObjectSnapshot, style: CanvasStyle) {
-        _prepareChildren(for: block)
-        
-        // 1. Basics
-        self.objectID = block.objectID
-        self.block = block
-        self.name = StringName(block.godotName(prefix: DiagramBlockNamePrefix))
-        let pictogramBox: Rect2D
-        
-        // 2. Pictogram and shape
-        if let pictogram = block.pictogram {
-            self.pictogram?.setPictogram(pictogram)
-            self.pictogram?.lineWidth = style.getLineWidth(object.type.name, defaultWidth: 1.0)
-            self.pictogram?.color = style.pictogramColor
-            
-            // FIXME: Do not translate. Currently we must. See also: Shaodw
-            let pictoCollision = pictogram.collisionShape
-
-            if let selectionOutline {
-                // FIXME: Use mask
-                let outlinePath = pictogram.mask
-                let curves = outlinePath.asGodotCurves()
-                selectionOutline.curves = TypedArray(curves)
-                selectionOutline.fillColor = style.selectionFillColor
-                selectionOutline.outlineColor = style.selectionOutlineColor
-                selectionOutline.updateVisuals()
-                selectionOutline.visible = self._isSelected
-            }
-            
-            if let collisionShape = self.collisionShape {
-                collisionShape.shape = pictoCollision.shape.asGodotShape2D()
-                collisionShape.position = Vector2(pictoCollision.position)
-            }
-            pictogramBox = pictogram.pathBoundingBox
-            
-        }
-        else {
-            self.pictogram?.curves = TypedArray()
-            pictogramBox = Rect2D()
-        }
-        // 3. Labels
-        // FIXME: Flipped y coords
-        let bottom = LineSegment(from: pictogramBox.topLeft, to: pictogramBox.topRight)
-        let mid = bottom.midpoint
-        
-        var labelOffset: Float = 0.0
-        
-        if let label = self.primaryLabel {
-            setLabel(label, text: block.label,
-                     emptyText: "(empty)",
-                     settings: self.canvas?.primaryLabelSettings,
-                     emptySettings: self.canvas?.invalidLabelSettings)
-            let size = label.getMinimumSize()
-            let center = Vector2(
-                x: Float(mid.x) - size.x / 2.0,
-                y: Float(mid.y) + PrimaryLabelOffset
-            )
-            label.setPosition(center)
-            label.setSize(size)
-            labelOffset = PrimaryLabelOffset + size.y
-        }
-
-        if let label = self.secondaryLabel {
-            setLabel(label,
-                     text: block.secondaryLabel,
-                     emptyText: nil,
-                     settings: self.canvas?.secondaryLabelSettings,
-                     emptySettings: self.canvas?.invalidLabelSettings)
-            let size = label.getMinimumSize()
-            let center = Vector2(
-                x: Float(mid.x) - size.x / 2.0,
-                y: Float(mid.y) + labelOffset + SecondaryLabelOffset
-            )
-            label.setSize(size)
-            label.setPosition(center)
-        }
-
-        if let colorSwatch {
-            if let label = self.primaryLabel {
-                let size = label.getSize()
-                let position = label.getPosition() + Vector2(x: -ColorSwatchSize, y: size.y / 2)
-                colorSwatch.position = position
-            }
-            else {
-                colorSwatch.position = Vector2(mid)
-            }
-            if let colorName = block.colorName {
-                colorSwatch.color = style.getAdaptableColor(name: colorName, defaultColor: Color.gray)
-                colorSwatch.show()
-            }
-            else {
-                colorSwatch.color = Color.gray
-                colorSwatch.hide()
-            }
-        }
-
-        self.updateVisuals()
-        self.queueRedraw()
-    }
-   
-    @Callable(autoSnakeCase: true)
-    func updateVisuals() {
-        guard let block else { return }
-        guard let canvas = self.getParent() as? DiagramCanvas else { return }
-        self.position = canvas.fromDesign(block.position)
-        if let box = block.pictogram?.pathBoundingBox {
-            if let issueIndicator {
-                issueIndicator.position = Vector2(box.bottomLeft + Vector2D(box.width / 2, 0))
-            }
-            if let valueIndicator {
-                let offset = Vector2D(box.width / 2,
-                                      -(Double(valueIndicator.size.y) + ValueIndicatorVerticalOffset))
-                valueIndicator.position = Vector2(box.bottomLeft + offset)
-                
-                if !hasValueIndicator {
-                    valueIndicator.hide()
-                }
-            }
-        }
-
-    }
-    
     @Callable(autoSnakeCase: true)
     func updateValueIndicator() {
         guard let valueIndicator else { return }

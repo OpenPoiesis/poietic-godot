@@ -15,6 +15,8 @@ public let BackgroundZIndex: Int32 = -1000
 
 @Godot
 public class DiagramCanvas: SwiftGodot.Node2D {
+    @Export public var style: CanvasStyle?
+
     static let ChartsVisibleZoomLevel: Float = 2.0
     static let FormulasVisibleZoomLevel: Float = 1.0
     @Signal var canvasViewChanged: SignalWithArguments<SwiftGodot.Vector2, Float>
@@ -40,28 +42,28 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     
     @Export var background: SwiftGodot.ColorRect?
     
-    // TODO: Move represented* to diagram controller
     /// Blocks that represent design nodes.
     ///
     /// Blocks representing design nodes have their `objectID` set to the object they represent.
     ///
-    public var representedBlocks: [DiagramCanvasBlock] { Array(_representedBlocks.values) }
-    private var _representedBlocks: [PoieticCore.ObjectID:DiagramCanvasBlock] = [:]
+    public var blocks: [DiagramCanvasBlock] { Array(_blocks.values) }
+    private var _blocks: [RuntimeEntityID:DiagramCanvasBlock] = [:]
     /// Connectors that represent design edges.
     ///
     /// Connectors representing design nodes have their `objectID` set to the object they represent.
     ///
-    public var representedConnectors: [DiagramCanvasConnector] { Array(_representedConnectors.values) }
-    private var _representedConnectors: [PoieticCore.ObjectID:DiagramCanvasConnector] = [:]
+    public var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
+    private var _connectors: [RuntimeEntityID:DiagramCanvasConnector] = [:]
+    
+    public var handles: [CanvasHandle] = []
    
-    // - MARK: - Styling
-    @Export var primaryLabelSettings: SwiftGodot.LabelSettings?
-    @Export var secondaryLabelSettings: SwiftGodot.LabelSettings?
-    @Export var invalidLabelSettings: SwiftGodot.LabelSettings?
+    required init(_ context: InitContext) {
+        self.style = CanvasStyle()
+        super.init(context)
+    }
 
     public override func _ready() {
         if background == nil {
-            GD.print("--- Creating background")
             let rect = ColorRect()
             rect.color = Color(code: "F8F4E9")
             rect.zIndex = BackgroundZIndex
@@ -74,28 +76,40 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
 
     func updateBackground() {
-        GD.print("--? Update background?")
         guard let viewport = getViewport(),
               let background = self.background else { return }
         let size = viewport.getVisibleRect().size
-        GD.print("--- Yes, update background: \(size). Zoom: \(zoomLevel) offset: \(canvasOffset)")
         background.setSize(size / Double(zoomLevel))
         background.setPosition(-canvasOffset / Double(zoomLevel))
     }
     
+    // - MARK: Handles
+    func addHandle(_ handle: CanvasHandle) {
+        self.addChild(node: handle)
+        handles.append(handle)
+    }
+    func removeHandles() {
+        for handle in handles {
+            handle.queueFree()
+        }
+        handles.removeAll()
+    }
     // - MARK: Content
     /// Get IDs of design objects represented within the canvas.
     ///
     /// Example use case of this method is to provide IDs for the _"Select all"`_ command.
     ///
-    func representedObjectIDs() -> [PoieticCore.ObjectID] {
-        return Array(_representedBlocks.keys) + Array(_representedConnectors.keys)
+    func selectableObjectIDs() -> [PoieticCore.ObjectID] {
+        let blockIDs = _blocks.keys.compactMap { $0.objectID }
+        let connectorIDs = _connectors.keys.compactMap { $0.objectID }
+        return blockIDs + connectorIDs
     }
     
     /// Get IDs of objects represented in the canvas - blocks and connectors.
     @Callable(autoSnakeCase: false)
-    func get_represented_object_ids() -> PackedInt64Array {
-        return PackedInt64Array(representedObjectIDs().map {Int64($0.rawValue)})
+    func get_selectable_objects() -> PackedInt64Array {
+        let rawIDs = selectableObjectIDs().map { Int64($0.rawValue) }
+        return PackedInt64Array(rawIDs)
     }
     
     func currentTool() -> CanvasTool? {
@@ -111,27 +125,28 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             guard let child = child as? DiagramCanvasObject else { continue }
             child.queueFree()
         }
-        _representedBlocks.removeAll()
-        _representedConnectors.removeAll()
+        _blocks.removeAll()
+        _connectors.removeAll()
     }
 
     /// Add a block that represents a design node. The block must have `ObjectID` set to a non-nil
     /// value. Existing block with the same ID will be replaced.
     ///
-    public func insertRepresentedBlock(_ representedBlock: DiagramCanvasBlock) {
-        guard let id = representedBlock.objectID else { return }
+    public func insertBlock(_ block: DiagramCanvasBlock) {
+        guard let id = block.runtimeID else { return }
         
-        if let existing = _representedBlocks[id] {
+        if let existing = _blocks[id] {
             removeChild(node: existing)
         }
-        addChild(node: representedBlock)
-        _representedBlocks[id] = representedBlock
+        addChild(node: block)
+        _blocks[id] = block
     }
-    public func removeRepresentedBlock(_ id: PoieticCore.ObjectID) {
-        guard let object = _representedBlocks.removeValue(forKey: id) else {
+
+    public func removeBlock(_ id: RuntimeEntityID) {
+        guard let node = _blocks.removeValue(forKey: id) else {
             return
         }
-        object.queueFree()
+        node.queueFree()
     }
     
     /// Get a block that represents a design object with given ID (typically a node).
@@ -139,26 +154,26 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such block exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
-    public func representedBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        return _representedBlocks[id]
+    public func getBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
+        let runtimeID: RuntimeEntityID = .object(PoieticCore.ObjectID(rawValue: rawID))
+        return _blocks[runtimeID]
     }
     
-    public func representedBlock(id: PoieticCore.ObjectID) -> DiagramCanvasBlock? {
-        return _representedBlocks[id]
+    public func block(id: RuntimeEntityID) -> DiagramCanvasBlock? {
+        return _blocks[id]
     }
 
-    public func insertRepresentedConnector(_ representedConnector: DiagramCanvasConnector) {
-        guard let id = representedConnector.objectID else { return }
+    public func insertConnector(_ connector: DiagramCanvasConnector) {
+        guard let id = connector.runtimeID else { return }
         
-        if let existing = _representedConnectors[id] {
+        if let existing = _connectors[id] {
             removeChild(node: existing)
         }
-        addChild(node: representedConnector)
-        _representedConnectors[id] = representedConnector
+        addChild(node: connector)
+        _connectors[id] = connector
     }
-    public func removeRepresentedConnector(_ id: PoieticCore.ObjectID) {
-        guard let object = _representedConnectors.removeValue(forKey: id) else {
+    public func removeConnector(_ id: RuntimeEntityID) {
+        guard let object = _connectors.removeValue(forKey: id) else {
             return
         }
         object.queueFree()
@@ -169,12 +184,12 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     /// If no such connector exists or the canvas object is of different type, then `null` is returned.
     ///
     @Callable(autoSnakeCase: true)
-    public func representedConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
-        let id = PoieticCore.ObjectID(rawValue: rawID)
-        return _representedConnectors[id]
+    public func getConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
+        let id: RuntimeEntityID = .object(PoieticCore.ObjectID(rawValue: rawID))
+        return _connectors[id]
     }
-    public func representedConnector(id: PoieticCore.ObjectID) -> DiagramCanvasConnector? {
-        return _representedConnectors[id]
+    public func connector(id: RuntimeEntityID) -> DiagramCanvasConnector? {
+        return _connectors[id]
     }
 
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
@@ -190,9 +205,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             self.getViewport()?.setInputAsHandled()
         default:
             guard let tool = currentTool() else { break }
-            // FIXME: Pass canvas as handle input parameter
-            tool.canvas = self
-            if tool.handleInput(event: event) {
+            if tool.handleInput(canvas: self, event: event) {
                 self.getViewport()?.setInputAsHandled()
             }
         }
@@ -234,20 +247,19 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         var targets: [CanvasHitTarget] = []
         var children = self.getChildren()
         
+        for handle in handles {
+            if handle.containsPoint(globalPoint: globalPosition) {
+                targets.append(CanvasHitTarget(object: handle, type: .handle))
+            }
+        }
+
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
-            guard let child = child as? DiagramCanvasObject else {
-                continue
-            }
-            
-            for handle in child.getHandles() where handle.visible {
-                if handle.containsPoint(globalPoint: globalPosition) {
-                    targets.append(CanvasHitTarget(object: child, type: .handle, tag: handle.tag))
-                }
-            }
-            
-            if let child = child as? DiagramCanvasBlock {
+            guard let child else { continue }
+            switch child {
+            case let child as DiagramCanvasBlock:
+                let localPosition = child.toLocal(globalPoint: globalPosition)
                 if let indicator = child.issueIndicator as? CanvasIssueIndicator,
                    indicator.visible,
                    indicator.containsPoint(globalPoint: globalPosition)
@@ -256,20 +268,26 @@ public class DiagramCanvas: SwiftGodot.Node2D {
                 }
                 if let label = child.primaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
+                   label.getRect().hasPoint(localPosition)
                 {
                     targets.append(CanvasHitTarget(object: child, type: .primaryLabel))
                 }
 
                 if let label = child.secondaryLabel,
                    label.visible &&
-                    label.getRect().hasPoint(child.toLocal(globalPoint: globalPosition))
+                   label.getRect().hasPoint(localPosition)
                 {
                     targets.append(CanvasHitTarget(object: child, type: .secondaryLabel))
                 }
+            // case let child as DiagramCanvasConnector: ...
+            default:
+                break
             }
-
-            if child.containsTouch(globalPoint: globalPosition) {
+            
+            if let child = child as? DiagramCanvasObject,
+               !child.ignoreAsTarget,
+               child.containsTouch(globalPoint: globalPosition)
+            {
                 targets.append(CanvasHitTarget(object: child, type: .object))
             }
         }
@@ -297,11 +315,11 @@ public class DiagramCanvas: SwiftGodot.Node2D {
         // TODO:  Need to sort by z-index. This is kind of arbitrary, we pretend this is an order of insertion.
         children.reverse()
         for child in children {
-            guard let child = child as? DiagramCanvasObject else {
-                continue
-            }
+            guard let child = child as? DiagramCanvasObject else { continue }
             
-            if child.containsTouch(globalPoint: globalPosition) {
+            if !child.ignoreAsTarget
+                && child.containsTouch(globalPoint: globalPosition)
+            {
                 return child
             }
         }
@@ -312,10 +330,8 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     @Callable(autoSnakeCase: true)
     func promptPosition(for rawID: EntityIDValue) -> Vector2 {
         let nodeID = PoieticCore.ObjectID(rawValue: rawID)
-        guard let block = _representedBlocks[nodeID]
-        else {
-            return .zero
-        }
+        let runtimeID = RuntimeEntityID.object(nodeID)
+        guard let block = _blocks[runtimeID] else { return .zero }
 
         let position: Vector2
         if let primaryLabel = block.primaryLabel {
@@ -343,8 +359,9 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     ///
     @Callable(autoSnakeCase: true)
     public func defaultPopupPosition(rawID: EntityIDValue) -> Vector2 {
-        let objectID = PoieticCore.ObjectID(rawValue: rawID)
-        if let block = _representedBlocks[objectID] {
+        let nodeID = PoieticCore.ObjectID(rawValue: rawID)
+        let runtimeID = RuntimeEntityID.object(nodeID)
+        if let block = _blocks[runtimeID] {
             let y: Float
             if let label = block.primaryLabel {
                 y = label.getGlobalPosition().y
@@ -354,7 +371,7 @@ public class DiagramCanvas: SwiftGodot.Node2D {
             }
             return Vector2(x: block.globalPosition.x,y: y)
         }
-        else if let connector = _representedConnectors[objectID] {
+        else if let connector = _connectors[runtimeID] {
             // TODO: Compute some sensible position
             return .zero
         }
@@ -364,17 +381,3 @@ public class DiagramCanvas: SwiftGodot.Node2D {
     }
 
 }
-
-//struct DiagramBlockDisplayOptions: OptionSet {
-//    typealias RawValue = UInt32
-//    var rawValue: RawValue
-//    init(rawValue: RawValue) {
-//        self.rawValue = rawValue
-//    }
-//    
-//    static let showPrimaryLabel    = DiagramBlockDisplayOptions(rawValue: 1 << 0)
-//    static let showSecondaryLabel  = DiagramBlockDisplayOptions(rawValue: 1 << 1)
-//    static let showValueIndicator  = DiagramBlockDisplayOptions(rawValue: 1 << 2)
-//}
-
-
