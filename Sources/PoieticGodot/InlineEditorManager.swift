@@ -103,11 +103,10 @@ class InlineEditorManager: Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func openIssuesPopup(_ rawObjectID: EntityIDValue, issues: TypedArray<PoieticIssue?>) {
-        let objectID = ObjectID(rawValue: rawObjectID)
+    func openIssuesPopup(_ rawEntityID: EntityIDValue, issues: TypedArray<PoieticIssue?>) {
+        let entityID = EphemeralID(rawValue: rawEntityID)
         guard let issuesPopup,
               let canvas,
-              let entityID = world?.objectToEntity(objectID),
               let block = canvas.block(id: entityID)
         else { return }
         guard issuesPopup.hasMethod("set_issues") else {
@@ -116,7 +115,7 @@ class InlineEditorManager: Node {
         }
 
         issuesPopup.call(method: "set_issues",
-                         SwiftGodot.Variant(rawObjectID),
+                         SwiftGodot.Variant(rawEntityID),
                          SwiftGodot.Variant(issues))
 
         let position: Vector2
@@ -124,28 +123,29 @@ class InlineEditorManager: Node {
             position = indicator.globalPosition
         }
         else {
-            position = canvas.promptPosition(for: rawObjectID)
+            position = canvas.promptPosition(for: entityID)
         }
         openInlinePopup(control: issuesPopup, position: position)
     }
     
     @Callable(autoSnakeCase: true)
     func openInlineEditor(_ editorName: String,
-                          rawObjectID: EntityIDValue,
+                          rawEntityID: EntityIDValue,
                           attribute: String) {
-        let objectID = PoieticCore.ObjectID(rawValue: rawObjectID)
+        let entityID = EphemeralID(rawValue: rawEntityID)
         // TODO: Allow editing of not-yet-existing objects, such as freshly placed block
         guard let designController,
+              let objectID = designController.world.entityToObject(entityID),
+              let object = designController.currentFrame[objectID],
               let canvas,
               let editor = inlineEditor(editorName)
-        else { return }
-        guard let object = designController.currentFrame[objectID] else
-        {
-            GD.pushError("No object '\(objectID)' for inline editor")
+        else {
+            GD.pushError("Inline editor is not satisfied")
             return
         }
+        
         let value = object[attribute]
-        var position = canvas.promptPosition(for: rawObjectID)
+        var position = canvas.promptPosition(for: entityID)
         openInlinePopup(control: editor, position: position)
         
         var godotObject = PoieticObject()

@@ -311,10 +311,7 @@ class DiagramCanvas: SwiftGodot.Node2D {
         return nil
     }
 
-    @Callable(autoSnakeCase: true)
-    func promptPosition(for rawID: EntityIDValue) -> Vector2 {
-        let objectID = PoieticCore.ObjectID(rawValue: rawID)
-        guard let entityID = world?.objectToEntity(objectID) else { return .zero }
+    func promptPosition(for entityID: EphemeralID) -> Vector2 {
         guard let block = _blocks[entityID] else { return .zero }
 
         let position: Vector2

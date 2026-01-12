@@ -18,13 +18,12 @@ struct ReplayTime: Component {
 ///
 @Godot
 class ResultPlayer: SwiftGodot.Node {
-    let controller: DesignController
-    
     @Signal var simulationPlayerStarted: SimpleSignal
     @Signal var simulationPlayerStopped: SimpleSignal
     @Signal var simulationPlayerStep: SimpleSignal
     
-    var runtime: AugmentedFrame?
+    var controller: DesignController?
+
     @Export var isRunning: Bool = false
     @Export var isLooping: Bool = true
 
@@ -52,22 +51,22 @@ class ResultPlayer: SwiftGodot.Node {
         }
     }
 
-    func setRuntime(_ frame: AugmentedFrame) {
-        self.runtime = frame
-        if let result: SimulationResult = frame.component(for: .Frame) {
+    func setController(_ controller: DesignController) {
+        self.controller = controller
+        if let result: SimulationResult = controller.world.singleton() {
             self.initialTime = result.initialTime
             self.timeDelta = result.timeDelta
             self.lastStep = result.count - 1
-            coordinate()
+            updateWorld()
         }
     }
     
     /// Run the systems for player step and then notify Godot through a signal.
     ///
-    func coordinate() {
-        guard let runtime else { return }
+    func updateWorld() {
+        guard let controller else { return }
         let component = ReplayTime(step: currentStep, time: currentTime)
-        runtime.setComponent(component, for: .Frame)
+        controller.world.setSingleton(component)
         guard controller.run(schedule: ReplayStepSchedule.self) else { return }
         simulationPlayerStep.emit()
     }
@@ -76,27 +75,27 @@ class ResultPlayer: SwiftGodot.Node {
     @Callable(autoSnakeCase: true)
     func toFirstStep() {
         currentStep = 0
-        coordinate()
+        updateWorld()
     }
     
     /// Forward the player to the last simulation step.
     @Callable(autoSnakeCase: true)
     func toLastStep() {
         currentStep = lastStep
-        coordinate()
+        updateWorld()
     }
 
     @Callable
     public func run() {
         self.isRunning = true
-        coordinate()
+        updateWorld()
     }
 
     @Callable
     public func stop() {
         guard isRunning else { return }
         self.isRunning = false
-        coordinate()
+        updateWorld()
     }
     
     @Callable
@@ -117,7 +116,7 @@ class ResultPlayer: SwiftGodot.Node {
         let adjustedStep: Int = min(max(step, 0), lastStep)
         guard adjustedStep != currentStep else { return }
         currentStep = adjustedStep
-        coordinate()
+        updateWorld()
     }
 
     @Callable(autoSnakeCase: true)
@@ -136,7 +135,7 @@ class ResultPlayer: SwiftGodot.Node {
             }
             currentStep = 0
         }
-        coordinate()
+        updateWorld()
         currentStep += 1
     }
 
@@ -152,6 +151,6 @@ class ResultPlayer: SwiftGodot.Node {
             }
             currentStep = lastStep
         }
-        coordinate()
+        updateWorld()
     }
 }

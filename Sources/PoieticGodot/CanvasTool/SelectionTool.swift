@@ -309,10 +309,10 @@ class SelectionTool: CanvasTool {
             switch hitTarget.type {
             case .primaryLabel:
                 selectionManager.replaceAll([objectID])
-                popupManager?.openInlineEditor("name", rawObjectID: objectID.rawValue, attribute: "name")
+                popupManager?.openInlineEditor("name", rawEntityID: objectID.rawValue, attribute: "name")
             case .secondaryLabel:
                 selectionManager.replaceAll([objectID])
-                popupManager?.openInlineEditor("formula", rawObjectID: objectID.rawValue, attribute: "formula")
+                popupManager?.openInlineEditor("formula", rawEntityID: objectID.rawValue, attribute: "formula")
             case .errorIndicator:
                 selectionManager.replaceAll([objectID])
                 // FIXME: Who has responsibility for filling in the popup info?
