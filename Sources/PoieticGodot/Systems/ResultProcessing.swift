@@ -18,7 +18,7 @@ import PoieticFlows
 struct SimulationObjectsResultsSystem: System {
     // public let dependencies: SystemDependency = [ /* after: simulation */ ]
     // TODO: Find a better name
-    public init() {}
+    public init(_ world: World) {}
     public func update(_ world: World) throws (InternalSystemError) {
         guard let result: SimulationResult = world.singleton(),
               let plan: SimulationPlan = world.singleton(),

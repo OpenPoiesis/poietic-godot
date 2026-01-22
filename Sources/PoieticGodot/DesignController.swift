@@ -36,7 +36,7 @@ import Diagramming
 ///
 /// Responsibilities:
 ///
-/// - Current frame
+/// - Manage design and design changes (on transaction level, not details)
 /// - Querying objects from current frame
 /// - Managing diagram settings (canvas view)
 /// - Manage transactions
@@ -45,7 +45,7 @@ import Diagramming
 @Godot
 public class DesignController: SwiftGodot.Node {
     // FIXME: Rename to WorldController
-    // TODO: Alternative names: Workspace, DesignWorkspace
+    // TODO: Alternative names: Workspace, WorldController, WorldBridge, DesignBridge
 
     /// Owning application
     @Export var application: PoieticApplication?
@@ -59,11 +59,6 @@ public class DesignController: SwiftGodot.Node {
     @Signal var selectionChanged: SignalWithArguments<PackedInt64Array>
 
     static let DesignSettingsFrameName = "settings"
-    
-    // System groups
-    var designChangeSystems: SystemGroup
-    var simulationFinishedSystems: SystemGroup
-    var interactivePreviewSystems: SystemGroup
     
     // TODO: Allow multiple canvases.
     /// Canvas the design is presented into.
@@ -90,12 +85,8 @@ public class DesignController: SwiftGodot.Node {
     @Export var selectionManager: SelectionManager
 
     required init(_ context: InitContext) {
-        GD.print("==> Initialising Design Controller", context)
+        GD.print("==> Initialising Design Controller")
 
-        self.designChangeSystems = SystemGroup()
-        self.simulationFinishedSystems = SystemGroup()
-        self.interactivePreviewSystems = SystemGroup()
-        
         self.design = Design(metamodel: StockFlowMetamodel)
         self.checker = ConstraintChecker(design.metamodel)
         self.world = World(design: design)
@@ -130,24 +121,40 @@ public class DesignController: SwiftGodot.Node {
     }
     
     // MARK: - Object Graph
+    /// Get a world entity representing a design object with given Object ID in current frame.
+    ///
+    /// If there is no such object in current frame, then `nil` is returned.
+    ///
+    /// - Note: The entity is valid only during lifetime of current frame in the world.
+    ///
     @Callable(autoSnakeCase: true)
-    func getObject(_ rawID: EntityIDValue) -> PoieticObject? {
-        let id = ObjectID(rawValue: rawID)
-        guard let object = currentFrame[id] else { return nil }
-        var wrapper = PoieticObject()
-        wrapper.object = object
-        return wrapper
+    func getEntityForDesignObject(_ rawObjectID: GodotDesignEntityID) -> PoieticEntity? {
+        let objectID = ObjectID(fromGodotValue: rawObjectID)
+        guard let entityID = world.objectToEntity(objectID) else {
+            return nil
+        }
+        var entity = PoieticEntity()
+        entity.bind(world: self.world, entityID: entityID)
+        return entity
     }
-    
-    func object(_ id: PoieticCore.ObjectID) -> ObjectSnapshot? {
-        return self.currentFrame[id]
+
+    /// Get a world entity with given ephemeral entity ID, if it exists in the world. Otherwise
+    /// returns `nil`.
+    ///
+    @Callable(autoSnakeCase: true)
+    func getEntity(_ rawEntityID: GodotRuntimeEntityID) -> PoieticEntity? {
+        let entityID = RuntimeID(fromGodotValue: rawEntityID)
+        guard world.contains(entityID) else { return nil }
+        var entity = PoieticEntity()
+        entity.bind(world: self.world, entityID: entityID)
+        return entity
     }
 
     // MARK: - Query
     /// Get all object IDs from the design. Used only for debugging.
     @Callable
-    func get_all_ids() -> PackedInt64Array {
-        return PackedInt64Array(self.currentFrame.objectIDs.map { Int64($0.rawValue)} )
+    func get_all_design_object_ids() -> PackedInt64Array {
+        return PackedInt64Array(self.currentFrame.objectIDs)
     }
 
     /// Get a list of object IDs that are of given object type.
@@ -196,21 +203,6 @@ public class DesignController: SwiftGodot.Node {
         }
         let ids = objects.compactMap { Int64(exactly: $0.objectID.rawValue) }
 
-        return PackedInt64Array(ids)
-    }
-    
-    // FIXME: Used only for charts, remove this
-    @Callable
-    func get_outgoing_ids(origin_id: UInt64, type_name: String) -> PackedInt64Array {
-        let origin_id = PoieticCore.ObjectID(rawValue: origin_id)
-        
-        guard let type = design.metamodel.objectType(name: type_name) else {
-            GD.pushError("Unknown object type '\(type_name)'")
-            return PackedInt64Array()
-        }
-        
-        let objects = currentFrame.outgoing(origin_id).filter { $0.object.type === type }
-        let ids = objects.compactMap { Int64(exactly: $0.id.rawValue) }
         return PackedInt64Array(ids)
     }
     
@@ -267,7 +259,8 @@ public class DesignController: SwiftGodot.Node {
     ///         - `end_time`
     ///
     @Callable(autoSnakeCase: true)
-    func getSpecialObject(name: String) -> PoieticObject? {
+    func getSpecialObject(name: String) -> PoieticEntity? {
+        // TODO: This is pre-World
         let object: ObjectSnapshot?
         switch name {
         case "DesignInfo":
@@ -277,22 +270,27 @@ public class DesignController: SwiftGodot.Node {
         default:
             return nil
         }
-        guard let object else { return nil }
-        var result = PoieticObject()
-        result.object = object
-        return result
+        guard let object,
+              let entityID = world.objectToEntity(object.objectID)
+        else { return nil }
+        var entity = PoieticEntity()
+        entity.bind(world: self.world, entityID: entityID)
+        return entity
     }
     
-    // TODO: Deprecate in favour of "getSpecialObject"
-    @Callable func get_simulation_parameters_object() -> PoieticObject? {
-        guard let first = currentFrame.filter(type: ObjectType.Simulation).first else {
-            return nil
+    @Callable
+    func getSingleton(name: String) -> TypedDictionary<String,SwiftGodot.Variant?> {
+        let component: (any InspectableComponent)?
+        switch name {
+        case "SimulationSettings":
+            let settings: SimulationSettings? = world.singleton()
+            component = settings
+        default:
+            component = nil
         }
-        var object = PoieticObject()
-        object.object = first
-        return object
+        guard let component else { return [:] }
+        return component.godotDictionary()
     }
-    
     
     // MARK: - Transaction -
     @Callable
@@ -303,10 +301,6 @@ public class DesignController: SwiftGodot.Node {
         return trans
     }
     
-    func newTransaction() -> TransientFrame {
-        return design.createFrame(deriving: design.currentFrame)
-    }
-    
     @Callable
     func discard(transaction: PoieticTransaction) {
         guard let frame = transaction.frame else {
@@ -315,9 +309,6 @@ public class DesignController: SwiftGodot.Node {
         }
         design.discard(frame)
         
-    }
-    func discard(_ frame: TransientFrame) {
-        design.discard(frame)
     }
 
     // TODO: Signal design_frame_changed(errors) (also handle errors)
@@ -336,56 +327,20 @@ public class DesignController: SwiftGodot.Node {
         accept(frame)
     }
     
-    func accept(_ frame: TransientFrame) {
-        guard frame.hasChanges else {
-            design.discard(frame)
-            return
-        }
-        do {
-            try design.accept(frame, appendHistory: true)
-            GD.print("Design accepted. Current frame: \(frame.id), frame count: \(design.frames.count)")
-        }
-        catch  {
-            // This is not user's fault and never should be.
-            // The application failed to make sure structural integrity is assured
-            // TODO: Display alert panel.
-            GD.pushError("Frame validation error:", String(describing: error))
-            return
-        }
-        run(schedule: FrameChangeSchedule.self)
-        simulate()
-    }
-    
     // MARK: - Issues
     @Callable(autoSnakeCase: true)
     func hasIssues() -> Bool {
         return world.hasIssues
     }
-    
+
     @Callable(autoSnakeCase: true)
-    func issuesForObject(rawID: EntityIDValue) -> TypedArray<PoieticIssue?> {
-        let objectID = PoieticCore.ObjectID(rawValue: rawID)
-        // FIXME: Replace with runtime component
-        guard let objectIssues = world.objectIssues(objectID) else { return [] }
+    func canConnect(typeName: String,
+                    originID rawOriginID: GodotDesignEntityID,
+                    targetID rawTargetID: GodotDesignEntityID) -> Bool
+    {
+        let originID = ObjectID(fromGodotValue: rawOriginID)
+        let targetID = ObjectID(fromGodotValue: rawTargetID)
         
-        let result =  objectIssues.map {
-            let issue = PoieticIssue()
-            issue.issue = $0
-            return issue
-        }
-        return TypedArray(result)
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func objectHasIssues(rawID: EntityIDValue) -> Bool {
-        let objectID = PoieticCore.ObjectID(rawValue: rawID)
-        return world.objectHasIssues(objectID)
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func canConnect(typeName: String, origin: EntityIDValue, target: EntityIDValue) -> Bool {
-        let originID = PoieticCore.ObjectID(rawValue: origin)
-        let targetID = PoieticCore.ObjectID(rawValue: target)
         guard currentFrame.contains(originID) && currentFrame.contains(targetID) else {
             return false
         }
@@ -395,19 +350,6 @@ public class DesignController: SwiftGodot.Node {
         return checker.canConnect(type: type, from: originID, to: targetID, in: currentFrame)
     }
     
-    
-    func debugPrintIssues(_ issues: DesignIssueCollection) {
-        GD.printErr("Validation error")
-        for issue in issues.designIssues {
-            GD.printErr("  \(issue)")
-        }
-        for (id, objIssues) in issues.objectIssues {
-            GD.printErr("  Object \(id):")
-            for issue in objIssues {
-                GD.printErr("      \(issue)")
-            }
-        }
-    }
     
     @Callable(autoSnakeCase: true)
     func getDistinctValues(ids: PackedInt64Array, attribute: String) -> SwiftGodot.VariantArray {
@@ -524,32 +466,6 @@ public class DesignController: SwiftGodot.Node {
         }
     }
     
-    func makeFileURL(fromPath path: String) -> URL? {
-        // TODO: See same method in poietic-tool
-        let url: URL
-        let manager = FileManager()
-        
-        if !manager.fileExists(atPath: path) {
-            return nil
-        }
-        
-        // Determine whether the file is a directory or a file
-        
-        if let attrs = try? manager.attributesOfItem(atPath: path) {
-            if attrs[FileAttributeKey.type] as? FileAttributeType == FileAttributeType.typeDirectory {
-                url = URL(fileURLWithPath: path, isDirectory: true)
-            }
-            else {
-                url = URL(fileURLWithPath: path, isDirectory: false)
-            }
-        }
-        else {
-            url = URL(fileURLWithPath: path)
-        }
-        
-        return url
-    }
-    
     @Callable
     func import_from_path(path: String) -> Bool {
         guard let url = makeFileURL(fromPath: path) else {
@@ -635,6 +551,7 @@ public class DesignController: SwiftGodot.Node {
     ///
     @Callable(autoSnakeCase: true)
     public func copySelectionAsText() -> String {
+        // TODO: Turn this into an action.
         let extractor = DesignExtractor()
         let extract = extractor.extractPruning(objects: selectionManager.selection.ids,
                                                frame: self.currentFrame)
@@ -656,6 +573,7 @@ public class DesignController: SwiftGodot.Node {
     ///
     @Callable(autoSnakeCase: true)
     public func pasteFromText(text: String) -> Bool {
+        // TODO: Turn this into an action.
         guard let data = text.data(using: .utf8) else {
             GD.pushError("Can not get data from text")
             return false
@@ -738,21 +656,7 @@ public class DesignController: SwiftGodot.Node {
     func hasResult() -> Bool {
         return world.hasSingleton(SimulationResult.self)
     }
-
-    /// Get time series for given object from simulation result, if the simulation was successful.
-    ///
-    @Callable(autoSnakeCase: true)
-    func timeSeries(id: EntityIDValue) -> PoieticTimeSeries? {
-        let objectID = PoieticCore.ObjectID(rawValue: id)
-        guard let series: RegularTimeSeries = world.component(for: objectID)
-        else { return nil }
-        
-        let wrapped = PoieticTimeSeries()
-        wrapped._object_id = objectID
-        wrapped.series = series
-        return wrapped
-    }
-
+    
     @Callable
     func write_to_csv(path: String, result: PoieticResult, ids: PackedInt64Array) {
         guard let plan = result.plan else {
@@ -776,38 +680,6 @@ public class DesignController: SwiftGodot.Node {
         }
     }
     
-    func writeToCSV(path: String,
-                    result: SimulationResult,
-                    plan: SimulationPlan,
-                    ids: [PoieticCore.ObjectID]) throws {
-        var variableIndices: [Int] = []
-        variableIndices.append(plan.builtins.step)
-        variableIndices.append(plan.builtins.time)
-        
-        if ids.isEmpty {
-            variableIndices += Array(plan.stateVariables.indices)
-        }
-        else {
-            variableIndices += ids.compactMap { plan.variableIndex($0) }
-        }
-
-        let writer: CSVWriter = try CSVWriter(path: path)
-        let header: [String] = variableIndices.map { plan.stateVariables[$0].name }
-
-        try writer.write(row: header)
-        
-        for state in result.states {
-            var row: [String] = []
-            for index in variableIndices {
-                let value: PoieticCore.Variant = state[index]
-                row.append(try value.stringValue())
-            }
-            try writer.write(row: row)
-            
-        }
-        try writer.close()
-    }
-   
     // MARK: - Notation and Pictograms
     @Callable(autoSnakeCase: true)
     func loadNotation(path: String) {

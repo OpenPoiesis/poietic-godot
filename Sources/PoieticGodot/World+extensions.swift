@@ -15,7 +15,7 @@ extension World {
     /// by persistent design object ID.
     /// If the entity ID is just any other ephemeral entity, then the string
     /// will be prefixed with `e` followed by the entity ID.
-    func godotStringName(_ id: EphemeralID) -> String {
+    func godotStringName(_ id: RuntimeID) -> String {
         if let objectID = self.entityToObject(id) {
             return "o" + objectID.stringValue
         }

@@ -41,17 +41,11 @@ let UpdateVisualsSystems: [System.Type] = [
     BlockSyncSystem.self,
     ConnectorSyncSystem.self,
 ]
-extension World {
-    // FIXME: Add "queueSchedule" to be run on next Godot _update()
-    // FIXME: Make this default
-    func addSchedule(label: ScheduleLabel.Type, systems: [System.Type]) {
-        self.setSystems(schedule: label, systems: SystemGroup(systems))
-    }
-}
+
 extension DesignController {
     
     func setupSchedules() {
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: FrameChangeSchedule.self,
             systems:
                 PoieticFlows.SimulationPlanningSystems
@@ -65,8 +59,8 @@ extension DesignController {
                     BlockSyncSystem.self,
                     ConnectorSyncSystem.self,
                 ]
-        )
-        world.addSchedule(
+        ))
+        world.addSchedule(Schedule(
             label: UpdateVisualsSchedule.self,
             systems: [
                     // From Diagramming
@@ -77,17 +71,17 @@ extension DesignController {
                     BlockSyncSystem.self,
                     ConnectorSyncSystem.self,
                 ]
-        )
+        ))
 
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: SceneSyncSchedule.self,
             systems: [
                 BlockSyncSystem.self,
                 ConnectorSyncSystem.self,
             ]
-        )
+        ))
 
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: InteractivePreviewSchedule.self,
             systems: [
                 // From Diagramming
@@ -96,39 +90,39 @@ extension DesignController {
                 BlockSyncSystem.self,
                 ConnectorSyncSystem.self,
             ]
-        )
+        ))
 
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: SimulationSchedule.self,
             systems: PoieticFlows.SimulationRunningSystems
-        )
-        
-        world.addSchedule(
+        ))
+
+        world.addSchedule(Schedule(
             label: ResultSyncSchedule.self,
             systems: [
                 SimulationObjectsResultsSystem.self,
                 IndicatorRangeConfigurationSystem.self,
                 IndicatorValueUpdateSystem.self,
             ]
-        )
+        ))
 
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: ReplayStepSchedule.self,
             systems: [
                 IndicatorValueUpdateSystem.self,
             ]
-        )
-        
-        world.addSchedule(
+        ))
+
+        world.addSchedule(Schedule(
             label: DiagramExportSchedule.self,
             systems: [
                 BlockCreationSystem.self,
                 TraitConnectorCreationSystem.self,
                 ConnectorGeometrySystem.self
             ]
-        )
+        ))
 
-        world.addSchedule(
+        world.addSchedule(Schedule(
             label: ParameterResolutionSchedule.self,
             systems: [
                 ComputationOrderSystem.self,
@@ -137,7 +131,7 @@ extension DesignController {
                 ParameterResolutionSystem.self,
                 ParameterConnectionProposalSystem.self,
             ]
-        )
+        ))
     }
     
     /// Convenience runner of a schedule that handles errors and displays an error panel through

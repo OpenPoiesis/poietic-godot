@@ -48,13 +48,13 @@ class DiagramCanvas: SwiftGodot.Node2D {
     /// Blocks representing design nodes have their `objectID` set to the object they represent.
     ///
     var blocks: [DiagramCanvasBlock] { Array(_blocks.values) }
-    var _blocks: [EphemeralID:DiagramCanvasBlock] = [:]
+    var _blocks: [RuntimeID:DiagramCanvasBlock] = [:]
     /// Connectors that represent design edges.
     ///
     /// Connectors representing design nodes have their `objectID` set to the object they represent.
     ///
     var connectors: [DiagramCanvasConnector] { Array(_connectors.values) }
-    var _connectors: [EphemeralID:DiagramCanvasConnector] = [:]
+    var _connectors: [RuntimeID:DiagramCanvasConnector] = [:]
     
     var handles: [CanvasHandle] = []
    
@@ -76,106 +76,6 @@ class DiagramCanvas: SwiftGodot.Node2D {
         getViewport()?.sizeChanged.connect(self.updateBackground)
     }
 
-    func updateBackground() {
-        guard let viewport = getViewport(),
-              let background = self.background else { return }
-        let size = viewport.getVisibleRect().size
-        background.setSize(size / Double(zoomLevel))
-        background.setPosition(-canvasOffset / Double(zoomLevel))
-    }
-    
-    // - MARK: Handles
-    func addHandle(_ handle: CanvasHandle) {
-        self.addChild(node: handle)
-        handles.append(handle)
-    }
-    func removeHandles() {
-        for handle in handles {
-            handle.queueFree()
-        }
-        handles.removeAll()
-    }
-    // - MARK: Content
-    func currentTool() -> CanvasTool? {
-        guard let app = getNode(path: NodePath(AppNodePath)) as? PoieticApplication else {
-            GD.pushWarning("Unable to get app")
-            return nil
-        }
-        return app.currentTool
-    }
-   
-    func clear() {
-        for child in getChildren() {
-            guard let child = child as? DiagramCanvasObject else { continue }
-            child.queueFree()
-        }
-        _blocks.removeAll()
-        _connectors.removeAll()
-    }
-
-    /// Add a block that represents a design node. The block must have `ObjectID` set to a non-nil
-    /// value. Existing block with the same ID will be replaced.
-    ///
-    public func insertBlock(_ block: DiagramCanvasBlock) {
-        guard let id = block.entityID else { return }
-        
-        if let existing = _blocks[id] {
-            removeChild(node: existing)
-        }
-        addChild(node: block)
-        _blocks[id] = block
-    }
-
-    public func removeBlock(_ id: EphemeralID) {
-        guard let node = _blocks.removeValue(forKey: id) else {
-            return
-        }
-        node.queueFree()
-    }
-    
-    /// Get a block that represents a design object with given ID (typically a node).
-    ///
-    /// If no such block exists or the canvas object is of different type, then `null` is returned.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func getBlock(rawID: EntityIDValue) -> DiagramCanvasBlock? {
-        let entityID = EphemeralID(rawValue: rawID)
-        return _blocks[entityID]
-    }
-    
-    public func block(id: EphemeralID) -> DiagramCanvasBlock? {
-        return _blocks[id]
-    }
-
-    public func insertConnector(_ connector: DiagramCanvasConnector) {
-        guard let id = connector.entityID else { return }
-        
-        if let existing = _connectors[id] {
-            removeChild(node: existing)
-        }
-        addChild(node: connector)
-        _connectors[id] = connector
-    }
-    public func removeConnector(_ id: EphemeralID) {
-        guard let object = _connectors.removeValue(forKey: id) else {
-            return
-        }
-        object.queueFree()
-    }
-
-    /// Get a connector that represents a design object with given ID (typically an edge).
-    ///
-    /// If no such connector exists or the canvas object is of different type, then `null` is returned.
-    ///
-    @Callable(autoSnakeCase: true)
-    public func getConnector(rawID: EntityIDValue) -> DiagramCanvasConnector? {
-        let id = EphemeralID(rawValue: rawID)
-        return _connectors[id]
-    }
-    public func connector(id: EphemeralID) -> DiagramCanvasConnector? {
-        return _connectors[id]
-    }
-
     public override func _unhandledInput(event: SwiftGodot.InputEvent?) {
         guard let event else { return }
         switch event {
@@ -195,6 +95,34 @@ class DiagramCanvas: SwiftGodot.Node2D {
         }
     }
     
+    // - MARK: Content
+   
+    /// Get a block that represents a design object with given ID (typically a node).
+    ///
+    /// If no such block exists or the canvas object is of different type, then `null` is returned.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func block(runtimeID: GodotRuntimeEntityID) -> DiagramCanvasBlock? {
+        return _blocks[RuntimeID(fromGodotValue: runtimeID)]
+    }
+
+    public func block(runtimeID: RuntimeID) -> DiagramCanvasBlock? {
+        return _blocks[runtimeID]
+    }
+
+    /// Get a connector that represents a design object with given ID (typically an edge).
+    ///
+    /// If no such connector exists or the canvas object is of different type, then `null` is returned.
+    ///
+    @Callable(autoSnakeCase: true)
+    public func connector(runtimeID: GodotRuntimeEntityID) -> DiagramCanvasConnector? {
+        return _connectors[RuntimeID(fromGodotValue: runtimeID)]
+    }
+
+    public func connector(runtimeID: RuntimeID) -> DiagramCanvasConnector? {
+        return _connectors[runtimeID]
+    }
+    
     @Callable(autoSnakeCase: true)
     func setZoom(level: Double, keepPosition: SwiftGodot.Vector2) {
         let scale = Vector2(x: zoomLevel, y: zoomLevel)
@@ -208,6 +136,7 @@ class DiagramCanvas: SwiftGodot.Node2D {
         var m_after = t_after.affineInverse() * keepPosition
         canvasOffset += -(m_before - m_after) * Double(zoomLevel)
     }
+    
     @Callable(autoSnakeCase: true)
     public func updateCanvasView() {
         print("--- Update canvas view")
@@ -311,37 +240,12 @@ class DiagramCanvas: SwiftGodot.Node2D {
         return nil
     }
 
-    func promptPosition(for entityID: EphemeralID) -> Vector2 {
-        guard let block = _blocks[entityID] else { return .zero }
-
-        let position: Vector2
-        if let primaryLabel = block.primaryLabel {
-            return primaryLabel.getGlobalPosition()
-        }
-        else {
-            return self.toGlobal(localPoint: block.position)
-        }
-    }
-
-    
-    // TODO: Observe how we are using it and adjust types accordingly
-    // TODO: Add screen scaling (retina)
-    /// Converts a point from canvas coordinates to design coordinates.
-    func toDesign(canvasPoint: SwiftGodot.Vector2) -> Vector2D {
-        let inDesign = canvasPoint / Double(zoomLevel)
-        return Vector2D(inDesign)
-    }
-    /// Converts a point from design coordinates to canvas coordinates.
-    func fromDesign(_ position: Vector2D) -> SwiftGodot.Vector2 {
-        return position.asGodotVector2()
-    }
-
     /// Default position where a pop-up is expected to be displayed around a given object.
     ///
     @Callable(autoSnakeCase: true)
-    public func defaultPopupPosition(rawID: EntityIDValue) -> Vector2 {
-        let entityID = EphemeralID(rawValue: rawID)
-        if let block = _blocks[entityID] {
+    public func defaultPopupPosition(entity: PoieticEntity) -> Vector2 {
+        guard let runtimeID = entity.runtimeID else { return .zero }
+        if let block = _blocks[runtimeID] {
             let y: Float
             if let label = block.primaryLabel {
                 y = label.getGlobalPosition().y
@@ -351,7 +255,7 @@ class DiagramCanvas: SwiftGodot.Node2D {
             }
             return Vector2(x: block.globalPosition.x,y: y)
         }
-        else if let connector = _connectors[entityID] {
+        else if let connector = _connectors[runtimeID] {
             // TODO: Compute some sensible position
             return .zero
         }
@@ -359,5 +263,4 @@ class DiagramCanvas: SwiftGodot.Node2D {
             return .zero
         }
     }
-
 }

@@ -10,7 +10,7 @@ import Diagramming
 
 /// Connector that is being dragged
 public struct DraggedDiagramConnector: Component {
-    internal init(originID: RuntimeEntityID,
+    internal init(originID: RuntimeID,
                   targetPosition: Vector2D,
                   glyph: ConnectorGlyph,
                   midpoints: [Vector2D] = []) {
@@ -29,7 +29,7 @@ public struct DraggedDiagramConnector: Component {
     /// ID of the origin diagram block.
     ///
     /// The  runtime entity must have ``DiagramBlock`` component.
-    public let originID: RuntimeEntityID
+    public let originID: RuntimeID
 
     /// ID of the target diagram block.
     ///

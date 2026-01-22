@@ -71,7 +71,7 @@ class SelectionTool: CanvasTool {
         case .object:
             // TODO: Defer opening of context menu on inputEnded
             guard let object = target.object as? DiagramCanvasObject,
-                  let entityID = object.entityID,
+                  let entityID = object.runtimeID,
                   let objectID = world?.entityToObject(entityID)
             else {
                 GD.pushWarning("Hit object is not a diagram canvas object")
@@ -185,23 +185,24 @@ class SelectionTool: CanvasTool {
     }
     
     // MARK: - Handles
-    func createHandles(canvas: DiagramCanvas, for entityID: EphemeralID) {
+    func createHandles(canvas: DiagramCanvas, for runtimeID: RuntimeID) {
         // Currently the only nodes that have handles are connectors.
         //
-        guard let connector = canvas.connector(id: entityID) else { return }
-        createConnectorHandles(canvas: canvas, node: connector, entityID: entityID)
-        
+        guard let connector = canvas.connector(runtimeID: runtimeID) else { return }
+        createConnectorHandles(canvas: canvas, node: connector, runtimeID: runtimeID)
     }
     
-    func createConnectorHandles(canvas: DiagramCanvas, node: DiagramCanvasConnector, entityID: EphemeralID) {
+    func createConnectorHandles(canvas: DiagramCanvas,
+                                node: DiagramCanvasConnector,
+                                runtimeID: RuntimeID) {
         // Source of truth: DiagramConnector
         guard let world = self.designController?.world,
-              let connector: DiagramConnector = world.component(for: entityID)
+              let connector: DiagramConnector = world.component(for: runtimeID)
         else { return }
         
         canvas.removeHandles()
         
-        let preview: ConnectorPreview? = world.component(for: entityID)
+        let preview: ConnectorPreview? = world.component(for: runtimeID)
         let midpoints = preview?.midpoints ?? connector.midpoints
         
         if midpoints.isEmpty {
@@ -212,7 +213,7 @@ class SelectionTool: CanvasTool {
             
             let handle = CanvasHandle()
             handle.type = .midpoint
-            handle.entityID = entityID
+            handle.entityID = runtimeID
             handle.tag = 0
             handle.position = Vector2(segment.midpoint)
             canvas.addHandle(handle)
@@ -221,7 +222,7 @@ class SelectionTool: CanvasTool {
             for (index, point) in midpoints.enumerated() {
                 let handle = CanvasHandle()
                 handle.type = .midpoint
-                handle.entityID = entityID
+                handle.entityID = runtimeID
                 handle.tag = index
                 handle.position = Vector2(point)
                 canvas.addHandle(handle)
@@ -299,7 +300,7 @@ class SelectionTool: CanvasTool {
         case .childHit:
             guard let hitTarget,
                   let block = hitTarget.object as? DiagramCanvasBlock,
-                  let entityID = block.entityID,
+                  let entityID = block.runtimeID,
                   let objectID = world?.entityToObject(entityID)
             else {
                 break
@@ -309,16 +310,13 @@ class SelectionTool: CanvasTool {
             switch hitTarget.type {
             case .primaryLabel:
                 selectionManager.replaceAll([objectID])
-                popupManager?.openInlineEditor("name", rawEntityID: objectID.rawValue, attribute: "name")
+                popupManager?.openInlineEditor("name", rawEntityID: objectID.asGodotValue(), attribute: "name")
             case .secondaryLabel:
                 selectionManager.replaceAll([objectID])
-                popupManager?.openInlineEditor("formula", rawEntityID: objectID.rawValue, attribute: "formula")
+                popupManager?.openInlineEditor("formula", rawEntityID: objectID.asGodotValue(), attribute: "formula")
             case .errorIndicator:
                 selectionManager.replaceAll([objectID])
-                // FIXME: Who has responsibility for filling in the popup info?
-                let issues = designController.issuesForObject(rawID: objectID.rawValue)
-
-                popupManager?.openIssuesPopup(objectID.rawValue, issues: issues)
+                popupManager?.openIssuesPopup(objectID.asGodotValue())
             case .object: break
             case .handle: break
             }

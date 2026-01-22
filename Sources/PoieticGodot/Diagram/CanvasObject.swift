@@ -8,38 +8,13 @@ import SwiftGodot
 import PoieticCore
 import Diagramming
 
-extension RuntimeEntityID {
-    /// Runtime entity as a Godot node name suffix. Caller is expected to prefix the ID with
-    /// appropriate object type.
-    ///
-    /// Object ID is just string value of the ID. Ephemeral ID has suffix "e" added to the string
-    /// value of the ID.
-    public var godotNodeName: String {
-        switch self {
-        case .object(let id): id.stringValue
-        case .ephemeral(let id): id.description + "e"
-        }
-    }
-}
-
 protocol GodotConvertibleComponent {
     func asGodotDictionary() -> TypedDictionary<String, SwiftGodot.Variant?>
 }
 
 @Godot
 public class DiagramCanvasObject: SwiftGodot.Node2D {
-    var entityID: EphemeralID?
-//    var objectID: PoieticCore.ObjectID? {
-//        get { runtimeID?.objectID }
-//        set(value) {
-//            if let value {
-//                runtimeID = .object(value)
-//            }
-//            else {
-//                runtimeID = nil
-//            }
-//        }
-//    }
+    var runtimeID: RuntimeID?
     @Export var hasIssues: Bool = false {
         didSet {
             if let issueIndicator {
@@ -49,9 +24,6 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
     }
     
     @Export var issueIndicator: SwiftGodot.Node2D?
-   
-    // Selection
-    @Export var selectionOutline: SelectionOutline?
     
     var _isSelected: Bool = false
     @Export var isSelected: Bool {
@@ -61,6 +33,7 @@ public class DiagramCanvasObject: SwiftGodot.Node2D {
             selectionOutline?.visible = flag
         }
     }
+    @Export var selectionOutline: SelectionOutline?
 
     /// Flag whether touch detection is ignored.
     ///

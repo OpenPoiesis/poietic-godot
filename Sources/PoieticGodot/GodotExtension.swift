@@ -13,7 +13,7 @@ import SwiftGodot
         ResultPlayer.self,
         
         // Design content and other data
-        PoieticObject.self,
+        PoieticEntity.self,
         PoieticIssue.self,
         PoieticResult.self,
         PoieticTimeSeries.self,

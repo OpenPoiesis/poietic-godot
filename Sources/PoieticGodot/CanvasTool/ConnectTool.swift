@@ -17,15 +17,13 @@ enum ConnectToolState: Int, CaseIterable {
 @Godot
 class ConnectTool: CanvasTool {
     @Export var state: ConnectToolState = .empty
-    // FIXME: Use real type, not just name
-    
     @Export var lastPointerPosition = Vector2()
-    var originID: EphemeralID?
-    var draggingGlyph: ConnectorGlyph?
     @Export var draggingConnector: DiagramCanvasConnector?
-    
-    
-    
+
+    @Export var originID: PoieticCore.RuntimeID?
+//    @Export var originID: GodotRuntimeEntityID?
+    var draggingGlyph: ConnectorGlyph?
+
     override func toolName() -> String { "connect" }
     override func paletteName() -> String? { ConnectToolPaletteName }
 
@@ -47,7 +45,7 @@ class ConnectTool: CanvasTool {
 
     override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let origin = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
-              let originID = origin.entityID
+              let originID = origin.runtimeID
         else { return true }
 
         let typeName = paletteItemIdentifier ?? DefaultConnectorEdgeType
@@ -78,7 +76,7 @@ class ConnectTool: CanvasTool {
 
         let canvasPoint = canvas.fromDesign(targetPoint)
         guard let target = canvas.hitObject(globalPosition: globalPosition),
-              let targetID = target.entityID else
+              let targetID = target.runtimeID else
         {
             Input.setDefaultCursorShape(.drag)
             return true
@@ -99,7 +97,7 @@ class ConnectTool: CanvasTool {
         return true
     }
     
-    func canConnect(typeName: String, from originID: EphemeralID, to targetID: EphemeralID) -> Bool {
+    func canConnect(typeName: String, from originID: RuntimeID, to targetID: RuntimeID) -> Bool {
         guard let ctrl = designController,
               let originObjectID = ctrl.world.entityToObject(originID),
               let targetObjectID = ctrl.world.entityToObject(targetID)
@@ -126,7 +124,7 @@ class ConnectTool: CanvasTool {
         guard let ctrl = designController,
               let target = canvas.hitObject(globalPosition: globalPosition) as? DiagramCanvasBlock,
               let originID,
-              let targetID = target.entityID,
+              let targetID = target.runtimeID,
               let originObjectID = ctrl.world.entityToObject(originID),
               let targetObjectID = ctrl.world.entityToObject(targetID)
         else {
@@ -191,7 +189,7 @@ extension ConnectTool {
     ///
     public func createDragConnector(canvas: DiagramCanvas,
                                     type: String,
-                                    origin originID: EphemeralID,
+                                    origin originID: RuntimeID,
                                     targetPoint: Vector2D) -> DiagramCanvasConnector? {
         guard let world = designController?.world,
               let block: DiagramBlock = world.component(for:originID),

@@ -20,7 +20,7 @@ struct ConnectorSyncSystem: System {
         .after(BlockCreationSystem.self),
         .after(ConnectorGeometrySystem.self),
     ]
-    init() {}
+    public init(_ world: World) {}
     func update(_ world: World) throws (InternalSystemError) {
         guard let canvasComponent: CanvasComponent = world.singleton()
         else { return }
@@ -28,7 +28,7 @@ struct ConnectorSyncSystem: System {
         let canvas = canvasComponent.canvas
         let style = canvas.style ?? CanvasStyle()
 
-        var remaining = Set(canvas.connectors.compactMap { $0.entityID })
+        var remaining = Set(canvas.connectors.compactMap { $0.runtimeID })
         var updated: [DiagramCanvasBlock] = []
         
         for (id, component) in world.query(DiagramConnector.self) {
@@ -52,18 +52,18 @@ struct ConnectorSyncSystem: System {
     
     public func sync(connector: DiagramConnector,
                      geometry: DiagramConnectorGeometry,
-                     id entityID: EphemeralID,
+                     id runtimeID: RuntimeID,
                      canvas: DiagramCanvas,
                      style: CanvasStyle,
                      world: World)
     {
         let sceneNode: DiagramCanvasConnector
-        if let node = canvas.connector(id: entityID) {
+        if let node = canvas.connector(runtimeID: runtimeID) {
             sceneNode = node
         }
         else {
             sceneNode = DiagramCanvasConnector()
-            sceneNode.entityID = entityID
+            sceneNode.runtimeID = runtimeID
             canvas.insertConnector(sceneNode)
         }
         

@@ -17,7 +17,7 @@ struct BlockSyncSystem: System {
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(BlockCreationSystem.self),
     ]
-    public init() {}
+    public init(_ world: World) {}
     public func update(_ world: World) throws (InternalSystemError) {
         guard let frame = world.frame,
               let canvasComponent: CanvasComponent = world.singleton()
@@ -26,11 +26,11 @@ struct BlockSyncSystem: System {
         }
 
         let canvas = canvasComponent.canvas
-        var remaining = Set(canvas.blocks.compactMap { $0.entityID })
+        var remaining = Set(canvas.blocks.compactMap { $0.runtimeID })
         var updated: [DiagramCanvasBlock] = []
         
         for (id, component) in world.query(DiagramBlock.self) {
-            sync(block: component, id: id, canvas: canvasComponent, world: world, frame: frame)
+            sync(block: component, runtimeID: id, canvas: canvasComponent, world: world, frame: frame)
             remaining.remove(id)
         }
         
@@ -40,7 +40,7 @@ struct BlockSyncSystem: System {
     }
     
     public func sync(block: DiagramBlock,
-                     id entityID: EphemeralID,
+                     runtimeID: RuntimeID,
                      canvas canvasComponent: CanvasComponent,
                      world: World,
                      frame: DesignFrame) {
@@ -49,19 +49,19 @@ struct BlockSyncSystem: System {
         let style = canvas.style ?? CanvasStyle()
 
         let sceneNode: DiagramCanvasBlock
-        if let node = canvas.block(id: entityID) {
+        if let node = canvas.block(runtimeID: runtimeID) {
             sceneNode = node
         }
         else {
             sceneNode = DiagramCanvasBlock()
-            sceneNode.entityID = entityID
+            sceneNode.runtimeID = runtimeID
             canvas.insertBlock(sceneNode)
             
         }
         sceneNode._prepareChildren()
-        sceneNode.name = StringName(DiagramBlockNamePrefix + world.godotStringName(entityID))
+        sceneNode.name = StringName(DiagramBlockNamePrefix + world.godotStringName(runtimeID))
 
-        if let objectID = world.entityToObject(entityID) {
+        if let objectID = world.entityToObject(runtimeID) {
             if let object = frame[objectID] {
                 sceneNode.hasValueIndicator = object.type.hasTrait(.NumericIndicator)
             }
@@ -73,7 +73,7 @@ struct BlockSyncSystem: System {
         }
 
 
-        let preview: BlockPreview? = world.component(for: entityID)
+        let preview: BlockPreview? = world.component(for: runtimeID)
 
         updateContent(sceneNode, block: block, style: style)
         updatePosition(sceneNode, block: block, preview: preview)

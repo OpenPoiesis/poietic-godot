@@ -28,7 +28,7 @@ class SelectionManager: SwiftGodot.Node {
         
         for child in canvas.getChildren() {
             guard var child = child as? DiagramCanvasObject,
-                  let entityID = child.entityID,
+                  let entityID = child.runtimeID,
                   let objectID = world?.entityToObject(entityID)
             else { continue }
 
@@ -45,9 +45,9 @@ class SelectionManager: SwiftGodot.Node {
     /// editing.
     ///
     @Callable(autoSnakeCase: true)
-    public func selectionOfOne() -> EntityIDValue? {
+    public func selectionOfOne() -> GodotDesignEntityID? {
         guard selection.count == 1 else { return nil }
-        return selection.first?.rawValue
+        return selection.first?.asGodotValue()
     }
     
     public func selectionOfOne() -> PoieticCore.ObjectID? {
@@ -77,8 +77,8 @@ class SelectionManager: SwiftGodot.Node {
     }
     
     @Callable
-    func contains(id: EntityIDValue) -> Bool {
-        let actual_id = ObjectID(rawValue: id)
+    func contains(id: GodotDesignEntityID) -> Bool {
+        let actual_id = ObjectID(fromGodotValue: id)
         return selection.contains(actual_id) ?? false
     }
     
@@ -87,8 +87,8 @@ class SelectionManager: SwiftGodot.Node {
     }
 
     @Callable
-    func append(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func append(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.append(actual_id)
         update()
     }
@@ -100,11 +100,11 @@ class SelectionManager: SwiftGodot.Node {
         else { return }
         
         let blockIDs: [PoieticCore.ObjectID] = canvas.blocks.compactMap {
-            guard let entityID = $0.entityID else { return nil }
+            guard let entityID = $0.runtimeID else { return nil }
             return world.entityToObject(entityID)
         }
         let connectorIDs: [PoieticCore.ObjectID] = canvas.connectors.compactMap {
-            guard let entityID = $0.entityID else { return nil }
+            guard let entityID = $0.runtimeID else { return nil }
             return world.entityToObject(entityID)
         }
         let selectable = blockIDs + connectorIDs
@@ -128,15 +128,15 @@ class SelectionManager: SwiftGodot.Node {
     }
     
     @Callable
-    func remove(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func remove(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.remove(actual_id)
         update()
     }
 
     @Callable
-    func toggle(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func toggle(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.toggle(actual_id)
         update()
     }

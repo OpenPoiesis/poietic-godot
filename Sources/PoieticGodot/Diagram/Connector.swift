@@ -9,12 +9,8 @@ import SwiftGodot
 import Diagramming
 import PoieticCore
 
-/// Tag of a handle representing the first midpoint if the connector has no midpoints.
-let InitiatingMidpointHandleTag: Int = -1
-
 @Godot
 public class DiagramCanvasConnector: DiagramCanvasObject {
-    // TODO: Rename to open strokes
     var openCurves: [SwiftGodot.Curve2D]
     var filledCurves: [SwiftGodot.Curve2D]
 
@@ -47,7 +43,7 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
             // TODO: Investigate when this happens
             guard points.count >= 3 else { continue }
             self.drawPolygon(points: points, colors: [lineColor])
-            // TODO: Close shape
+            // TODO: Closed shape
             self.drawPolyline(points: points, color: lineColor, width: lineWidth)
         }
     }
@@ -61,50 +57,6 @@ public class DiagramCanvasConnector: DiagramCanvasObject {
         }
     }
     
-    func _coalescedColor(_ name: String, default defaultColor: Color = .white) -> Color {
-        Color.fromString(str: name, default: defaultColor)
-    }
-   
-#if false
-    @Callable(autoSnakeCase: true)
-    func setMidpoint(tag: Int, canvasPosition: Vector2) {
-        guard let connector else { return }
-        guard tag >= 0 && tag < midpointHandles.count else { return }
-        let handle = midpointHandles[tag]
-        
-        if tag == 0 {
-            connector.midpoints = [Vector2D(canvasPosition)]
-        }
-        else if tag > 0 && tag < connector.midpoints.count {
-            connector.midpoints[tag] = Vector2D(canvasPosition)
-        }
-        isDirty = true
-    }
-
-    func handle(withTag tag: Int) -> CanvasHandle? {
-        return midpointHandles.first { $0.tag == tag }
-    }
-
-    func createMidpointHandle() -> CanvasHandle {
-        let theme = ThemeDB.getProjectTheme()
-        let handle = CanvasHandle()
-        if let color = theme?.getColor(name: SwiftGodot.StringName(MidpointHandleFillColorKey), themeType: StringName(CanvasThemeType)) {
-            handle.fillColor = color
-        }
-        else {
-            handle.fillColor = Color.royalBlue
-        }
-        if let color = theme?.getColor(name: SwiftGodot.StringName(MidpointHandleOutlineColorKey), themeType: StringName(CanvasThemeType)) {
-            handle.color = color
-        }
-        else {
-            handle.color = Color.dodgerBlue
-        }
-        self.addChild(node: handle)
-        midpointHandles.append(handle)
-        return handle
-    }
-#endif
     override public func containsTouch(globalPoint: SwiftGodot.Vector2) -> Bool {
         guard wire.count >= 2 else { return false }
         let touchPoint = toLocal(globalPoint: globalPoint)

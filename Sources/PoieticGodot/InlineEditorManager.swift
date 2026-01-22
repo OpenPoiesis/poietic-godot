@@ -103,20 +103,32 @@ class InlineEditorManager: Node {
     }
     
     @Callable(autoSnakeCase: true)
-    func openIssuesPopup(_ rawEntityID: EntityIDValue, issues: TypedArray<PoieticIssue?>) {
-        let entityID = EphemeralID(rawValue: rawEntityID)
+    func openIssuesPopup(_ runtimeID: GodotRuntimeEntityID) {
+        let entityID = RuntimeID(fromGodotValue: runtimeID)
         guard let issuesPopup,
               let canvas,
-              let block = canvas.block(id: entityID)
-        else { return }
+              let world,
+              let objectID = world.entityToObject(entityID),
+              let issues = world.objectIssues(objectID),
+              let block = canvas.block(runtimeID: entityID)
+        else {
+            GD.pushError("Unexpected error while opening issues popup")
+            return
+        }
         guard issuesPopup.hasMethod("set_issues") else {
             GD.pushError("Invalid issues popup node: set_issues method missing")
             return
         }
 
+        let godotIssues: TypedArray<PoieticIssue?> = TypedArray(issues.map {
+            let issue = PoieticIssue()
+            issue.issue = $0
+            return issue
+        })
+        
         issuesPopup.call(method: "set_issues",
-                         SwiftGodot.Variant(rawEntityID),
-                         SwiftGodot.Variant(issues))
+                         SwiftGodot.Variant(runtimeID),
+                         SwiftGodot.Variant(godotIssues))
 
         let position: Vector2
         if let indicator =  block.issueIndicator {
@@ -130,9 +142,9 @@ class InlineEditorManager: Node {
     
     @Callable(autoSnakeCase: true)
     func openInlineEditor(_ editorName: String,
-                          rawEntityID: EntityIDValue,
+                          rawEntityID: GodotRuntimeEntityID,
                           attribute: String) {
-        let entityID = EphemeralID(rawValue: rawEntityID)
+        let entityID = RuntimeID(fromGodotValue: rawEntityID)
         // TODO: Allow editing of not-yet-existing objects, such as freshly placed block
         guard let designController,
               let objectID = designController.world.entityToObject(entityID),
@@ -148,11 +160,11 @@ class InlineEditorManager: Node {
         var position = canvas.promptPosition(for: entityID)
         openInlinePopup(control: editor, position: position)
         
-        var godotObject = PoieticObject()
-        godotObject.object = object
+        var entity = PoieticEntity()
+        entity.bind(world: self.world!, entityID: entityID)
         
         editor.call(method: "open",
-                    SwiftGodot.Variant(godotObject),
+                    SwiftGodot.Variant(entity),
                     SwiftGodot.Variant(attribute),
                     value?.asGodotVariant())
         self.currentPopup = editor

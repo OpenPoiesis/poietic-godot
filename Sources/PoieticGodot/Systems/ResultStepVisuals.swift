@@ -23,7 +23,7 @@ struct IndicatorRangeConfigurationSystem: System {
     nonisolated(unsafe) public static let dependencies: [SystemDependency] = [
         .after(SimulationObjectsResultsSystem.self),
     ]
-    init() {}
+    init(_ world: World) {}
     func update(_ world: World) throws (InternalSystemError) {
         guard let result: SimulationResult = world.singleton(),
               let canvasComponent: CanvasComponent = world.singleton(),
@@ -39,7 +39,7 @@ struct IndicatorRangeConfigurationSystem: System {
     public func update(block: DiagramCanvasBlock, canvas: DiagramCanvas, in world: World, frame: DesignFrame) {
         guard block.hasValueIndicator, // Whether we *should* have the indicator
               let valueIndicator = block.valueIndicator, // Whether we actually have it
-              let entityID = block.entityID,
+              let entityID = block.runtimeID,
               let objectID = world.entityToObject(entityID),
               let object = frame[objectID],
               let series: RegularTimeSeries = world.component(for: entityID)
@@ -86,7 +86,7 @@ struct IndicatorValueUpdateSystem: System {
         .after(IndicatorRangeConfigurationSystem.self),
     ]
 
-    init() {}
+    init(_ world: World) {}
     func update(_ world: World) throws (InternalSystemError) {
         guard let result: SimulationResult = world.singleton(),
               let canvasComponent: CanvasComponent = world.singleton(),
@@ -105,7 +105,7 @@ struct IndicatorValueUpdateSystem: System {
               let valueIndicator = block.valueIndicator // Whether we actually have it
         else { return }
 
-        guard let entityID = block.entityID,
+        guard let entityID = block.runtimeID,
               let objectID = world.entityToObject(entityID),
               let object = frame[objectID],
               let series: RegularTimeSeries = world.component(for: entityID)
