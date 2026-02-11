@@ -13,7 +13,7 @@ import SwiftGodot
         ResultPlayer.self,
         
         // Design content and other data
-        PoieticObject.self,
+        PoieticEntity.self,
         PoieticIssue.self,
         PoieticResult.self,
         PoieticTimeSeries.self,
@@ -29,7 +29,7 @@ import SwiftGodot
         PanTool.self,
 
         // Diagram Canvas
-        CanvasController.self,
+        InlineEditorManager.self,
         DiagramCanvas.self,
         DiagramCanvasObject.self,
         DiagramCanvasConnector.self,

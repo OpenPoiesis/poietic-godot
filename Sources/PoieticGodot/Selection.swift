@@ -8,28 +8,36 @@
 import SwiftGodot
 import PoieticCore
 
-struct PoieticSelectionTypeInfo {
-    var distinct_types: [String]
-    var shared_traits: [String]
-    var count: Int
-    var has_issues: Bool
-    
-    func is_empty() -> Bool {
-        return count == 0
-    }
-    func matches(traits: [String], multiple: Bool, issues: Bool) -> Bool {
-        return false
-    }
-}
-
+/// Controller object that is maintaining a selection state.
+///
 @Godot
 class SelectionManager: SwiftGodot.Node {
-    // TODO: Consider removing this selection wrapper, just add get_ids() on Canvas
+    var designController: DesignController?
+    var world: World? { designController?.world }
+    var canvas: DiagramCanvas? { designController?.canvas }
+
     var selection: Selection = Selection()
-   
-    @Signal var selectionChanged: SignalWithArguments<SelectionManager>
 
+    private func update() {
+        guard let canvas,
+              let designController
+        else { return }
 
+        let selected = Set(selection.ids)
+        let contained = Set(designController.currentFrame.contained(selected))
+        
+        for child in canvas.getChildren() {
+            guard var child = child as? DiagramCanvasObject,
+                  let entityID = child.runtimeID,
+                  let objectID = world?.entityToObject(entityID)
+            else { continue }
+
+            child.isSelected = contained.contains(objectID)
+        }
+        let ids = PackedInt64Array(selection.ids)
+        designController.selectionChanged.emit(ids)
+    }
+    
     /// Get an ID of a selected object if only one object is selected. Otherwise
     /// returns null.
     ///
@@ -37,35 +45,40 @@ class SelectionManager: SwiftGodot.Node {
     /// editing.
     ///
     @Callable(autoSnakeCase: true)
-    public func selectionOfOne() -> EntityIDValue? {
+    public func selectionOfOne() -> GodotDesignEntityID? {
         guard selection.count == 1 else { return nil }
-        return selection.first?.rawValue
+        return selection.first?.asGodotValue()
     }
     
+    public func selectionOfOne() -> PoieticCore.ObjectID? {
+        guard selection.count == 1 else { return nil }
+        return selection.first
+    }
+
     @Callable
     func get_ids() -> PackedInt64Array {
-        return PackedInt64Array(compactingValid: selection)
+        return PackedInt64Array(selection)
     }
     
     @Callable
     func is_empty() -> Bool {
-        return selection.isEmpty ?? true
+        return selection.isEmpty
     }
     
     @Callable
     func count() -> Int {
-        return selection.count ?? 0
+        return selection.count
     }
     
     @Callable
     func clear() {
         selection.removeAll()
-        selectionChanged.emit(self)
+        update()
     }
     
     @Callable
-    func contains(id: EntityIDValue) -> Bool {
-        let actual_id = ObjectID(rawValue: id)
+    func contains(id: GodotDesignEntityID) -> Bool {
+        let actual_id = ObjectID(fromGodotValue: id)
         return selection.contains(actual_id) ?? false
     }
     
@@ -74,43 +87,62 @@ class SelectionManager: SwiftGodot.Node {
     }
 
     @Callable
-    func append(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func append(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.append(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
 
+    @Callable(autoSnakeCase: true)
+    func selectAll() {
+        guard let canvas = self.canvas,
+              let world
+        else { return }
+        
+        let blockIDs: [PoieticCore.ObjectID] = canvas.blocks.compactMap {
+            guard let entityID = $0.runtimeID else { return nil }
+            return world.entityToObject(entityID)
+        }
+        let connectorIDs: [PoieticCore.ObjectID] = canvas.connectors.compactMap {
+            guard let entityID = $0.runtimeID else { return nil }
+            return world.entityToObject(entityID)
+        }
+        let selectable = blockIDs + connectorIDs
+        self.replaceAll(selectable)
+    }
+    
     @Callable
     func replace(ids: PackedInt64Array) {
-        var actualIDs: [PoieticCore.ObjectID] = ids.asValidEntityIDs()
+        var actualIDs: [PoieticCore.ObjectID] = ids.asDesignEntityIDs()
         guard ids.count == actualIDs.count else {
             GD.pushError("Some IDs are invalid")
             return
         }
         selection.replaceAll(actualIDs)
-        selectionChanged.emit(self)
+        update()
     }
     
     func replaceAll(_ ids: [PoieticCore.ObjectID]) {
         selection.replaceAll(ids)
-        selectionChanged.emit(self)
+        update()
     }
     
     @Callable
-    func remove(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func remove(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.remove(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
 
     @Callable
-    func toggle(id: EntityIDValue) {
-        let actual_id = ObjectID(rawValue: id)
+    func toggle(id: GodotDesignEntityID) {
+        let actual_id = ObjectID(fromGodotValue: id)
         selection.toggle(actual_id)
-        selectionChanged.emit(self)
+        update()
     }
+    
     func toggle(_ id: PoieticCore.ObjectID) {
         selection.toggle(id)
-        selectionChanged.emit(self)
+        update()
     }
 }

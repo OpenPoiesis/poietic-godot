@@ -11,15 +11,8 @@ import Diagramming
 
 @Godot
 class PlaceTool: CanvasTool {
-    
-    // FIXME: This is a legacy binding to makeshift Godot implementation
-    /// Auxiliary node that contains a collection of objects to be placed.
-    ///
-    /// The palette is to be provided by Godot caller.
-    ///
-    @Export var objectPanel: SwiftGodot.PanelContainer?
-    
     var lastPointerPosition = Vector2()
+    /// Shadow rendering of a node that is intended to be placed.
     var intentShadow: Pictogram2D?
 
     required init(_ context: SwiftGodot.InitContext) {
@@ -44,16 +37,12 @@ class PlaceTool: CanvasTool {
             removeIntentShadow()
         }
         guard let identifier else { return }
-
-        createIntentShadow(typeName: identifier, canvasPosition: Vector2.zero)
     }
     
-        
-    func placeObject(typeName: String, globalPosition: Vector2) {
+    func placeObject(canvas: DiagramCanvas, typeName: String, globalPosition: Vector2) {
         // TODO: Make this a Command
-        // FIXME: Bind type directly to the template block
-        guard let ctrl = designController,
-              let canvas else {
+        guard let ctrl = designController
+        else {
             GD.pushError("PlaceTool is not set up properly")
             return
         }
@@ -75,26 +64,21 @@ class PlaceTool: CanvasTool {
         // TODO: Select currently created node
     }
     
-    override func inputBegan(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas else { return false }
-        // TODO: Add shadow (also on input moved)
-        // open_panel(pointer_position)
-        // Global.set_modal(palette)
+    override func inputBegan(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let identifier = paletteItemIdentifier else {
             GD.pushError("No selected item identifier for placement tool")
             return true
         }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-        createIntentShadow(typeName: identifier, canvasPosition: canvasPosition)
+        createIntentShadow(canvas: canvas, typeName: identifier, canvasPosition: canvasPosition)
         return true
     }
     
-    override func inputEnded(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas else { return false }
+    override func inputEnded(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
         guard let paletteItemIdentifier else {
             return true
         }
-        placeObject(typeName: paletteItemIdentifier, globalPosition: globalPosition)
+        placeObject(canvas: canvas, typeName: paletteItemIdentifier, globalPosition: globalPosition)
         // TODO: Implement "tool locking"
         if let app = self.application {
             app.switchTool(app.selectionTool)
@@ -102,39 +86,40 @@ class PlaceTool: CanvasTool {
         return true
     }
     
-    override func inputMoved(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let intentShadow else { return true }
+    override func inputMoved(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        
+        guard let intentShadow else { return true }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
         intentShadow.position = canvasPosition
         return true
     }
     
-    override func inputHover(event: InputEvent, globalPosition: Vector2) -> Bool {
-        guard let canvas,
-              let intentShadow else { return false }
+    override func inputHover(canvas: DiagramCanvas, event: InputEvent, globalPosition: Vector2) -> Bool {
+        guard let identifier = paletteItemIdentifier else { return false }
+        if intentShadow == nil {
+            let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
+            createIntentShadow(canvas: canvas, typeName: identifier, canvasPosition: canvasPosition)
+        }
         let canvasPosition = canvas.toLocal(globalPoint: globalPosition)
-        intentShadow.position = canvasPosition
+        intentShadow?.position = canvasPosition
         return true
     }
     
-    func createIntentShadow(typeName: String, canvasPosition: Vector2) {
-        guard let canvas,
-              let canvasController else { return }
+    func createIntentShadow(canvas: DiagramCanvas, typeName: String, canvasPosition: Vector2) {
+        guard let world = designController?.world else { return }
+        guard let notation: Notation = world.singleton() else {
+            GD.pushError("Missing notation")
+            return
+        }
+        let pictogram = notation.pictogram(typeName)
 
         if let intentShadow {
             intentShadow.queueFree()
             self.intentShadow = nil
         }
-        // FIXME: Use block library for pictograms
-        guard let pictogram = canvasController.pictograms?.pictogram(typeName) else {
-            GD.pushError("No pictogram for type '\(typeName)'")
-            return
-        }
-
         let shadow = Pictogram2D()
 
-        shadow.color = canvasController.style?.intentShadowColor ?? DefaultIntentShadowColor
+        shadow.color = canvas.style?.intentShadowColor ?? DefaultIntentShadowColor
         shadow.setPictogram(pictogram)
         shadow.position = canvasPosition
         shadow.name = "placement-intent-shadow"

@@ -8,36 +8,73 @@ import SwiftGodot
 import PoieticFlows
 import PoieticCore
 
-extension PackedInt64Array {
-    public convenience init<T>(compactingValid ids: some Collection<EntityID<T>>) {
-        let valid = ids.compactMap { Int64(exactly: $0.rawValue) }
-        self.init(valid)
+// TODO: These two aliases are here because compilation of their typed equivalents using SwiftGodot protocol conformances fails (either in declaration or as macro).
+public typealias GodotRuntimeEntityID = Int
+public typealias GodotDesignEntityID = Int
+
+// TODO: This is here because GodotBuiltinConvertible conformance is causing compile errors
+extension PoieticCore.ObjectID {
+    init(fromGodotValue value: GodotDesignEntityID) {
+        self.init(intValue: UInt64(bitPattern: Int64(value)))
     }
-    public func asValidEntityIDs<T>() -> [EntityID<T>] {
-        let valid = self.compactMap { UInt64(exactly: $0) }
-        return valid.map { EntityID<T>(rawValue: $0) }
+    func asGodotValue() -> GodotDesignEntityID {
+        Int(Int64(bitPattern: self.rawValue))
     }
 }
 
-//extension PoieticCore.ObjectID: SwiftGodot.VariantConvertible {
-//    public static func fromFastVariantOrThrow(_ variant: borrowing SwiftGodot.FastVariant)
-//        throws(SwiftGodot.VariantConversionError) -> PoieticCore.ObjectID
-//    {
-//        if let value = UInt64(variant) {
-//            return PoieticCore.ObjectID(integerLiteral: value)
-//        }
-//        else if let string = String(variant), let id = PoieticCore.ObjectID(string) {
-//            return id
-//        }
-//        else {
-//            throw .unexpectedContent(parsing: PoieticCore.ObjectID.self, from: variant)
-//        }
+extension PoieticCore.RuntimeID {
+    init(fromGodotValue value: GodotDesignEntityID) {
+        self.init(intValue: UInt64(bitPattern: Int64(value)))
+    }
+    func asGodotValue() -> GodotDesignEntityID {
+        Int(Int64(bitPattern: self.asUInt64))
+    }
+}
+
+extension PoieticCore.RuntimeID: GodotBuiltinConvertible {
+    public func toGodotBuiltin() -> Int {
+        Int(Int64(bitPattern: self.asUInt64))
+    }
+    
+    public static func fromGodotBuiltinOrThrow(_ value: Int) throws(SwiftGodot.VariantConversionError) -> PoieticCore.RuntimeID {
+        Self.init(intValue: UInt64(bitPattern: Int64(value)))
+    }
+   
+    public typealias GodotBuiltin = Int
+}
+    
+//extension PoieticCore.RuntimeID {
+//    public init(fromGodotValue value: Int) {
+//        self.init(intValue: UInt64(bitPattern: Int64(value)))
 //    }
-//
-//    public func toFastVariant() -> SwiftGodot.FastVariant? {
-//        return SwiftGodot.FastVariant(self.rawValue)
+//    public func asGodotValue() -> Int {
+//        Int(Int64(bitPattern: self.asUInt64))
 //    }
 //}
+extension PoieticCore.RuntimeID: SwiftGodot.VariantConvertible {
+    public static func fromFastVariantOrThrow(_ variant: borrowing SwiftGodot.FastVariant) throws(SwiftGodot.VariantConversionError) -> Self {
+        if let value = UInt64(variant) {
+            return Self(intValue: value)
+        }
+        else {
+            throw .unexpectedContent(parsing: PoieticCore.RuntimeID.self, from: variant)
+        }
+    }
+    public func toFastVariant() -> SwiftGodot.FastVariant? {
+        SwiftGodot.FastVariant(self.asUInt64)
+    }
+}
+
+extension PackedInt64Array {
+    public convenience init(_ ids: some Collection<DesignEntityID>) {
+        let valid = ids.map { Int64(bitPattern: $0.rawValue) }
+        self.init(valid)
+    }
+    public func asDesignEntityIDs() -> [DesignEntityID] {
+        let valid = self.map { UInt64(bitPattern: $0) }
+        return valid.map { DesignEntityID(intValue: $0) }
+    }
+}
 
 extension Point {
     init(_ vector: SwiftGodot.Vector2) {
@@ -190,6 +227,16 @@ extension PoieticCore.Variant: SwiftGodot.VariantConvertible {
             case let .string(value): SwiftGodot.FastVariant(PackedStringArray(value))
             }
         }
+    }
+}
+
+extension InspectableComponent {
+    func godotDictionary() -> TypedDictionary<String,SwiftGodot.Variant?> {
+        var result: TypedDictionary<String,SwiftGodot.Variant?> = [:]
+        for (key, value) in self.attributeDictionary() {
+            result[key] = value.asGodotVariant()
+        }
+        return result
     }
 }
 

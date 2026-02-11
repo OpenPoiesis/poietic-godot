@@ -24,7 +24,6 @@ public class SelectionOutline: SwiftGodot.Node2D {
         self.outlineColor = Color.blue
         self.fillColor = Color.azure
         super.init(context)
-        updateVisuals()
     }
 
     public override func _draw() {
@@ -37,34 +36,5 @@ public class SelectionOutline: SwiftGodot.Node2D {
             self.drawPolygon(points: points, colors: [fillColor])
             self.drawPolyline(points: points, color: outlineColor, width: lineWidth)
         }
-    }
-    
-    override public func _ready() {
-        updateVisuals()
-    }
-    
-    @Callable(autoSnakeCase: true)
-    func updateVisuals() {
-//        let theme = ThemeDB.getProjectTheme()
-//        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionOutlineColorKey),
-//                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
-//            self.outlineColor = color
-//        }
-//        else {
-//            var color = Color.azure
-//            color.alpha = 0.7
-//            self.outlineColor = color
-//        }
-//
-//        if let color = theme?.getColor(name: SwiftGodot.StringName(SelectionFillColorKey),
-//                                       themeType: SwiftGodot.StringName(CanvasThemeType)) {
-//            self.fillColor = color
-//        }
-//        else {
-//            var color = Color.lightBlue
-//            color.alpha = 0.3
-//            self.fillColor = color
-//        }
-//        self.queueRedraw()
     }
 }
